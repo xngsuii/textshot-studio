@@ -101,6 +101,8 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
   background: var(--bg);
   flex: none;
 }
+/* 데스크톱에서는 묶음이 없는 것처럼 두 줄이 그대로 흐른다 */
+.fmt-line { display: contents; }
 .fmt-row { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .fmt-spacer { flex: 1; min-width: 0; }
 .fmt-group { display: flex; gap: 1px; }
@@ -664,16 +666,22 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
   }
   .src-code { font-size: 15px; }
 
-  /* 도구막대 — 세 줄을 한 줄로 이어 붙이고 통째로 옆으로 흘린다.
-     키보드가 뜨면 서랍이 330px 남짓이라 세로 60px 이 아깝다. */
-  .fmt-bar {
-    flex-direction: row; align-items: center;
-    padding: 6px 10px; gap: 0;
+  /* 도구막대 — 두 줄. 자주 쓰는 서식·색·프로필이 첫째 줄, 제목부터가
+     둘째 줄. 각 줄은 따로 옆으로 흐른다. 한 줄로 몰면 뒤쪽 버튼까지
+     스크롤하기가 번거롭다. */
+  .fmt-bar { padding: 6px 10px; gap: 5px; }
+  .fmt-line {
+    display: flex; align-items: center; gap: 0;
     overflow-x: auto; scrollbar-width: none;
   }
-  .fmt-bar::-webkit-scrollbar { display: none; }
-  .fmt-row { flex: none; flex-wrap: nowrap; overflow: visible; }
-  .fmt-row + .fmt-row { margin-left: 6px; padding-left: 8px; border-left: 1px solid var(--line); }
+  .fmt-line::-webkit-scrollbar { display: none; }
+  .fmt-row-block { overflow-x: auto; scrollbar-width: none; }
+  .fmt-row-block::-webkit-scrollbar { display: none; }
+  .fmt-row { flex: none; flex-wrap: nowrap; }
+  .fmt-line .fmt-row + .fmt-row {
+    margin-left: 6px; padding-left: 8px;
+    border-left: 1px solid var(--line);
+  }
   .fmt-btn, .fmt-tag, .fmt-group, .clear-pair { flex: none; }
   .fmt-spacer { display: none; }
   .fmt-btn { height: 32px; padding: 0 10px; font-size: 13px; }

@@ -48,6 +48,8 @@
     <div class="tabpane is-active" data-pane="text">
 
       <div class="fmt-bar">
+        <!-- 모바일에서는 이 묶음이 첫째 줄, 아래 블록 줄이 둘째 줄이 된다 -->
+        <div class="fmt-line">
         <div class="fmt-row">
           <div class="fmt-group">
             <button class="fmt-btn" data-wrap="**" title="굵게 (다시 누르면 해제)"><b>B</b></button>
@@ -62,7 +64,8 @@
           <span class="fmt-tag">프로필</span>
           <div class="fmt-group" id="profileBar"></div>
         </div>
-        <div class="fmt-row">
+        </div>
+        <div class="fmt-row fmt-row-block">
           <div class="fmt-group">
             <button class="fmt-btn" data-prefix="# " title="제목">제목</button>
             <button class="fmt-btn" data-prefix="## " title="부제목">부제목</button>
