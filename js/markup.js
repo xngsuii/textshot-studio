@@ -1,10 +1,12 @@
 /* 마커 파싱 — 평문 + 기호를 스타일 HTML로
 
    줄 단위
+     하은: 대사        등록된 프로필 이름으로 시작하면 말풍선
      # 제목            ## 부제목
-     > 인용구          >2 인용구  (숫자는 색 슬롯 번호)
+     > 인용구          >2 인용구 (숫자는 색 슬롯 번호)
      ```제목           코드블럭 — 어두운 상자
      ```               제목 없이 열고 안에 HTML/CSS 가 있으면 뷰어로 그린다
+     [[img:id]]        본문 사진
      ---               구분선
      ===               분할선 (자동 서식과 무관하게 항상 동작)
 
@@ -12,8 +14,8 @@
      **굵게**   *행동지문*   _기울임_   "대사"   (괄호)   ==형광펜==
      {c1 텍스트}       색 슬롯 1~5. 자동 서식보다 우선한다.
 
-   생성하는 태그의 속성은 모두 홑따옴표로 감싼다.
-   따옴표 치환이 제 태그를 다시 건드리지 않게 하기 위해서다. */
+   생성하는 태그의 속성은 홑따옴표로 감싼다. 따옴표 치환이 제 태그를
+   다시 건드리지 않게 하기 위해서다. */
 
 export const SPLIT_MARK = '===';
 
@@ -29,11 +31,11 @@ export const DEFAULT_FORMATS = {
 function esc(s) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
+const attr = (s) => String(s).replace(/'/g, '&#39;').replace(/</g, '&lt;');
 
 function inline(raw, f) {
   let s = esc(raw);
 
-  // 색 슬롯을 가장 먼저. 안쪽 내용은 아래 규칙들이 이어서 훑는다.
   s = s.replace(/\{c([1-5])\s+([^{}]*)\}/g, (_m, n, inner) => `<span class='mk-c${n}'>${inner}</span>`);
 
   if (f.highlight) s = s.replace(/==([^=]+)==/g, "<mark class='mk-hl'>$1</mark>");
@@ -46,8 +48,7 @@ function inline(raw, f) {
   return s;
 }
 
-/* 코드블럭 안 CSS 가 미리보기 전체로 새지 않도록 선택자 앞에 울타리를 두른다.
-   @media 안쪽까지는 손대지 않는다. */
+/* 코드블럭 안 CSS 가 미리보기 전체로 새지 않도록 선택자 앞에 울타리를 두른다. */
 function scopeCss(css, scope) {
   return css.replace(/(^|[};])\s*([^@{};]+)\{/g, (_m, pre, sel) => {
     const s = sel.split(',')
@@ -76,6 +77,19 @@ function codeViewer(body) {
   return `<div class='mk-view ${id}'>${scoped ? `<style>${scoped}</style>` : ''}${html}</div>`;
 }
 
+/* ── 화자 ────────────────────────────────────
+   등록된 프로필 이름으로 시작하는 줄만 말풍선이 된다.
+   이름이 정확히 맞아야 하므로 「그러니까: …」 같은 문장은 그냥 지문이다. */
+function speakerOf(line, profiles) {
+  const t = line.trimStart();
+  for (const p of profiles) {
+    const name = (p.name || '').trim();
+    if (!name) continue;
+    if (t.startsWith(`${name}:`)) return { profile: p, body: t.slice(name.length + 1).replace(/^\s/, '') };
+  }
+  return null;
+}
+
 export function splitChunks(source) {
   const chunks = [[]];
   for (const line of String(source).split(/\r?\n/)) {
@@ -92,7 +106,15 @@ export function hasSplit(source) {
 export const IMG_RE = /\[\[img:([a-z0-9]+)\]\]/g;
 const imgLine = (t) => (t.match(/^\[\[img:([a-z0-9]+)\]\]$/) || [])[1];
 
-export function renderChunk(chunk, f = DEFAULT_FORMATS, images = []) {
+/* opts: { formats, images, profiles, chat }
+   lineOffset 은 원문에서 이 조각이 시작하는 줄 번호. 미리보기에서 말풍선을
+   클릭해 화자를 바꿀 때 어느 줄을 고쳐야 하는지 알기 위해 붙인다. */
+export function renderChunk(chunk, opts = {}, lineOffset = 0) {
+  const f = opts.formats || DEFAULT_FORMATS;
+  const images = opts.images || [];
+  const profiles = opts.profiles || [];
+  const chat = opts.chat || {};
+
   const lines = String(chunk).split(/\r?\n/);
   const byId = new Map(images.map(im => [im.id, im]));
   const out = [];
@@ -101,6 +123,29 @@ export function renderChunk(chunk, f = DEFAULT_FORMATS, images = []) {
   while (i < lines.length) {
     const raw = lines[i];
     const t = raw.trim();
+
+    /* 말풍선 — 같은 화자가 이어지면 한 덩어리로 묶는다 */
+    const sp = profiles.length ? speakerOf(raw, profiles) : null;
+    if (sp) {
+      const p = sp.profile;
+      const bubbles = [];
+      while (i < lines.length) {
+        const cur = speakerOf(lines[i], profiles);
+        if (!cur || cur.profile !== p) break;
+        bubbles.push(
+          `<div class='mk-bubble' data-ln='${lineOffset + i}' style='background:${attr(p.bubbleBg)};color:${attr(p.textColor)}'>`
+          + `${inline(cur.body, f)}</div>`,
+        );
+        i++;
+      }
+      const side = p.side === 'right' ? 'is-right' : 'is-left';
+      const ava = (chat.showAvatar && p.avatar)
+        ? `<img class='mk-ava' src="${p.avatar}" alt=''>`
+        : (chat.showAvatar ? `<span class='mk-ava mk-ava-blank'></span>` : '');
+      const name = chat.showName ? `<div class='mk-speaker'>${esc(p.name)}</div>` : '';
+      out.push(`<div class='mk-chat ${side}'>${ava}<div class='mk-chat-body'>${name}${bubbles.join('')}</div></div>`);
+      continue;
+    }
 
     const imgId = imgLine(t);
     if (imgId) {
@@ -117,15 +162,13 @@ export function renderChunk(chunk, f = DEFAULT_FORMATS, images = []) {
       const body = [];
       i++;
       while (i < lines.length && !isFence(lines[i].trim())) { body.push(lines[i]); i++; }
-      i++;                                   // 닫는 울타리
+      i++;
       const text = body.join('\n');
-      // 제목이 없고 안에 태그가 있으면 그려서 보여준다
       out.push(!title && looksLikeHtml(text) ? codeViewer(text) : codeBox(title, text));
       continue;
     }
 
     if (f.blockquote && /^>[1-5]?\s?/.test(t)) {
-      // 색 번호가 같은 줄끼리만 한 덩어리로 묶는다
       const slotOf = (s) => (s.match(/^>([1-5])/) || [])[1] || '';
       const slot = slotOf(t);
       const items = [];
@@ -149,27 +192,38 @@ export function renderChunk(chunk, f = DEFAULT_FORMATS, images = []) {
       out.push(`<p class='mk-h1'>${inline(t.replace(/^#\s+/, ''), f)}</p>`); i++; continue;
     }
 
-    out.push(`<p class='mk-p'>${inline(raw, f)}</p>`);
+    out.push(`<p class='mk-p' data-ln='${lineOffset + i}'>${inline(raw, f)}</p>`);
     i++;
   }
   return out.join('');
 }
 
-export function renderWithSplitMarks(source, f, images = []) {
-  return splitChunks(source)
-    .map(c => renderChunk(c, f, images))
+export function renderWithSplitMarks(source, opts) {
+  const chunks = splitChunks(source);
+  let offset = 0;
+  return chunks
+    .map((c) => {
+      const html = renderChunk(c, opts, offset);
+      offset += c.split(/\r?\n/).length + 1;   // 조각 줄 수 + 분할선 한 줄
+      return html;
+    })
     .join('<div class="mk-splitline-wrap"><hr class="mk-splitline"><span>분할</span><hr class="mk-splitline"></div>');
 }
 
-/* 본문에 박힌 사진 마커를 나온 순서대로 돌려준다 */
-export function imageOrder(source) {
-  return [...String(source).matchAll(IMG_RE)].map(m => m[1]);
+/* 분할 후 보기·저장에서 각 조각이 원문 몇 번째 줄부터인지 */
+export function chunkOffsets(source) {
+  const offs = [];
+  let offset = 0;
+  for (const c of splitChunks(source)) {
+    offs.push(offset);
+    offset += c.split(/\r?\n/).length + 1;
+  }
+  return offs;
 }
 
-/* 자리는 그대로 두고 어떤 사진이 어디에 놓일지만 바꾼다 */
-export function reorderImageMarkers(source, order) {
-  let i = 0;
-  return String(source).replace(IMG_RE, () => `[[img:${order[i++]}]]`);
+/* ── 사진 마커 ──────────────────────────────── */
+export function imageOrder(source) {
+  return [...String(source).matchAll(IMG_RE)].map(m => m[1]);
 }
 
 export function removeImageMarker(source, id) {
@@ -179,8 +233,28 @@ export function removeImageMarker(source, id) {
     .join('\n');
 }
 
-/* 서식 지우기 — 마커만 걷어내고 글은 그대로 둔다.
-   따옴표와 괄호는 원래 문장부호이므로 남긴다. 분할선(===)도 남긴다. */
+/* ── 화자 바꾸기 ────────────────────────────
+   미리보기에서 말풍선을 누르면 그 줄의 이름표만 갈아 끼운다.
+   nextName 이 비면 이름표를 떼어 지문으로 되돌린다. */
+export function setSpeakerAt(source, lineNo, nextName, profiles) {
+  const lines = String(source).split(/\r?\n/);
+  if (lineNo < 0 || lineNo >= lines.length) return source;
+
+  const cur = speakerOf(lines[lineNo], profiles);
+  const indent = lines[lineNo].match(/^\s*/)[0];
+  const body = cur ? cur.body : lines[lineNo].trimStart();
+
+  lines[lineNo] = nextName ? `${indent}${nextName}: ${body}` : `${indent}${body}`;
+  return lines.join('\n');
+}
+
+export function speakerNameAt(source, lineNo, profiles) {
+  const lines = String(source).split(/\r?\n/);
+  const cur = speakerOf(lines[lineNo] ?? '', profiles);
+  return cur ? cur.profile.name : null;
+}
+
+/* 서식 지우기 — 마커만 걷어내고 글은 그대로 둔다. */
 export function stripMarkers(text) {
   return String(text)
     .split(/\r?\n/)

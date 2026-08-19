@@ -90,10 +90,28 @@ export const DEFAULT_STYLE = {
     { name: '대사 A', color: '#1F5D8C' },
     { name: '대사 B', color: '#8B3A4A' },
   ],
+
+  // 말풍선 공통 모양
+  bubbleRadius: 16,
+  bubbleGap: 8,
+  bubbleMaxWidth: 76,        // %
+  bubblePadV: 9,
+  bubblePadH: 13,
+  showName: true,
+  showAvatar: true,
+  avatarSize: 34,
+
   transparent: false,
 };
 
 export const MAX_SLOTS = 5;
+export const MAX_PROFILES = 6;
+
+/* 말풍선 화자. 이름은 본문에서 「이름: 대사」로 쓰이므로 비워 두면 안 된다. */
+export const DEFAULT_PROFILES = [
+  { id: 'p1', name: '나', side: 'right', bubbleBg: '#2F6B6B', textColor: '#FFFFFF', avatar: '' },
+  { id: 'p2', name: '상대', side: 'left', bubbleBg: '#EFF1F1', textColor: '#1A1A1A', avatar: '' },
+];
 
 /* 자동 서식 — 항목별로 껐다 켠다. 템플릿에는 넣지 않는다. */
 export const DEFAULT_FORMATS = {
@@ -145,6 +163,7 @@ export const state = {
     formats: clone(DEFAULT_FORMATS),
     style: clone(DEFAULT_STYLE),
     images: [],          // { id, data, width }  본문에 [[img:id]] 로 자리를 잡는다
+    profiles: clone(DEFAULT_PROFILES),
   },
   html: {
     source: '',
@@ -175,6 +194,9 @@ export function loadAll() {
         // A4·A5·B5 를 쓰던 설정은 자동으로 되돌린다
         if (!(state.text.style.ratio in RATIOS)) state.text.style.ratio = 'auto';
         state.text.images = Array.isArray(d.text.images) ? d.text.images : [];
+        state.text.profiles = Array.isArray(d.text.profiles) && d.text.profiles.length
+          ? d.text.profiles
+          : clone(DEFAULT_PROFILES);
       }
       if (d.html) {
         state.html.source = d.html.source ?? '';

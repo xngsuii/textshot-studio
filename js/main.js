@@ -190,7 +190,9 @@ function boot() {
 
   TextTab.bindEditor(scheduleRender);
   TextTab.buildSlotBar(scheduleRender);
+  TextTab.buildProfileBar(scheduleRender);
   TextTab.buildSettings($('textSettings'), scheduleRender);
+  TextTab.bindPreviewClicks(host(), scheduleRender);
   HtmlTab.bindEditor(scheduleRender);
   HtmlTab.buildSettings($('htmlSettings'), scheduleRender);
 
@@ -205,6 +207,7 @@ function boot() {
     if (state.tab === 'text') {
       TextTab.resetSettings();
       TextTab.buildSlotBar(scheduleRender);
+      TextTab.buildProfileBar(scheduleRender);
       TextTab.buildSettings($('textSettings'), scheduleRender);
     } else {
       HtmlTab.resetSettings();
