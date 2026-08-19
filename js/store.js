@@ -140,6 +140,7 @@ export const DEFAULT_HTML = {
   padTop: 24, padRight: 24, padBottom: 24, padLeft: 24, padLinked: true,
   padBg: '#FFFFFF',
   transparent: true,            // 코드가 정한 배경을 그대로 살리는 쪽이 기본
+  trim: true,                   // 결과 이미지 가장자리의 빈 테두리를 잘라낸다
 };
 
 /* ── 상태 ───────────────────────────────────── */

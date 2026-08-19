@@ -157,6 +157,11 @@ export function buildSettings(container, onChange) {
     o.padOn ? U.padGrid(o, ['padTop', 'padRight', 'padBottom', 'padLeft'], () => o.padLinked, onChange) : null,
     U.check('배경 투명 (PNG 저장 시에만 적용)', o.transparent, (v) => { o.transparent = v; rebuild(); onChange(); }),
     !o.transparent ? U.field('배경', U.color(o.padBg, (v) => { o.padBg = v; onChange(); })) : null,
+    U.check('투명한 가장자리 잘라내기', o.trim, (v) => { o.trim = v; onChange(); }),
+    U.el('div', {
+      class: 'hint',
+      text: '코드가 바깥 여백(margin)을 쓰면 캡쳐 결과에 투명한 테두리가 남습니다. 저장할 때 그만큼 잘라냅니다. 위에서 정한 여백이나 배경색은 건드리지 않습니다.',
+    }),
   ]));
 
   const status = U.el('div', { class: 'hint', text: '아직 확인하지 않았습니다.' });

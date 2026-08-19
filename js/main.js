@@ -3,6 +3,7 @@
 import { state, loadAll, saveSoon, fontById } from './store.js';
 import * as TextTab from './text-tab.js';
 import * as HtmlTab from './html-tab.js';
+import * as Capture from './capture.js';
 import { nodeToBlob, downloadMany, copyToClipboard } from './capture.js';
 import { ensureFont } from './fonts.js';
 import { toast } from './ui.js';
@@ -106,7 +107,7 @@ async function collectBlobs() {
   const prevZoom = host().style.zoom;
   host().style.zoom = '1';
   try {
-    return [await nodeToBlob(shot, { scale, format, quality, background })];
+    return [await nodeToBlob(shot, { scale, format, quality, background, trim: o.trim })];
   } finally { host().style.zoom = prevZoom; }
 }
 
@@ -135,6 +136,10 @@ async function doSave() {
     const msg = await downloadMany(blobs, state.output.filename, ext);
     toast(msg);
     busy(false, '');
+    // 잘라내기가 걸리면 저장된 크기가 미리보기와 다를 수 있어 실제 값을 보여 준다
+    const sz = Capture.lastSize;
+    if (sz) $('dims').textContent = `${sz.w} × ${sz.h} px`
+      + (blobs.length > 1 ? ` · ${blobs.length}장` : '');
   } catch (e) {
     console.error(e);
     busy(false, '');
