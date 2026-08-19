@@ -33,13 +33,18 @@ function esc(s) {
 }
 const attr = (s) => String(s).replace(/'/g, '&#39;').replace(/</g, '&lt;');
 
-function inline(raw, f) {
+function inline(raw, f, o = {}) {
   let s = esc(raw);
 
   s = s.replace(/\{c([1-5])\s+([^{}]*)\}/g, (_m, n, inner) => `<span class='mk-c${n}'>${inner}</span>`);
 
   if (f.highlight) s = s.replace(/==([^=]+)==/g, "<mark class='mk-hl'>$1</mark>");
-  if (f.quote)  s = s.replace(/(["“])([^"“”]+)(["”])/g, "<span class='mk-quote'>$1$2$3</span>");
+  // 말풍선 안에서는 따옴표 기호를 감출 수 있다. 색은 그대로 입힌다.
+  if (f.quote) {
+    s = o.stripQuotes
+      ? s.replace(/(["“])([^"“”]+)(["”])/g, "<span class='mk-quote'>$2</span>")
+      : s.replace(/(["“])([^"“”]+)(["”])/g, "<span class='mk-quote'>$1$2$3</span>");
+  }
   if (f.bold)   s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   if (f.action) s = s.replace(/\*([^*]+)\*/g, "<span class='mk-action'>$1</span>");
   if (f.italic) s = s.replace(/_([^_]+)_/g, '<em>$1</em>');
@@ -132,13 +137,17 @@ export function renderChunk(chunk, opts = {}, lineOffset = 0) {
     const sp = profiles.length ? speakerOf(raw, profiles) : null;
     if (sp) {
       const p = sp.profile;
+      // 따옴표·괄호 색은 말풍선 안에서만 프로필 것으로 갈아 끼운다
+      const skin = `background:${attr(p.bubbleBg)};color:${attr(p.textColor)}`
+        + `;--c-quote:${attr(p.quoteColor || p.textColor)}`
+        + `;--c-paren:${attr(p.parenColor || p.textColor)}`;
+      const io = { stripQuotes: !!chat.hideQuotesInBubble };
       const bubbles = [];
       while (i < lines.length) {
         const cur = speakerOf(lines[i], profiles);
         if (!cur || cur.profile !== p) break;
         bubbles.push(
-          `<div class='mk-bubble' data-ln='${lineOffset + i}' style='background:${attr(p.bubbleBg)};color:${attr(p.textColor)}'>`
-          + `${inline(cur.body, f)}</div>`,
+          `<div class='mk-bubble' data-ln='${lineOffset + i}' style='${skin}'>${inline(cur.body, f, io)}</div>`,
         );
         i++;
       }

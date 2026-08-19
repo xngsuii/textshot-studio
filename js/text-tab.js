@@ -93,6 +93,7 @@ function renderOpts() {
     formats: state.text.formats,
     images: state.text.images,
     profiles: state.text.profiles,
+    chat: { hideQuotesInBubble: state.text.style.hideQuotesInBubble },
   };
 }
 
@@ -170,10 +171,13 @@ export function buildProfileBar(onChange) {
   bar.textContent = '';
   state.text.profiles.forEach((p) => {
     const btn = U.el('button', {
-      class: 'fmt-btn slot-btn', type: 'button',
+      class: 'prof-btn', type: 'button',
       title: `${p.name} — 고른 줄을 이 프로필의 말풍선으로 (다시 누르면 해제)`,
       onClick: () => applySpeaker(p.name, onChange),
-    }, [U.el('span', { class: 'slot-dot' }), U.el('span', { text: p.name || '이름 없음' })]);
+    }, [
+      U.el('span', { class: 'slot-dot' }),
+      U.el('span', { class: 'prof-btn-t', text: p.name || '이름 없음' }),
+    ]);
     btn.querySelector('.slot-dot').style.background = p.bubbleBg;
     bar.appendChild(btn);
   });
@@ -329,6 +333,8 @@ function panelChat(container, onChange) {
         U.colorGrid(2, [
           U.colorCell('말풍선', p.bubbleBg, (v) => { p.bubbleBg = v; touch(); }),
           U.colorCell('글자', p.textColor, (v) => { p.textColor = v; touch(); }),
+          U.colorCell('따옴표', p.quoteColor || p.textColor, (v) => { p.quoteColor = v; touch(); }),
+          U.colorCell('괄호', p.parenColor || p.textColor, (v) => { p.parenColor = v; touch(); }),
         ]),
         U.el('div', { class: 'prof-toggles' }, [
           U.check('이름 표시', p.showName, (v) => { p.showName = v; touch(); }),
@@ -372,7 +378,8 @@ function panelChat(container, onChange) {
         U.stepper(st.bubblePadV, { min: 0, max: 40, step: 1, unit: '↕', onChange: (v) => { st.bubblePadV = v; touch(); } }),
         U.stepper(st.bubblePadH, { min: 0, max: 40, step: 1, unit: '↔', onChange: (v) => { st.bubblePadH = v; touch(); } }),
       ])),
-      U.el('div', { class: 'hint', text: '프로필 사진 크기는 글자 크기에 맞춰 함께 움직입니다.' }),
+      U.check('말풍선 안 따옴표 감추기', st.hideQuotesInBubble, (v) => { st.hideQuotesInBubble = v; touch(); }),
+      U.el('div', { class: 'hint', text: '따옴표를 감춰도 따옴표 색은 그대로 입혀집니다. 프로필 사진 크기는 글자 크기에 맞춰 함께 움직입니다.' }),
     ]),
   ]);
 }

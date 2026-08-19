@@ -97,6 +97,7 @@ export const DEFAULT_STYLE = {
   bubbleMaxWidth: 76,        // %
   bubblePadV: 9,
   bubblePadH: 13,
+  hideQuotesInBubble: false,   // 말풍선 안 따옴표 기호를 감출지
 
   transparent: false,
 };
@@ -107,8 +108,16 @@ export const MAX_PROFILES = 6;
 /* 말풍선 프로필. 이름은 본문에서 「이름 | 대사」로 쓰이므로 비워 두면 안 된다.
    오른쪽은 본인 자리라 이름과 사진을 기본으로 감춘다. */
 export const DEFAULT_PROFILES = [
-  { id: 'p1', name: '나', side: 'right', bubbleBg: '#2F6B6B', textColor: '#FFFFFF', avatar: '', showName: false, showAvatar: false },
-  { id: 'p2', name: '상대', side: 'left', bubbleBg: '#EFF1F1', textColor: '#1A1A1A', avatar: '', showName: true, showAvatar: true },
+  {
+    id: 'p1', name: '나', side: 'right',
+    bubbleBg: '#2F6B6B', textColor: '#FFFFFF', quoteColor: '#FFFFFF', parenColor: '#BED8D6',
+    avatar: '', showName: false, showAvatar: false,
+  },
+  {
+    id: 'p2', name: '상대', side: 'left',
+    bubbleBg: '#EFF1F1', textColor: '#1A1A1A', quoteColor: '#1F5D8C', parenColor: '#8C9594',
+    avatar: '', showName: true, showAvatar: true,
+  },
 ];
 
 /* 자동 서식 — 항목별로 껐다 켠다. 템플릿에는 넣지 않는다. */
@@ -194,7 +203,8 @@ export function loadAll() {
         state.text.images = Array.isArray(d.text.images) ? d.text.images : [];
         state.text.profiles = Array.isArray(d.text.profiles) && d.text.profiles.length
           ? d.text.profiles.map(p => ({
-            showName: p.side !== 'right', showAvatar: p.side !== 'right', ...p,
+            showName: p.side !== 'right', showAvatar: p.side !== 'right',
+            quoteColor: p.textColor, parenColor: p.textColor, ...p,
           }))
           : clone(DEFAULT_PROFILES);
       }

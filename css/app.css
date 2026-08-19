@@ -267,6 +267,24 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
   letter-spacing: .04em; flex: none;
 }
 
+/* 프로필 버튼 — 가로 2열로 이어 붙인 형태 */
+.prof-bar {
+  flex: 1; min-width: 0;
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+  overflow: hidden; background: var(--bg);
+}
+.prof-btn {
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  height: 26px; padding: 0 8px; min-width: 0;
+  font-size: 12px; color: var(--fg-2);
+}
+.prof-btn:nth-child(2n) { border-left: 1px solid var(--line); }
+.prof-btn:nth-child(n + 3) { border-top: 1px solid var(--line); }
+.prof-btn:hover { background: var(--bg-hover); color: var(--fg); }
+.prof-btn:active { background: var(--bg-sunken); }
+.prof-btn-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* 색 슬롯 편집 행 */
 .slot-row { display: grid; grid-template-columns: 16px 1fr auto auto; align-items: center; gap: 6px; }
 .slot-no {
