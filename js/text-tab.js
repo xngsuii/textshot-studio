@@ -171,12 +171,12 @@ export function buildProfileBar(onChange) {
   bar.textContent = '';
   state.text.profiles.forEach((p) => {
     const btn = U.el('button', {
-      class: 'prof-btn', type: 'button',
+      class: 'fmt-btn slot-btn', type: 'button',
       title: `${p.name} — 고른 줄을 이 프로필의 말풍선으로 (다시 누르면 해제)`,
       onClick: () => applySpeaker(p.name, onChange),
     }, [
       U.el('span', { class: 'slot-dot' }),
-      U.el('span', { class: 'prof-btn-t', text: p.name || '이름 없음' }),
+      U.el('span', { text: p.name || '이름 없음' }),
     ]);
     btn.querySelector('.slot-dot').style.background = p.bubbleBg;
     bar.appendChild(btn);
@@ -319,7 +319,7 @@ function panelChat(container, onChange) {
           },
         }),
         U.el('button', {
-          class: 'tpl-act del', type: 'button', text: '삭제',
+          class: 'prof-x', type: 'button', text: '×', title: '이 프로필 삭제',
           onClick: () => {
             if (ps.length <= 1) { U.toast('프로필은 하나 이상 있어야 합니다'); return; }
             state.text.profiles = ps.filter(x => x !== p);
@@ -350,7 +350,7 @@ function panelChat(container, onChange) {
 
   return U.el('div', { class: 'panel' }, [
     group('프로필', [
-      ...cards,
+      U.el('div', { class: 'prof-grid' }, cards),
       U.el('div', { class: 'field-row' }, [
         U.el('button', {
           class: 'btn btn-ghost btn-sm', type: 'button',

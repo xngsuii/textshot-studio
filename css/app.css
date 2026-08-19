@@ -108,14 +108,21 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .fmt-strip { color: var(--fg-3); }
 .fmt-strip:hover { background: var(--bg-hover); color: var(--fg); }
 .fmt-btn {
-  height: 26px; padding: 0 8px; border-radius: var(--r-sm);
+  height: 26px; padding: 0 6px; border-radius: var(--r-sm);
   font-size: 12px; color: var(--fg-2); white-space: nowrap;
 }
 .fmt-btn:hover { background: var(--bg-hover); color: var(--fg); }
 .fmt-btn:active { background: var(--bg-sunken); }
 .fmt-split { color: var(--accent); }
-.fmt-clear { margin-left: auto; color: var(--fg-3); }
-.fmt-clear:hover { background: var(--danger-soft); color: var(--danger); }
+/* 지우기 — 서식 | 내용 을 한 덩어리로 */
+.clear-pair {
+  display: flex; flex: none;
+  border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+  overflow: hidden; background: var(--bg);
+}
+.clear-pair .fmt-btn { border-radius: 0; height: 24px; padding: 0 10px; }
+.clear-pair .fmt-btn + .fmt-btn { border-left: 1px solid var(--line); }
+.clear-pair .is-danger:hover { background: var(--danger-soft); color: var(--danger); }
 .fmt-note { font-size: 12px; color: var(--fg-3); }
 .s-action { color: #8A8F98; }
 .s-quote { color: #1F5D8C; }
@@ -267,23 +274,23 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
   letter-spacing: .04em; flex: none;
 }
 
-/* 프로필 버튼 — 가로 2열로 이어 붙인 형태 */
-.prof-bar {
-  flex: 1; min-width: 0;
-  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
-  border: 1px solid var(--line-strong); border-radius: var(--r-sm);
-  overflow: hidden; background: var(--bg);
+/* 프로필 카드를 가로 2열로 — 카드가 좁아지므로 안쪽도 함께 줄인다 */
+.prof-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.prof-grid .prof-head { padding: 5px 6px; gap: 5px; }
+.prof-grid .prof-face, .prof-grid .prof-face-blank { width: 24px; height: 24px; border-radius: 6px; }
+.prof-grid .prof-name { font-size: 12px; height: 24px; padding: 0 5px; }
+.prof-grid .prof-body { padding: 7px 6px; gap: 7px; }
+.prof-grid .ccell-grid { gap: 6px 6px; }
+.prof-grid .ccell-l { font-size: 10px; }
+.prof-grid .hex-input { flex: 0 0 54px; font-size: 10.5px; padding: 0 2px; }
+.prof-grid .seg-inline button { height: 24px; font-size: 11px; }
+.prof-grid .prof-toggles { flex-direction: column; gap: 5px; }
+.prof-grid .check { font-size: 11px; }
+.prof-x {
+  flex: none; width: 20px; height: 20px; border-radius: var(--r-sm);
+  color: var(--fg-3); font-size: 14px; line-height: 1;
 }
-.prof-btn {
-  display: flex; align-items: center; justify-content: center; gap: 5px;
-  height: 26px; padding: 0 8px; min-width: 0;
-  font-size: 12px; color: var(--fg-2);
-}
-.prof-btn:nth-child(2n) { border-left: 1px solid var(--line); }
-.prof-btn:nth-child(n + 3) { border-top: 1px solid var(--line); }
-.prof-btn:hover { background: var(--bg-hover); color: var(--fg); }
-.prof-btn:active { background: var(--bg-sunken); }
-.prof-btn-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prof-x:hover { background: var(--danger-soft); color: var(--danger); }
 
 /* 색 슬롯 편집 행 */
 .slot-row { display: grid; grid-template-columns: 16px 1fr auto auto; align-items: center; gap: 6px; }

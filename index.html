@@ -52,7 +52,7 @@
         </div>
         <div class="fmt-row">
           <span class="fmt-tag">프로필</span>
-          <div class="prof-bar" id="profileBar"></div>
+          <div class="fmt-group" id="profileBar"></div>
         </div>
         <div class="fmt-row">
           <div class="fmt-group">
@@ -63,12 +63,15 @@
             <button class="fmt-btn" id="insertImage" title="커서 자리에 사진을 넣습니다">사진</button>
           </div>
           <div class="fmt-group">
-            <button class="fmt-btn" data-line="---" title="구분선">— 구분선</button>
-            <button class="fmt-btn fmt-split" data-line="===" title="분할선">✂ 분할선</button>
+            <button class="fmt-btn" data-line="---" title="구분선">구분선</button>
+            <button class="fmt-btn fmt-split" data-line="===" title="분할선">분할선</button>
           </div>
           <div class="fmt-spacer"></div>
-          <button class="fmt-btn fmt-strip" id="stripText" title="선택한 곳(없으면 전체)의 마커를 걷어냅니다">서식 지우기</button>
-          <button class="fmt-btn fmt-clear" id="clearText" title="서식 설정은 두고 내용만 지웁니다">내용 지우기</button>
+          <span class="fmt-tag">지우기</span>
+          <div class="clear-pair">
+            <button class="fmt-btn" id="stripText" title="선택한 곳(없으면 전체)의 서식 마커를 걷어냅니다">서식</button>
+            <button class="fmt-btn is-danger" id="clearText" title="서식 설정은 두고 내용만 지웁니다">내용</button>
+          </div>
         </div>
       </div>
 
@@ -89,7 +92,10 @@
       <div class="fmt-bar">
         <div class="fmt-row">
           <div class="fmt-spacer"></div>
-          <button class="fmt-btn fmt-clear" id="clearHtml">내용 지우기</button>
+          <span class="fmt-tag">지우기</span>
+          <div class="clear-pair">
+            <button class="fmt-btn is-danger" id="clearHtml">내용</button>
+          </div>
         </div>
       </div>
       <textarea id="htmlSrc" class="src src-code" spellcheck="false" placeholder="&lt;style&gt;
