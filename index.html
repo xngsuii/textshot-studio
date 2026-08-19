@@ -2,7 +2,8 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- viewport-fit=cover 라야 아이폰 홈 인디케이터 영역을 env() 로 피할 수 있다 -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>textshot studio</title>
 <meta name="description" content="텍스트와 HTML을 이미지로 발췌하는 개인용 도구">
 <!-- U+FE0E(VS15)를 붙여 컬러 이모지 대신 흑백 텍스트 글리프로 그린다 -->
@@ -35,6 +36,13 @@
 
   <!-- ══════════ 왼쪽: 편집기 ══════════ -->
   <aside class="pane-editor" id="editorPane">
+
+    <!-- 모바일에서만 보이는 서랍 손잡이 · 편집/설정 전환 -->
+    <button class="drawer-grip" id="drawerGrip" aria-label="편집기 크기 조절"><span></span></button>
+    <div class="drawer-modes">
+      <button class="dm-btn is-active" type="button" data-dmode="edit">편집</button>
+      <button class="dm-btn" type="button" data-dmode="settings">설정</button>
+    </div>
 
     <!-- ── 텍스트 발췌 ── -->
     <div class="tabpane is-active" data-pane="text">

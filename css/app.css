@@ -10,6 +10,9 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
+  /* 사파리가 가로 모드에서 글자를 제멋대로 키우지 않게 */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; background: none; border: 0; padding: 0; }
@@ -571,6 +574,123 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
   z-index: 100;
 }
 .toast[hidden] { display: none; }
+
+/* ─── 서랍 (모바일 전용, 데스크톱에서는 숨김) ── */
+.drawer-grip, .drawer-modes { display: none; }
+
+/* ═══════════════════════════════════════════════
+   모바일 — 미리보기가 화면을 채우고 편집기는 아래 서랍으로
+   ═══════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  :root { --topbar-h: 44px; }
+
+  body { overflow: hidden; }
+  button, input, select, textarea, .fmt-btn, .seg-btn, .tab { touch-action: manipulation; }
+
+  .topbar { padding: 0 12px; gap: 10px; }
+  .brand-thin, .save-hint { display: none; }
+  .toggle-opt { padding: 5px 12px; font-size: 12px; }
+
+  /* 100vh 는 아이폰에서 주소창까지 포함해 아래가 잘린다 */
+  .workspace { display: block; height: calc(100dvh - var(--topbar-h)); }
+
+  .pane-preview { height: 100%; }
+  .preview-scroll { padding: 16px 12px calc(var(--drawer-h, 96px) + 24px); }
+  .stage-host { margin: 0 auto; }
+
+  /* 도구막대·미리보기 막대는 접지 말고 옆으로 흐르게 */
+  .preview-bar {
+    padding: 0 12px; gap: 8px;
+    overflow-x: auto; scrollbar-width: none;
+  }
+  .preview-bar::-webkit-scrollbar { display: none; }
+  .preview-bar .spacer { display: none; }
+  .preview-bar .btn, .preview-bar .seg, .preview-bar .check { flex: none; }
+  #collapseBtn { display: none; }
+  .preview-status { padding: 0 12px; }
+
+  /* ── 서랍 본체 ── */
+  .pane-editor {
+    position: fixed; left: 0; right: 0; top: auto; bottom: auto;
+    width: auto; height: 96px;
+    z-index: 40;
+    border-right: 0; border-top: 1px solid var(--line);
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -10px 30px rgba(20, 30, 30, .16);
+    background: var(--bg);
+    transition: none;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .pane-editor.is-animating { transition: height .24s cubic-bezier(.4,0,.2,1), top .24s cubic-bezier(.4,0,.2,1); }
+
+  .drawer-grip {
+    display: flex; align-items: center; justify-content: center;
+    width: 100%; height: 22px; flex: none;
+    touch-action: none;
+  }
+  .drawer-grip span {
+    width: 40px; height: 4px; border-radius: 999px;
+    background: var(--line-strong);
+  }
+
+  .drawer-modes {
+    display: flex; flex: none; gap: 2px;
+    padding: 0 12px 8px;
+  }
+  .dm-btn {
+    flex: 1; height: 32px; border-radius: var(--r-sm);
+    font-size: 13px; font-weight: 600; color: var(--fg-3);
+    background: var(--bg-sunken);
+  }
+  .dm-btn.is-active { background: var(--accent-soft); color: var(--accent-hi); }
+
+  .tabpane { width: 100%; }
+
+  /* 편집 / 설정 중 한쪽만 보여 준다 (기본은 편집) */
+  .pane-editor:not(.mode-settings) .settings { display: none; }
+  .pane-editor.mode-settings .fmt-bar,
+  .pane-editor.mode-settings .src { display: none; }
+  .pane-editor.is-peek .tabpane { visibility: hidden; }
+
+  /* 입력칸 — 16px 미만이면 사파리가 화면을 확대해 버린다 */
+  .src {
+    flex: 1 1 auto; height: auto; min-height: 0; max-height: none;
+    resize: none; font-size: 16px; padding: 12px 14px;
+  }
+  .src-code { font-size: 15px; }
+
+  /* 도구막대는 줄바꿈 대신 가로 스크롤 */
+  .fmt-bar { padding: 6px 10px; gap: 4px; }
+  .fmt-row {
+    flex-wrap: nowrap; overflow-x: auto;
+    scrollbar-width: none; padding-bottom: 1px;
+  }
+  .fmt-row::-webkit-scrollbar { display: none; }
+  .fmt-btn, .fmt-tag, .fmt-group, .clear-pair { flex: none; }
+  .fmt-spacer { display: none; }
+  .fmt-btn { height: 30px; padding: 0 9px; font-size: 13px; }
+
+  /* 설정 탭도 옆으로 흐르게 */
+  .set-tabs { grid-auto-flow: column; grid-auto-columns: 76px; overflow-x: auto; scrollbar-width: none; }
+  .set-tabs::-webkit-scrollbar { display: none; }
+  .set-tab { font-size: 11px; padding: 8px 4px 9px; }
+
+  /* 손가락으로 누를 만한 크기로 */
+  .step-btn { width: 32px; height: 32px; }
+  .step-input, input[type="text"], input[type="number"], select { height: 32px; font-size: 15px; }
+  .hex-input { font-size: 13px; }
+  input[type="color"] { height: 32px; }
+  .seg-inline button { height: 32px; font-size: 13px; }
+  .check { padding: 4px 0; }
+  .check input[type="checkbox"] { width: 18px; height: 18px; }
+  .btn { height: 32px; }
+
+  .panel { padding: 12px; gap: 18px; }
+  .prof-grid { grid-template-columns: minmax(0, 1fr); }
+  .ccell-grid.cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  .toast { bottom: calc(var(--drawer-h, 96px) + 16px); }
+}
 
 /* ─── template list ─────────────────────────── */
 .tpl-list { display: flex; flex-direction: column; gap: 4px; }

@@ -46,6 +46,18 @@ export function trimCanvas(canvas) {
 /* 마지막으로 저장한 이미지의 실제 크기. 잘라내기 뒤 값이라 미리보기와 다를 수 있다. */
 export let lastSize = null;
 
+/* 사파리는 캔버스 전체 픽셀 수에 상한이 있고, 넘으면 오류 없이 빈 이미지를
+   돌려준다. 조용히 실패하는 편이 제일 나쁘므로 미리 배율을 낮춘다. */
+export const CANVAS_BUDGET = 16_000_000;
+
+export function fitScale(node, scale) {
+  const r = node.getBoundingClientRect();
+  const area = Math.max(1, r.width * r.height);
+  let s = scale;
+  while (s > 1 && area * s * s > CANVAS_BUDGET) s -= 1;
+  return s;
+}
+
 export async function nodeToBlob(node, { scale = 2, format = 'png', quality = 0.92, background, trim = false } = {}) {
   await fontsReady();
   let canvas = await domToCanvas(node, {

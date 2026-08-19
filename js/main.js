@@ -6,6 +6,7 @@ import * as HtmlTab from './html-tab.js';
 import * as Capture from './capture.js';
 import { nodeToBlob, downloadMany, copyToClipboard } from './capture.js';
 import { ensureFont } from './fonts.js';
+import { initDrawer, initDrawerModes } from './drawer.js';
 import { toast } from './ui.js';
 
 const $ = (id) => document.getElementById(id);
@@ -27,11 +28,15 @@ function applyZoom() {
   if (state.zoom !== 'fit') { h.style.zoom = String(state.zoom); return; }
 
   // 「맞춤」은 가로세로 모두 들어와야 한다. 너비만 맞추면 세로로 긴 글에서
-  // 100% 와 다를 바가 없어진다.
+  // 100% 와 다를 바가 없어진다. 모바일에서는 아래를 서랍이 덮으므로
+  // 안쪽 여백을 빼고 재야 실제로 보이는 만큼에 맞는다.
   h.style.zoom = '1';
   const box = scroller();
-  const availW = (box.clientWidth - 56) * 0.92;
-  const availH = (box.clientHeight - 56) * 0.98;
+  const cs = getComputedStyle(box);
+  const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+  const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+  const availW = (box.clientWidth - padX) * 0.96;
+  const availH = (box.clientHeight - padY) * 0.98;
   const natW = h.scrollWidth || 1;
   const natH = h.scrollHeight || 1;
   h.style.zoom = String(Math.min(1, availW / natW, availH / natH));
@@ -84,6 +89,13 @@ function offscreen() {
   return box;
 }
 
+/* 배율이 캔버스 한계를 넘으면 조용히 빈 이미지가 나온다. 미리 낮추고 알린다. */
+function safeScale(node, wanted) {
+  const s = Capture.fitScale(node, wanted);
+  if (s !== wanted) toast(`이미지가 너무 커서 배율을 ${s}x 로 낮춰 저장합니다`);
+  return s;
+}
+
 async function collectBlobs() {
   const { scale, format, quality } = state.output;
 
@@ -95,7 +107,10 @@ async function collectBlobs() {
       const stages = TextTab.buildExportStages();
       stages.forEach(s => box.appendChild(s));
       const blobs = [];
-      for (const s of stages) blobs.push(await nodeToBlob(s, { scale, format, quality, background }));
+      let s = scale;
+      for (const stage of stages) s = Math.min(s, Capture.fitScale(stage, scale));
+      if (s !== scale) toast(`이미지가 너무 커서 배율을 ${s}x 로 낮춰 저장합니다`);
+      for (const stage of stages) blobs.push(await nodeToBlob(stage, { scale: s, format, quality, background }));
       return blobs;
     } finally { box.remove(); }
   }
@@ -107,7 +122,8 @@ async function collectBlobs() {
   const prevZoom = host().style.zoom;
   host().style.zoom = '1';
   try {
-    return [await nodeToBlob(shot, { scale, format, quality, background, trim: o.trim })];
+    const s = safeScale(shot, scale);
+    return [await nodeToBlob(shot, { scale: s, format, quality, background, trim: o.trim })];
   } finally { host().style.zoom = prevZoom; }
 }
 
@@ -263,6 +279,9 @@ function boot() {
     else if (e.key.toLowerCase() === 'c' && e.shiftKey) { e.preventDefault(); doCopy(); }
     else if (e.key === 'Enter') { e.preventDefault(); renderNow(); }
   });
+
+  initDrawer({ onChange: () => { if (state.zoom === 'fit') applyZoom(); } });
+  initDrawerModes();
 
   // 탭 표시·손잡이 위치·첫 렌더를 한 경로로 처리한다
   setTab(state.tab);
