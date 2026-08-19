@@ -39,7 +39,69 @@ function applyZoom() {
   const availH = (box.clientHeight - padY) * 0.98;
   const natW = h.scrollWidth || 1;
   const natH = h.scrollHeight || 1;
-  h.style.zoom = String(Math.min(1, availW / natW, availH / natH));
+  const z = Math.min(1, availW / natW, availH / natH);
+  h.style.zoom = String(z);
+  showZoom(z);
+}
+
+/* ── 손가락으로 줄여 보기 ────────────────────
+   100% 나 50% 로 보면 화면 밖으로 넘쳐 스크롤로만 훑어야 한다.
+   두 손가락으로 자유롭게 줄일 수 있게 한다. 100% 위로는 올리지 않는다.
+   그 이상은 또렷해지지 않고 뿌옇게 커지기만 한다. */
+const ZOOM_MIN = 0.05;
+const ZOOM_MAX = 1;
+
+function currentZoom() {
+  return parseFloat(host().style.zoom) || 1;
+}
+
+function showZoom(z) {
+  const el = $('zoomLabel');
+  el.textContent = state.zoom === 'fit' ? '' : `${Math.round(z * 100)}%`;
+}
+
+function setZoom(z) {
+  const clamped = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
+  state.zoom = clamped;
+  host().style.zoom = String(clamped);
+  document.querySelectorAll('#zoomSeg .seg-btn').forEach((b) => {
+    b.classList.toggle('is-active', parseFloat(b.dataset.zoom) === clamped);
+  });
+  showZoom(clamped);
+}
+
+function bindPinchZoom() {
+  const box = scroller();
+  const gap = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+  let pinching = false, startGap = 0, startZoom = 1, anchor = null;
+
+  box.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 2) return;
+    pinching = true;
+    startGap = gap(e.touches);
+    startZoom = currentZoom();
+    const r = box.getBoundingClientRect();
+    const mx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left;
+    const my = (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top;
+    // 손가락 사이 지점이 제자리에 있도록 스크롤을 되맞추기 위한 기준
+    anchor = { mx, my, sx: box.scrollLeft, sy: box.scrollTop };
+  }, { passive: true });
+
+  box.addEventListener('touchmove', (e) => {
+    if (!pinching || e.touches.length !== 2) return;
+    e.preventDefault();
+    const next = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, startZoom * (gap(e.touches) / (startGap || 1))));
+    setZoom(next);
+    if (anchor) {
+      const k = next / startZoom;
+      box.scrollLeft = (anchor.sx + anchor.mx) * k - anchor.mx;
+      box.scrollTop = (anchor.sy + anchor.my) * k - anchor.my;
+    }
+  }, { passive: false });
+
+  const end = (e) => { if (e.touches.length < 2) { pinching = false; anchor = null; } };
+  box.addEventListener('touchend', end, { passive: true });
+  box.addEventListener('touchcancel', end, { passive: true });
 }
 
 async function renderNow() {
@@ -259,7 +321,10 @@ function boot() {
     b.classList.add('is-active');
     state.zoom = b.dataset.zoom === 'fit' ? 'fit' : parseFloat(b.dataset.zoom);
     applyZoom();
+    if (state.zoom !== 'fit') showZoom(state.zoom);
   });
+
+  bindPinchZoom();
 
   $('splitSeg').addEventListener('click', (e) => {
     const b = e.target.closest('.seg-btn');
