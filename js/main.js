@@ -1,9 +1,9 @@
 /* 부팅 · 탭 전환 · 미리보기 갱신 · 저장 */
 
-import { state, loadAll, saveSoon } from './store.js';
+import { state, loadAll, saveSoon, fontById } from './store.js';
 import * as TextTab from './text-tab.js';
 import * as HtmlTab from './html-tab.js';
-import { nodeToBlob, downloadMany, copyToClipboard, buildName } from './capture.js';
+import { nodeToBlob, downloadMany, copyToClipboard } from './capture.js';
 import { toast } from './ui.js';
 
 const $ = (id) => document.getElementById(id);
@@ -12,12 +12,10 @@ const host = () => $('stageHost');
 const scroller = () => $('previewScroll');
 
 let renderTimer = null;
-let lastDims = null;
 
 /* ── 미리보기 ───────────────────────────────── */
 function setDims(w, h, count = 1) {
   const s = state.output.scale;
-  lastDims = { w, h };
   const label = `${Math.round(w * s)} × ${Math.round(h * s)} px`;
   $('dims').textContent = count > 1 ? `${label} · ${count}장` : label;
 }
@@ -25,7 +23,9 @@ function setDims(w, h, count = 1) {
 function applyZoom() {
   const h = host();
   if (state.zoom !== 'fit') { h.style.zoom = String(state.zoom); return; }
-  const avail = scroller().clientWidth - 56;
+  // 패널을 꽉 채우지 않고 조금 여유를 둔다.
+  const avail = (scroller().clientWidth - 56) * 0.88;
+  h.style.zoom = '1';
   const natural = h.scrollWidth || 1;
   h.style.zoom = String(Math.min(1, avail / natural));
 }
@@ -104,8 +104,18 @@ function busy(on, msg = '') {
   $('statusMsg').className = 'status-msg';
 }
 
+/* 직접 넣은 폰트는 파일 전체를 이미지에 심어야 해서 처음 한 번이 오래 걸린다.
+   그 뒤로는 캐시가 돌아 곧바로 끝난다. */
+function workingMessage() {
+  if (state.tab !== 'text') return '이미지를 만드는 중…';
+  const f = fontById(state.text.style.font);
+  return f.source === 'local'
+    ? `${f.label} 폰트를 이미지에 심는 중… 처음 한 번만 오래 걸립니다`
+    : '이미지를 만드는 중…';
+}
+
 async function doSave() {
-  busy(true, '이미지를 만드는 중…');
+  busy(true, workingMessage());
   try {
     const blobs = await collectBlobs();
     const ext = state.output.format === 'jpg' ? 'jpg' : state.output.format;
@@ -121,7 +131,7 @@ async function doSave() {
 }
 
 async function doCopy() {
-  busy(true, '이미지를 만드는 중…');
+  busy(true, workingMessage());
   try {
     const saved = state.output.format;
     state.output.format = 'png';           // 클립보드는 PNG 만 안정적
@@ -156,6 +166,7 @@ function boot() {
   loadAll();
 
   TextTab.bindEditor(scheduleRender);
+  TextTab.buildSlotBar(scheduleRender);
   TextTab.buildSettings($('textSettings'), scheduleRender);
   HtmlTab.bindEditor(scheduleRender);
   HtmlTab.buildSettings($('htmlSettings'), scheduleRender);
@@ -165,6 +176,7 @@ function boot() {
   $('collapseBtn').addEventListener('click', () => {
     state.collapsed = !state.collapsed;
     $('workspace').classList.toggle('is-collapsed', state.collapsed);
+    $('collapseBtn').textContent = state.collapsed ? '편집기 열기' : '편집기 닫기';
     setTimeout(applyZoom, 0);
   });
 

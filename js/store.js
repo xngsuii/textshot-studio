@@ -57,8 +57,22 @@ export const DEFAULT_STYLE = {
   fg: '#1A1A1A',
   actionColor: '#8A8F98',
   quoteColor: '#1F5D8C',
+  parenColor: '#B0B4B8',
   dividerColor: '#D8D8D8',
+  headingColor: '#111417',
+  bqColor: '#14746F',
+  codeBg: '#23282D',
+  codeFg: '#E6E9EC',
+  codeTitleColor: '#8FA0AE',
+  // 「색1~색5」 버튼이 넣는 {c1 …} ~ {c5 …} 에 대응한다
+  colorSlots: ['#1F5D8C', '#8B3A4A', '#2F6B4F', '#8A5A2B', '#5B4B8A'],
   transparent: false,
+};
+
+/* 자동 서식 — 항목별로 껐다 켠다. 템플릿에는 넣지 않는다. */
+export const DEFAULT_FORMATS = {
+  bold: true, action: true, italic: true, quote: true, paren: true,
+  divider: true, heading: true, blockquote: true, code: true,
 };
 
 export const DEFAULT_OUTPUT = {
@@ -92,7 +106,7 @@ export const state = {
 
   text: {
     source: '',
-    autoFormat: true,
+    formats: clone(DEFAULT_FORMATS),
     style: clone(DEFAULT_STYLE),
   },
   html: {
@@ -113,8 +127,15 @@ export function loadAll() {
       const d = JSON.parse(raw);
       if (d.text) {
         state.text.source = d.text.source ?? '';
-        state.text.autoFormat = d.text.autoFormat ?? true;
+        // 예전 버전은 autoFormat 이 참/거짓 하나였다. 항목별 설정으로 옮긴다.
+        if (typeof d.text.autoFormat === 'boolean') {
+          for (const k of Object.keys(state.text.formats)) state.text.formats[k] = d.text.autoFormat;
+        }
+        Object.assign(state.text.formats, d.text.formats || {});
         Object.assign(state.text.style, d.text.style || {});
+        if (!Array.isArray(state.text.style.colorSlots)) {
+          state.text.style.colorSlots = clone(DEFAULT_STYLE.colorSlots);
+        }
       }
       if (d.html) {
         state.html.source = d.html.source ?? '';

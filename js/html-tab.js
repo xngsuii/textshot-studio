@@ -18,12 +18,26 @@ const PAGE = (userCode, css) => `<!doctype html>
 </head>
 <body><div id="__shot">${userCode}</div></body></html>`;
 
+/* 「코드에 맡김」일 때는 우선 넉넉한 너비로 그린 뒤, 내용이 실제로 차지한
+   너비를 재서 거기에 맞춘다. max-content 로 감싸면 max-width 가 걸린 요소가
+   글자 길이만큼 쪼그라들어 의도한 너비가 나오지 않는다. */
+const AUTO_PROBE = 2400;
+
 function shotCss() {
   const o = state.html.opts;
-  const w = o.widthMode === 'manual' ? `${o.width}px` : 'max-content';
+  const w = o.widthMode === 'manual' ? `${o.width}px` : `${AUTO_PROBE}px`;
   const pad = o.padOn ? `${o.padTop}px ${o.padRight}px ${o.padBottom}px ${o.padLeft}px` : '0';
   const bg = o.transparent ? 'transparent' : o.padBg;
   return `width:${w}; min-width:0; padding:${pad}; background:${bg};`;
+}
+
+function contentWidth(shot) {
+  let max = 0;
+  for (const child of shot.children) {
+    const r = child.getBoundingClientRect();
+    if (r.width > max) max = r.width;
+  }
+  return max;
 }
 
 export function renderPreview(host) {
@@ -32,7 +46,8 @@ export function renderPreview(host) {
   frame = document.createElement('iframe');
   frame.className = 'shot-frame';
   frame.setAttribute('sandbox', 'allow-same-origin');
-  frame.style.width = '100%';
+  // 재기 전까지는 넉넉하게. fit() 이 실제 크기로 줄인다.
+  frame.style.width = AUTO_PROBE + 'px';
   frame.style.height = '0px';
   frame.srcdoc = PAGE(state.html.source, shotCss());
 
@@ -52,8 +67,15 @@ export function renderPreview(host) {
     if (!shot) { readyResolve?.(null); return; }
     // 폰트가 들어오면 크기가 달라지므로 한 번 더 맞춘다.
     const fit = () => {
-      const w = Math.ceil(shot.getBoundingClientRect().width);
-      const h = Math.ceil(shot.getBoundingClientRect().height);
+      const o = state.html.opts;
+      if (o.widthMode === 'auto') {
+        const inner = contentWidth(shot);
+        const padX = o.padOn ? o.padLeft + o.padRight : 0;
+        if (inner > 0) shot.style.width = Math.ceil(inner + padX) + 'px';
+      }
+      const r = shot.getBoundingClientRect();
+      const w = Math.ceil(r.width);
+      const h = Math.ceil(r.height);
       frame.style.width = w + 'px';
       frame.style.height = h + 'px';
       stage.style.width = w + 'px';

@@ -38,22 +38,36 @@
     <div class="tabpane is-active" data-pane="text">
 
       <div class="fmt-bar">
-        <div class="fmt-group">
-          <button class="fmt-btn" data-wrap="**" title="굵게"><b>B</b></button>
-          <button class="fmt-btn" data-wrap="*" title="행동지문"><span class="s-action">*행동*</span></button>
-          <button class="fmt-btn" data-wrap="&quot;" title="대사"><span class="s-quote">&quot;대사&quot;</span></button>
-          <button class="fmt-btn" data-wrap="_" title="기울임"><em>I</em></button>
+        <div class="fmt-row">
+          <div class="fmt-group">
+            <button class="fmt-btn" data-wrap="**" title="굵게 (선택 후 다시 누르면 해제)"><b>B</b></button>
+            <button class="fmt-btn" data-wrap="*" title="행동지문"><span class="s-action">*행동*</span></button>
+            <button class="fmt-btn" data-wrap="&quot;" title="대사"><span class="s-quote">&quot;대사&quot;</span></button>
+            <button class="fmt-btn" data-wrap="_" title="기울임"><em>I</em></button>
+          </div>
+          <div class="fmt-group" id="slotBar"></div>
         </div>
-        <div class="fmt-group">
-          <button class="fmt-btn" data-line="---" title="구분선">— 구분선</button>
-          <button class="fmt-btn fmt-split" data-line="===" title="분할선">✂ 분할선</button>
+        <div class="fmt-row">
+          <div class="fmt-group">
+            <button class="fmt-btn" data-prefix="# " title="제목">제목</button>
+            <button class="fmt-btn" data-prefix="## " title="부제목">부제목</button>
+            <button class="fmt-btn" data-prefix="&gt; " title="인용구">인용</button>
+            <button class="fmt-btn" data-fence="1" title="코드블럭">코드블럭</button>
+          </div>
+          <div class="fmt-group">
+            <button class="fmt-btn" data-line="---" title="구분선">— 구분선</button>
+            <button class="fmt-btn fmt-split" data-line="===" title="분할선">✂ 분할선</button>
+          </div>
+          <div class="fmt-spacer"></div>
+          <button class="fmt-btn fmt-strip" id="stripText" title="선택한 곳(없으면 전체)의 마커를 걷어냅니다">서식 지우기</button>
+          <button class="fmt-btn fmt-clear" id="clearText" title="서식 설정은 두고 내용만 지웁니다">내용 지우기</button>
         </div>
-        <button class="fmt-btn fmt-clear" id="clearText" title="서식은 두고 내용만 지웁니다">내용 지우기</button>
       </div>
 
       <textarea id="src" class="src" spellcheck="false" placeholder="지문을 붙여넣으세요.
 
-**굵게**  *행동지문*  &quot;대사&quot;  _기울임_
+**굵게**   *행동지문*   &quot;대사&quot;   _기울임_   (괄호)
+# 제목   ## 부제목   &gt; 인용구
 ---  구분선      ===  분할선"></textarea>
 
       <div class="settings" id="textSettings"></div>
@@ -75,11 +89,6 @@
 
   </aside>
 
-  <!-- ══════════ 접기 손잡이 ══════════ -->
-  <button class="collapse-handle" id="collapseBtn" title="편집기 접기/펼치기" aria-label="편집기 접기">
-    <span class="chev"></span>
-  </button>
-
   <!-- ══════════ 오른쪽: 미리보기 ══════════ -->
   <section class="pane-preview">
     <div class="preview-bar">
@@ -94,6 +103,7 @@
       </div>
       <label class="check"><input type="checkbox" id="checkerBg"> 투명 확인</label>
       <div class="spacer"></div>
+      <button class="btn btn-ghost" id="collapseBtn">편집기 닫기</button>
       <button class="btn btn-ghost" id="copyBtn">클립보드 복사</button>
       <button class="btn btn-primary" id="saveBtn">이미지 저장</button>
     </div>

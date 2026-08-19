@@ -55,6 +55,35 @@ export function range(value, { min, max, step = 1, unit = '', onChange }) {
   return el('div', { class: 'range-row' }, [input, out]);
 }
 
+/* 숫자 입력 + 증감 버튼. 직접 타이핑도 되고 버튼은 step 만큼 움직인다. */
+export function stepper(value, { min, max, step = 1, decimals = 0, unit = '', onChange }) {
+  const fmt = (v) => (decimals ? v.toFixed(decimals) : String(v));
+  let cur = value;
+
+  const input = el('input', {
+    type: 'number', value: fmt(cur), min, max, step, class: 'step-input',
+    onInput: (e) => {
+      const v = parseFloat(e.target.value);
+      if (Number.isNaN(v)) return;
+      cur = v; onChange(v);
+    },
+  });
+
+  const bump = (d) => {
+    let v = Math.round((cur + d) * 1000) / 1000;
+    if (min !== undefined) v = Math.max(min, v);
+    if (max !== undefined) v = Math.min(max, v);
+    cur = v; input.value = fmt(v); onChange(v);
+  };
+
+  return el('div', { class: 'stepper' }, [
+    el('button', { type: 'button', class: 'step-btn', text: '−', title: `− ${step}`, onClick: () => bump(-step) }),
+    input,
+    el('button', { type: 'button', class: 'step-btn', text: '+', title: `+ ${step}`, onClick: () => bump(step) }),
+    unit ? el('span', { class: 'step-unit', text: unit }) : null,
+  ]);
+}
+
 export function color(value, onChange) {
   const swatch = el('input', { type: 'color', value, onInput: (e) => { hex.value = e.target.value; onChange(e.target.value); } });
   const hex = el('input', {
