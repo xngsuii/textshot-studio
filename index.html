@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>textshot studio</title>
+<meta name="description" content="텍스트와 HTML을 이미지로 발췌하는 개인용 도구">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✂️</text></svg>">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/app.css">
+<script src="vendor/jszip.min.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">✂</span>
+    <span class="brand-name">textshot<span class="brand-thin"> studio</span></span>
+  </div>
+  <nav class="tabs" role="tablist">
+    <button class="tab is-active" role="tab" data-tab="text" aria-selected="true">텍스트 발췌</button>
+    <button class="tab" role="tab" data-tab="html" aria-selected="false">HTML</button>
+  </nav>
+  <div class="topbar-right">
+    <span class="save-hint" id="saveHint"></span>
+  </div>
+</header>
+
+<main class="workspace" id="workspace">
+
+  <!-- ══════════ 왼쪽: 편집기 ══════════ -->
+  <aside class="pane-editor" id="editorPane">
+
+    <!-- ── 텍스트 발췌 ── -->
+    <div class="tabpane is-active" data-pane="text">
+
+      <div class="fmt-bar">
+        <div class="fmt-group">
+          <button class="fmt-btn" data-wrap="**" title="굵게"><b>B</b></button>
+          <button class="fmt-btn" data-wrap="*" title="행동지문"><span class="s-action">*행동*</span></button>
+          <button class="fmt-btn" data-wrap="&quot;" title="대사"><span class="s-quote">&quot;대사&quot;</span></button>
+          <button class="fmt-btn" data-wrap="_" title="기울임"><em>I</em></button>
+        </div>
+        <div class="fmt-group">
+          <button class="fmt-btn" data-line="---" title="구분선">— 구분선</button>
+          <button class="fmt-btn fmt-split" data-line="===" title="분할선">✂ 분할선</button>
+        </div>
+        <button class="fmt-btn fmt-clear" id="clearText" title="서식은 두고 내용만 지웁니다">내용 지우기</button>
+      </div>
+
+      <textarea id="src" class="src" spellcheck="false" placeholder="지문을 붙여넣으세요.
+
+**굵게**  *행동지문*  &quot;대사&quot;  _기울임_
+---  구분선      ===  분할선"></textarea>
+
+      <div class="settings" id="textSettings"></div>
+    </div>
+
+    <!-- ── HTML ── -->
+    <div class="tabpane" data-pane="html">
+      <div class="fmt-bar">
+        <span class="fmt-note">완성된 HTML/CSS를 붙여넣으세요</span>
+        <button class="fmt-btn fmt-clear" id="clearHtml">내용 지우기</button>
+      </div>
+      <textarea id="htmlSrc" class="src src-code" spellcheck="false" placeholder="&lt;style&gt;
+  .card { width: 600px; padding: 32px; background: #fff; }
+&lt;/style&gt;
+
+&lt;div class=&quot;card&quot;&gt;내용&lt;/div&gt;"></textarea>
+      <div class="settings" id="htmlSettings"></div>
+    </div>
+
+  </aside>
+
+  <!-- ══════════ 접기 손잡이 ══════════ -->
+  <button class="collapse-handle" id="collapseBtn" title="편집기 접기/펼치기" aria-label="편집기 접기">
+    <span class="chev"></span>
+  </button>
+
+  <!-- ══════════ 오른쪽: 미리보기 ══════════ -->
+  <section class="pane-preview">
+    <div class="preview-bar">
+      <div class="seg" id="zoomSeg">
+        <button class="seg-btn is-active" data-zoom="fit">맞춤</button>
+        <button class="seg-btn" data-zoom="1">100%</button>
+        <button class="seg-btn" data-zoom="0.5">50%</button>
+      </div>
+      <div class="seg" id="splitSeg" hidden>
+        <button class="seg-btn is-active" data-split="before">분할 전</button>
+        <button class="seg-btn" data-split="after">분할 후</button>
+      </div>
+      <label class="check"><input type="checkbox" id="checkerBg"> 투명 확인</label>
+      <div class="spacer"></div>
+      <button class="btn btn-ghost" id="copyBtn">클립보드 복사</button>
+      <button class="btn btn-primary" id="saveBtn">이미지 저장</button>
+    </div>
+
+    <div class="preview-scroll" id="previewScroll">
+      <div class="stage-host" id="stageHost"></div>
+    </div>
+
+    <div class="preview-status">
+      <span class="dims" id="dims">—</span>
+      <span class="status-msg" id="statusMsg"></span>
+    </div>
+  </section>
+
+</main>
+
+<div class="toast" id="toast" hidden></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

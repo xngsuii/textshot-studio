@@ -1,0 +1,45 @@
+/* ─────────────────────────────────────────────
+   textshot studio — design tokens
+   화이트 테마 단일. 중성색은 청록 쪽으로 살짝 기울여 둠.
+   ───────────────────────────────────────────── */
+
+:root {
+  /* surfaces */
+  --bg:          #FFFFFF;
+  --bg-panel:    #F7F8F8;
+  --bg-sunken:   #EDEFEF;
+  --bg-hover:    #F0F2F2;
+
+  /* lines */
+  --line:        #E3E6E6;
+  --line-strong: #CFD4D4;
+
+  /* text */
+  --fg:          #161D1C;
+  --fg-2:        #5B6564;
+  --fg-3:        #8C9594;
+
+  /* accent */
+  --accent:      #14746F;
+  --accent-hi:   #10605C;
+  --accent-soft: #E4F0EF;
+
+  --danger:      #A33B3B;
+  --danger-soft: #F7E9E9;
+
+  /* type */
+  --ui: "Pretendard Variable", Pretendard, -apple-system, "Malgun Gothic", system-ui, sans-serif;
+  --mono: "D2Coding", Consolas, "SFMono-Regular", ui-monospace, monospace;
+
+  /* metrics */
+  --topbar-h: 52px;
+  --bar-h: 46px;
+  --editor-w: 460px;
+  --r: 6px;
+  --r-sm: 4px;
+
+  --shadow-1: 0 1px 2px rgba(20, 30, 30, .06);
+  --shadow-2: 0 6px 24px rgba(20, 30, 30, .10);
+
+  color-scheme: light;
+}
