@@ -77,15 +77,19 @@ function codeViewer(body) {
   return `<div class='mk-view ${id}'>${scoped ? `<style>${scoped}</style>` : ''}${html}</div>`;
 }
 
-/* ── 화자 ────────────────────────────────────
-   등록된 프로필 이름으로 시작하는 줄만 말풍선이 된다.
-   이름이 정확히 맞아야 하므로 「그러니까: …」 같은 문장은 그냥 지문이다. */
+/* ── 프로필 ──────────────────────────────────
+   「이름 | 내용」 으로 쓴 줄만 말풍선이 된다. 등록된 프로필 이름과
+   정확히 맞아야 하므로 다른 줄은 건드리지 않는다. */
+export const NAME_SEP = '|';
+
 function speakerOf(line, profiles) {
   const t = line.trimStart();
   for (const p of profiles) {
     const name = (p.name || '').trim();
-    if (!name) continue;
-    if (t.startsWith(`${name}:`)) return { profile: p, body: t.slice(name.length + 1).replace(/^\s/, '') };
+    if (!name || !t.startsWith(name)) continue;
+    const rest = t.slice(name.length);
+    const m = rest.match(/^\s*\|\s?/);
+    if (m) return { profile: p, body: rest.slice(m[0].length) };
   }
   return null;
 }
@@ -139,10 +143,11 @@ export function renderChunk(chunk, opts = {}, lineOffset = 0) {
         i++;
       }
       const side = p.side === 'right' ? 'is-right' : 'is-left';
-      const ava = (chat.showAvatar && p.avatar)
-        ? `<img class='mk-ava' src="${p.avatar}" alt=''>`
-        : (chat.showAvatar ? `<span class='mk-ava mk-ava-blank'></span>` : '');
-      const name = chat.showName ? `<div class='mk-speaker'>${esc(p.name)}</div>` : '';
+      // 이름·사진 표시는 프로필마다 따로 정한다
+      const ava = p.showAvatar
+        ? (p.avatar ? `<img class='mk-ava' src="${p.avatar}" alt=''>` : `<span class='mk-ava mk-ava-blank'></span>`)
+        : '';
+      const name = p.showName ? `<div class='mk-speaker'>${esc(p.name)}</div>` : '';
       out.push(`<div class='mk-chat ${side}'>${ava}<div class='mk-chat-body'>${name}${bubbles.join('')}</div></div>`);
       continue;
     }
@@ -192,7 +197,7 @@ export function renderChunk(chunk, opts = {}, lineOffset = 0) {
       out.push(`<p class='mk-h1'>${inline(t.replace(/^#\s+/, ''), f)}</p>`); i++; continue;
     }
 
-    out.push(`<p class='mk-p' data-ln='${lineOffset + i}'>${inline(raw, f)}</p>`);
+    out.push(`<p class='mk-p'>${inline(raw, f)}</p>`);
     i++;
   }
   return out.join('');
@@ -233,19 +238,30 @@ export function removeImageMarker(source, id) {
     .join('\n');
 }
 
-/* ── 화자 바꾸기 ────────────────────────────
+/* ── 프로필 바꾸기 ──────────────────────────
    미리보기에서 말풍선을 누르면 그 줄의 이름표만 갈아 끼운다.
-   nextName 이 비면 이름표를 떼어 지문으로 되돌린다. */
+   지문은 건드리지 않고 말풍선끼리만 오간다. */
 export function setSpeakerAt(source, lineNo, nextName, profiles) {
   const lines = String(source).split(/\r?\n/);
   if (lineNo < 0 || lineNo >= lines.length) return source;
 
   const cur = speakerOf(lines[lineNo], profiles);
-  const indent = lines[lineNo].match(/^\s*/)[0];
-  const body = cur ? cur.body : lines[lineNo].trimStart();
+  if (!cur || !nextName) return source;
 
-  lines[lineNo] = nextName ? `${indent}${nextName}: ${body}` : `${indent}${body}`;
+  const indent = lines[lineNo].match(/^\s*/)[0];
+  lines[lineNo] = `${indent}${nextName} ${NAME_SEP} ${cur.body}`;
   return lines.join('\n');
+}
+
+/* 프로필 이름을 바꿀 때 본문의 이름표도 같이 옮긴다 */
+export function renameSpeaker(source, oldName, newName, profiles) {
+  if (!oldName || !newName) return source;
+  return String(source).split(/\r?\n/).map((l) => {
+    const cur = speakerOf(l, profiles);
+    if (!cur || cur.profile.name !== oldName) return l;
+    const indent = l.match(/^\s*/)[0];
+    return `${indent}${newName} ${NAME_SEP} ${cur.body}`;
+  }).join('\n');
 }
 
 export function speakerNameAt(source, lineNo, profiles) {

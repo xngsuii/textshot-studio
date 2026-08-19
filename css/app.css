@@ -258,6 +258,9 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .prof-face-btn:hover .prof-face { outline: 2px solid var(--accent); outline-offset: 1px; }
 .prof-name { flex: 1; min-width: 0; font-weight: 600; }
 .prof-body { display: flex; flex-direction: column; gap: 9px; padding: 9px 8px; }
+.prof-toggles { display: flex; gap: 14px; }
+.prof-face, .prof-face-blank { border-radius: 7px; }
+.prof-face-btn { border-radius: 7px; }
 
 .fmt-tag {
   font-size: 10.5px; font-weight: 700; color: var(--fg-3);
@@ -460,12 +463,14 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .mk-chat { display: flex; gap: 8px; align-items: flex-start; max-width: 100%; }
 .mk-chat.is-right { flex-direction: row-reverse; }
 
+/* 프로필 사진 — 둥근 사각형. 크기는 글자에 맞춰 움직이고
+   윗변이 이름줄과 나란히 놓인다. */
 .mk-ava {
-  width: var(--b-ava, 34px); height: var(--b-ava, 34px);
-  flex: none; border-radius: 50%; object-fit: cover;
-  margin-top: 1.1em;
+  width: 2.5em; height: 2.5em;
+  flex: none; border-radius: .45em; object-fit: cover;
+  display: block;
 }
-.mk-ava-blank { background: rgba(128, 128, 128, .18); }
+.mk-ava-blank { background: rgba(128, 128, 128, .22); }
 
 .mk-chat-body {
   display: flex; flex-direction: column; gap: var(--b-gap, 8px);
@@ -473,7 +478,10 @@ input[type="checkbox"] { accent-color: var(--accent); }
 }
 .mk-chat.is-right .mk-chat-body { align-items: flex-end; }
 
-.mk-speaker { font-size: .78em; opacity: .62; line-height: 1.4; }
+.mk-speaker {
+  font-size: .78em; opacity: .62;
+  line-height: 1.15; margin-bottom: .1em;
+}
 
 .mk-bubble {
   padding: var(--b-pad-v, 9px) var(--b-pad-h, 13px);

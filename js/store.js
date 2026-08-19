@@ -91,15 +91,12 @@ export const DEFAULT_STYLE = {
     { name: '대사 B', color: '#8B3A4A' },
   ],
 
-  // 말풍선 공통 모양
+  // 말풍선 공통 모양 (이름·사진 표시 여부는 프로필마다 따로)
   bubbleRadius: 16,
   bubbleGap: 8,
   bubbleMaxWidth: 76,        // %
   bubblePadV: 9,
   bubblePadH: 13,
-  showName: true,
-  showAvatar: true,
-  avatarSize: 34,
 
   transparent: false,
 };
@@ -107,10 +104,11 @@ export const DEFAULT_STYLE = {
 export const MAX_SLOTS = 5;
 export const MAX_PROFILES = 6;
 
-/* 말풍선 화자. 이름은 본문에서 「이름: 대사」로 쓰이므로 비워 두면 안 된다. */
+/* 말풍선 프로필. 이름은 본문에서 「이름 | 대사」로 쓰이므로 비워 두면 안 된다.
+   오른쪽은 본인 자리라 이름과 사진을 기본으로 감춘다. */
 export const DEFAULT_PROFILES = [
-  { id: 'p1', name: '나', side: 'right', bubbleBg: '#2F6B6B', textColor: '#FFFFFF', avatar: '' },
-  { id: 'p2', name: '상대', side: 'left', bubbleBg: '#EFF1F1', textColor: '#1A1A1A', avatar: '' },
+  { id: 'p1', name: '나', side: 'right', bubbleBg: '#2F6B6B', textColor: '#FFFFFF', avatar: '', showName: false, showAvatar: false },
+  { id: 'p2', name: '상대', side: 'left', bubbleBg: '#EFF1F1', textColor: '#1A1A1A', avatar: '', showName: true, showAvatar: true },
 ];
 
 /* 자동 서식 — 항목별로 껐다 켠다. 템플릿에는 넣지 않는다. */
@@ -195,7 +193,9 @@ export function loadAll() {
         if (!(state.text.style.ratio in RATIOS)) state.text.style.ratio = 'auto';
         state.text.images = Array.isArray(d.text.images) ? d.text.images : [];
         state.text.profiles = Array.isArray(d.text.profiles) && d.text.profiles.length
-          ? d.text.profiles
+          ? d.text.profiles.map(p => ({
+            showName: p.side !== 'right', showAvatar: p.side !== 'right', ...p,
+          }))
           : clone(DEFAULT_PROFILES);
       }
       if (d.html) {

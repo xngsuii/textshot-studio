@@ -7,6 +7,7 @@ import {
 import {
   splitChunks, hasSplit, renderChunk, renderWithSplitMarks, stripMarkers,
   imageOrder, removeImageMarker, chunkOffsets, setSpeakerAt, speakerNameAt,
+  renameSpeaker, NAME_SEP,
 } from './markup.js';
 import { ensureFont, isAvailable } from './fonts.js';
 import { buildTemplateSection } from './templates.js';
@@ -65,7 +66,6 @@ function applyStyle(stage) {
   stage.style.setProperty('--b-max', st.bubbleMaxWidth + '%');
   stage.style.setProperty('--b-pad-v', st.bubblePadV + 'px');
   stage.style.setProperty('--b-pad-h', st.bubblePadH + 'px');
-  stage.style.setProperty('--b-ava', st.avatarSize + 'px');
 
   if (st.bgImage) {
     const layer = U.el('div', { class: 'stage-bg' });
@@ -93,7 +93,6 @@ function renderOpts() {
     formats: state.text.formats,
     images: state.text.images,
     profiles: state.text.profiles,
-    chat: { showName: st.showName, showAvatar: st.showAvatar },
   };
 }
 
@@ -127,21 +126,22 @@ export function renderPreview(host) {
   return stages;
 }
 
-/* 미리보기에서 줄을 누르면 화자가 다음 프로필로 넘어가고,
-   마지막 프로필 다음에는 이름표가 떨어져 지문으로 돌아온다. */
+/* 미리보기에서 말풍선을 누르면 다음 프로필로 넘어간다.
+   말풍선끼리만 오가고 지문은 건드리지 않는다. */
 export function bindPreviewClicks(host, onChange) {
   host.addEventListener('click', (e) => {
-    const el = e.target.closest('[data-ln]');
+    const el = e.target.closest('.mk-bubble[data-ln]');
     if (!el || !host.contains(el)) return;
+
     const profiles = state.text.profiles;
-    if (!profiles.length) return;
+    if (profiles.length < 2) return;
 
     const ln = parseInt(el.dataset.ln, 10);
     const cur = speakerNameAt(state.text.source, ln, profiles);
     const idx = profiles.findIndex(p => p.name === cur);
-    // 지문 → 첫 프로필 → … → 마지막 프로필 → 다시 지문
-    const next = idx < 0 ? profiles[0].name : (idx + 1 < profiles.length ? profiles[idx + 1].name : '');
+    if (idx < 0) return;
 
+    const next = profiles[(idx + 1) % profiles.length].name;
     state.text.source = setSpeakerAt(state.text.source, ln, next, profiles);
     srcEl().value = state.text.source;
     onChange();
@@ -171,7 +171,7 @@ export function buildProfileBar(onChange) {
   state.text.profiles.forEach((p) => {
     const btn = U.el('button', {
       class: 'fmt-btn slot-btn', type: 'button',
-      title: `${p.name} — 고른 줄을 이 화자의 말풍선으로 (다시 누르면 해제)`,
+      title: `${p.name} — 고른 줄을 이 프로필의 말풍선으로 (다시 누르면 해제)`,
       onClick: () => applySpeaker(p.name, onChange),
     }, [U.el('span', { class: 'slot-dot' }), U.el('span', { text: p.name || '이름 없음' })]);
     btn.querySelector('.slot-dot').style.background = p.bubbleBg;
@@ -179,7 +179,7 @@ export function buildProfileBar(onChange) {
   });
 }
 
-/* 고른 줄들 앞에 「이름: 」을 붙인다. 이미 그 화자면 떼어낸다. */
+/* 고른 줄들 앞에 「이름 | 」을 붙인다. 이미 그 프로필이면 떼어낸다. */
 function applySpeaker(name, onChange) {
   if (!name) return;
   const ta = srcEl();
@@ -189,16 +189,17 @@ function applySpeaker(name, onChange) {
   const end = endNl === -1 ? ta.value.length : endNl;
 
   const profiles = state.text.profiles;
+  const label = (n) => new RegExp(`^${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\|\\s?`);
   const lines = ta.value.slice(start, end).split('\n');
-  const allMine = lines.every(l => l.trimStart().startsWith(`${name}:`));
+  const allMine = lines.every(l => label(name).test(l.trimStart()));
 
   const next = lines.map((l) => {
     const indent = l.match(/^\s*/)[0];
     let body = l.trimStart();
-    for (const p of profiles) {              // 다른 화자 이름표가 있으면 먼저 뗀다
-      if (p.name && body.startsWith(`${p.name}:`)) { body = body.slice(p.name.length + 1).replace(/^\s/, ''); break; }
+    for (const p of profiles) {              // 다른 이름표가 있으면 먼저 뗀다
+      if (p.name && label(p.name).test(body)) { body = body.replace(label(p.name), ''); break; }
     }
-    return allMine ? indent + body : `${indent}${name}: ${body}`;
+    return allMine ? indent + body : `${indent}${name} ${NAME_SEP} ${body}`;
   }).join('\n');
 
   ta.setRangeText(next, start, end, 'select');
@@ -302,15 +303,13 @@ function panelChat(container, onChange) {
           type: 'text', class: 'prof-name', value: p.name, placeholder: '이름',
           onInput: (e) => {
             const old = p.name;
-            p.name = e.target.value;
+            const next = e.target.value;
             // 본문에 이미 쓰인 이름표도 같이 바꿔 준다
-            if (old && p.name) {
-              state.text.source = state.text.source
-                .split(/\r?\n/)
-                .map(l => (l.trimStart().startsWith(`${old}:`) ? l.replace(`${old}:`, `${p.name}:`) : l))
-                .join('\n');
+            if (old && next) {
+              state.text.source = renameSpeaker(state.text.source, old, next, ps);
               srcEl().value = state.text.source;
             }
+            p.name = next;
             buildProfileBar(onChange);
             touch();
           },
@@ -331,6 +330,10 @@ function panelChat(container, onChange) {
           U.colorCell('말풍선', p.bubbleBg, (v) => { p.bubbleBg = v; touch(); }),
           U.colorCell('글자', p.textColor, (v) => { p.textColor = v; touch(); }),
         ]),
+        U.el('div', { class: 'prof-toggles' }, [
+          U.check('이름 표시', p.showName, (v) => { p.showName = v; touch(); }),
+          U.check('사진 표시', p.showAvatar, (v) => { p.showAvatar = v; touch(); }),
+        ]),
         p.avatar ? U.el('button', {
           class: 'btn btn-ghost btn-sm', type: 'button', text: '사진 빼기',
           onClick: () => { p.avatar = ''; rebuild(); touch(); },
@@ -340,25 +343,26 @@ function panelChat(container, onChange) {
   });
 
   return U.el('div', { class: 'panel' }, [
-    group('화자', [
+    group('프로필', [
       ...cards,
       U.el('div', { class: 'field-row' }, [
         U.el('button', {
           class: 'btn btn-ghost btn-sm', type: 'button',
-          text: `화자 추가 (${ps.length}/${MAX_PROFILES})`,
+          text: `프로필 추가 (${ps.length}/${MAX_PROFILES})`,
           disabled: ps.length >= MAX_PROFILES,
           onClick: () => {
             if (ps.length >= MAX_PROFILES) return;
             ps.push({
               id: 'p' + Math.random().toString(36).slice(2, 7),
-              name: `화자${ps.length + 1}`, side: 'left',
+              name: `프로필${ps.length + 1}`, side: 'left',
               bubbleBg: '#EFF1F1', textColor: '#1A1A1A', avatar: '',
+              showName: true, showAvatar: true,
             });
             buildProfileBar(onChange); rebuild(); touch();
           },
         }),
       ]),
-      U.el('div', { class: 'hint', text: '본문에서 「이름: 대사」로 쓰면 말풍선이 됩니다. 미리보기에서 줄을 누르면 화자가 차례로 바뀌고, 마지막 다음에는 지문으로 돌아갑니다.' }),
+      U.el('div', { class: 'hint', text: '본문에서 「이름 | 내용」으로 쓰면 말풍선이 됩니다. 미리보기에서 말풍선을 누르면 다음 프로필로 넘어갑니다.' }),
     ]),
     group('모양', [
       U.field('최대 폭', U.stepper(st.bubbleMaxWidth, { min: 30, max: 100, step: 2, unit: '%', onChange: (v) => { st.bubbleMaxWidth = v; touch(); } })),
@@ -368,9 +372,7 @@ function panelChat(container, onChange) {
         U.stepper(st.bubblePadV, { min: 0, max: 40, step: 1, unit: '↕', onChange: (v) => { st.bubblePadV = v; touch(); } }),
         U.stepper(st.bubblePadH, { min: 0, max: 40, step: 1, unit: '↔', onChange: (v) => { st.bubblePadH = v; touch(); } }),
       ])),
-      U.check('이름 표시', st.showName, (v) => { st.showName = v; touch(); }),
-      U.check('프로필 사진 표시', st.showAvatar, (v) => { st.showAvatar = v; rebuild(); touch(); }),
-      st.showAvatar ? U.field('사진 크기', U.stepper(st.avatarSize, { min: 16, max: 80, step: 2, unit: 'px', onChange: (v) => { st.avatarSize = v; touch(); } })) : null,
+      U.el('div', { class: 'hint', text: '프로필 사진 크기는 글자 크기에 맞춰 함께 움직입니다.' }),
     ]),
   ]);
 }
