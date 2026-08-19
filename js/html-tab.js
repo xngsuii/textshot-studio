@@ -3,7 +3,7 @@
    iframe 에 격리해 페이지 CSS 와 섞이지 않게 하고,
    캡쳐 대상은 iframe 안의 #__shot 요소로 잡는다. */
 
-import { state } from './store.js';
+import { state, DEFAULT_HTML } from './store.js';
 import * as U from './ui.js';
 
 let frame = null;
@@ -116,42 +116,52 @@ export async function checkFontHosts(source) {
 }
 
 /* ── 설정 패널 ──────────────────────────────── */
+function group(title, children) {
+  return U.el('div', { class: 'grp' }, [
+    title ? U.el('div', { class: 'grp-t', text: title }) : null,
+    ...children.filter(Boolean),
+  ]);
+}
+
 export function buildSettings(container, onChange) {
   const o = state.html.opts;
+  const rebuild = () => buildSettings(container, onChange);
   container.textContent = '';
 
-  const widthInput = U.num(o.width, { min: 100, max: 4000, step: 10, onChange: (v) => { o.width = v; onChange(); } });
-  const widthField = U.field('너비', widthInput);
-  widthField.style.display = o.widthMode === 'manual' ? '' : 'none';
+  const panel = U.el('div', { class: 'panel' });
 
-  container.appendChild(U.section('크기', true, [
+  /* 크기 — 너비 프리셋은 「직접 지정」일 때만 쓸모가 있으므로 그때만 보인다 */
+  panel.appendChild(group('크기', [
     U.field('너비 기준', U.seg(o.widthMode, [['auto', '코드에 맡김'], ['manual', '직접 지정']], (v) => {
-      o.widthMode = v;
-      widthField.style.display = v === 'manual' ? '' : 'none';
-      onChange();
+      o.widthMode = v; rebuild(); onChange();
     })),
-    widthField,
-    U.fieldWide(U.seg('', [['375', '375'], ['768', '768'], ['1080', '1080'], ['1200', '1200']], (v) => {
-      o.widthMode = 'manual';
-      o.width = parseInt(v, 10);
-      widthInput.value = v;
-      widthField.style.display = '';
-      onChange();
-    })),
-    U.fieldWide(U.el('div', { class: 'hint', text: '「코드에 맡김」은 코드가 정한 너비만큼만 잘라냅니다.' })),
+    o.widthMode === 'manual'
+      ? U.field('너비', U.stepper(o.width, { min: 100, max: 4000, step: 10, unit: 'px', onChange: (v) => { o.width = v; onChange(); } }))
+      : null,
+    o.widthMode === 'manual'
+      ? U.seg(String(o.width), [['375', '375'], ['768', '768'], ['1080', '1080'], ['1200', '1200']], (v) => {
+        o.width = parseInt(v, 10); rebuild(); onChange();
+      })
+      : null,
+    U.el('div', {
+      class: 'hint',
+      text: o.widthMode === 'auto'
+        ? '코드가 정한 너비(max-width 포함)를 그대로 따릅니다.'
+        : '여기서 정한 너비로 그립니다. 코드의 max-width 보다 넓으면 남는 자리는 여백이 됩니다.',
+    }),
   ]));
 
-  container.appendChild(U.section('여백 · 배경', false, [
-    U.fieldWide(U.check('여백 넣기', o.padOn, (v) => { o.padOn = v; onChange(); })),
-    U.fieldWide(U.check('네 방향 동일', o.padLinked, (v) => { o.padLinked = v; })),
-    U.fieldWide(U.padGrid(o, ['padTop', 'padRight', 'padBottom', 'padLeft'], () => o.padLinked, onChange)),
-    U.field('배경', U.color(o.padBg, (v) => { o.padBg = v; onChange(); })),
-    U.fieldWide(U.check('배경 투명 (PNG 저장 시에만 적용)', o.transparent, (v) => { o.transparent = v; onChange(); })),
+  panel.appendChild(group('여백 · 배경', [
+    U.check('여백 넣기', o.padOn, (v) => { o.padOn = v; rebuild(); onChange(); }),
+    o.padOn ? U.check('네 방향 동일', o.padLinked, (v) => { o.padLinked = v; }) : null,
+    o.padOn ? U.padGrid(o, ['padTop', 'padRight', 'padBottom', 'padLeft'], () => o.padLinked, onChange) : null,
+    U.check('배경 투명 (PNG 저장 시에만 적용)', o.transparent, (v) => { o.transparent = v; rebuild(); onChange(); }),
+    !o.transparent ? U.field('배경', U.color(o.padBg, (v) => { o.padBg = v; onChange(); })) : null,
   ]));
 
   const status = U.el('div', { class: 'hint', text: '아직 확인하지 않았습니다.' });
-  container.appendChild(U.section('폰트 점검', false, [
-    U.fieldWide(U.el('button', {
+  panel.appendChild(group('폰트 점검', [
+    U.el('div', { class: 'field-row' }, [U.el('button', {
       class: 'btn btn-ghost btn-sm', type: 'button', text: '외부 폰트 읽을 수 있는지 확인',
       onClick: async () => {
         status.textContent = '확인 중…';
@@ -164,10 +174,16 @@ export function buildSettings(container, onChange) {
           status.style.whiteSpace = 'pre-wrap';
         }
       },
-    })),
-    U.fieldWide(status),
-    U.fieldWide(U.el('div', { class: 'hint', text: 'Google Fonts · jsDelivr · unpkg 는 문제없이 캡쳐됩니다. 그 밖의 주소는 서버 설정에 따라 빠질 수 있습니다.' })),
+    })]),
+    status,
+    U.el('div', { class: 'hint', text: 'Google Fonts · jsDelivr · unpkg 는 문제없이 캡쳐됩니다. 그 밖의 주소는 서버 설정에 따라 빠질 수 있습니다.' }),
   ]));
+
+  container.appendChild(panel);
+}
+
+export function resetSettings() {
+  Object.assign(state.html.opts, JSON.parse(JSON.stringify(DEFAULT_HTML)));
 }
 
 export function bindEditor(onChange) {

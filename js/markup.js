@@ -2,14 +2,14 @@
 
    줄 단위
      # 제목            ## 부제목
-     > 인용구          (연속된 줄은 하나로 묶인다)
-     ```제목           코드블럭 시작 — 제목은 생략 가능
-     ```               코드블럭 끝
+     > 인용구          >2 인용구  (숫자는 색 슬롯 번호)
+     ```제목           코드블럭 — 어두운 상자
+     ```               제목 없이 열고 안에 HTML/CSS 가 있으면 뷰어로 그린다
      ---               구분선
      ===               분할선 (자동 서식과 무관하게 항상 동작)
 
    줄 안에서
-     **굵게**   *행동지문*   _기울임_   "대사"   (괄호)
+     **굵게**   *행동지문*   _기울임_   "대사"   (괄호)   ==형광펜==
      {c1 텍스트}       색 슬롯 1~5. 자동 서식보다 우선한다.
 
    생성하는 태그의 속성은 모두 홑따옴표로 감싼다.
@@ -19,10 +19,11 @@ export const SPLIT_MARK = '===';
 
 const isSplitLine = (t) => /^={3,}$/.test(t);
 const isFence = (t) => /^```/.test(t);
+const looksLikeHtml = (s) => /<[a-z][^>]*>/i.test(s);
 
 export const DEFAULT_FORMATS = {
   bold: true, action: true, italic: true, quote: true, paren: true,
-  divider: true, heading: true, blockquote: true, code: true,
+  highlight: true, divider: true, heading: true, blockquote: true, code: true,
 };
 
 function esc(s) {
@@ -35,6 +36,7 @@ function inline(raw, f) {
   // 색 슬롯을 가장 먼저. 안쪽 내용은 아래 규칙들이 이어서 훑는다.
   s = s.replace(/\{c([1-5])\s+([^{}]*)\}/g, (_m, n, inner) => `<span class='mk-c${n}'>${inner}</span>`);
 
+  if (f.highlight) s = s.replace(/==([^=]+)==/g, "<mark class='mk-hl'>$1</mark>");
   if (f.quote)  s = s.replace(/(["“])([^"“”]+)(["”])/g, "<span class='mk-quote'>$1$2$3</span>");
   if (f.bold)   s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   if (f.action) s = s.replace(/\*([^*]+)\*/g, "<span class='mk-action'>$1</span>");
@@ -44,9 +46,34 @@ function inline(raw, f) {
   return s;
 }
 
-function codeBlock(title, body) {
+/* 코드블럭 안 CSS 가 미리보기 전체로 새지 않도록 선택자 앞에 울타리를 두른다.
+   @media 안쪽까지는 손대지 않는다. */
+function scopeCss(css, scope) {
+  return css.replace(/(^|[};])\s*([^@{};]+)\{/g, (_m, pre, sel) => {
+    const s = sel.split(',')
+      .map((x) => {
+        const t = x.trim();
+        if (!t || /^(from|to|\d+%)$/.test(t)) return t;
+        return `${scope} ${t}`;
+      })
+      .join(', ');
+    return `${pre} ${s} {`;
+  });
+}
+
+let viewSeq = 0;
+
+function codeBox(title, body) {
   const head = title ? `<div class='mk-code-title'>${esc(title)}</div>` : '';
   return `<div class='mk-code'>${head}<div class='mk-code-body'>${esc(body)}</div></div>`;
+}
+
+function codeViewer(body) {
+  const id = `mkv${++viewSeq}`;
+  const styles = [];
+  const html = body.replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, (_m, css) => { styles.push(css); return ''; });
+  const scoped = styles.map((css) => scopeCss(css, `.${id}`)).join('\n');
+  return `<div class='mk-view ${id}'>${scoped ? `<style>${scoped}</style>` : ''}${html}</div>`;
 }
 
 export function splitChunks(source) {
@@ -77,17 +104,24 @@ export function renderChunk(chunk, f = DEFAULT_FORMATS) {
       i++;
       while (i < lines.length && !isFence(lines[i].trim())) { body.push(lines[i]); i++; }
       i++;                                   // 닫는 울타리
-      out.push(codeBlock(title, body.join('\n')));
+      const text = body.join('\n');
+      // 제목이 없고 안에 태그가 있으면 그려서 보여준다
+      out.push(!title && looksLikeHtml(text) ? codeViewer(text) : codeBox(title, text));
       continue;
     }
 
-    if (f.blockquote && /^>\s?/.test(t)) {
+    if (f.blockquote && /^>[1-5]?\s?/.test(t)) {
+      // 색 번호가 같은 줄끼리만 한 덩어리로 묶는다
+      const slotOf = (s) => (s.match(/^>([1-5])/) || [])[1] || '';
+      const slot = slotOf(t);
       const items = [];
-      while (i < lines.length && /^>\s?/.test(lines[i].trim())) {
-        items.push(`<p class='mk-p'>${inline(lines[i].trim().replace(/^>\s?/, ''), f)}</p>`);
+      while (i < lines.length) {
+        const cur = lines[i].trim();
+        if (!/^>[1-5]?\s?/.test(cur) || slotOf(cur) !== slot) break;
+        items.push(`<p class='mk-p'>${inline(cur.replace(/^>[1-5]?\s?/, ''), f)}</p>`);
         i++;
       }
-      out.push(`<blockquote class='mk-bq'>${items.join('')}</blockquote>`);
+      out.push(`<blockquote class='mk-bq${slot ? ` mk-bq${slot}` : ''}'>${items.join('')}</blockquote>`);
       continue;
     }
 
@@ -121,8 +155,9 @@ export function stripMarkers(text) {
     .filter(l => !isFence(l.trim()) && !/^-{3,}$/.test(l.trim()))
     .map((line) => line
       .replace(/^\s*#{1,2}\s+/, '')
-      .replace(/^\s*>\s?/, '')
+      .replace(/^\s*>[1-5]?\s?/, '')
       .replace(/\{c[1-5]\s+([^{}]*)\}/g, '$1')
+      .replace(/==([^=]+)==/g, '$1')
       .replace(/\*\*([^*]+)\*\*/g, '$1')
       .replace(/\*([^*]+)\*/g, '$1')
       .replace(/_([^_]+)_/g, '$1'))

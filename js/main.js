@@ -4,6 +4,7 @@ import { state, loadAll, saveSoon, fontById } from './store.js';
 import * as TextTab from './text-tab.js';
 import * as HtmlTab from './html-tab.js';
 import { nodeToBlob, downloadMany, copyToClipboard } from './capture.js';
+import { ensureFont } from './fonts.js';
 import { toast } from './ui.js';
 
 const $ = (id) => document.getElementById(id);
@@ -149,13 +150,22 @@ async function doCopy() {
 }
 
 /* ── 탭 ─────────────────────────────────────── */
+function moveThumb() {
+  const active = document.querySelector('.toggle-opt.is-active');
+  if (!active) return;
+  const thumb = $('toggleThumb');
+  thumb.style.width = active.offsetWidth + 'px';
+  thumb.style.transform = `translateX(${active.offsetLeft}px)`;
+}
+
 function setTab(name) {
   state.tab = name;
-  document.querySelectorAll('.tab').forEach(t => {
+  document.querySelectorAll('.toggle-opt').forEach(t => {
     const on = t.dataset.tab === name;
     t.classList.toggle('is-active', on);
     t.setAttribute('aria-selected', String(on));
   });
+  moveThumb();
   document.querySelectorAll('.tabpane').forEach(p => p.classList.toggle('is-active', p.dataset.pane === name));
   $('splitSeg').hidden = name !== 'text';
   scheduleRender();
@@ -164,6 +174,7 @@ function setTab(name) {
 /* ── 시작 ───────────────────────────────────── */
 function boot() {
   loadAll();
+  ensureFont('pretendard');            // 화면 UI 용. 스테이지 폰트와 같은 파일을 쓴다.
 
   TextTab.bindEditor(scheduleRender);
   TextTab.buildSlotBar(scheduleRender);
@@ -171,7 +182,25 @@ function boot() {
   HtmlTab.bindEditor(scheduleRender);
   HtmlTab.buildSettings($('htmlSettings'), scheduleRender);
 
-  document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => setTab(t.dataset.tab)));
+  document.querySelectorAll('.toggle-opt').forEach(t => t.addEventListener('click', () => setTab(t.dataset.tab)));
+  // UI 폰트가 들어오면 글자 폭이 달라지므로 손잡이를 다시 맞춘다
+  document.fonts?.ready.then(moveThumb).catch(() => {});
+  window.addEventListener('resize', moveThumb);
+
+  $('resetBtn').addEventListener('click', () => {
+    const where = state.tab === 'text' ? '텍스트 발췌' : 'HTML';
+    if (!confirm(`${where} 설정을 전부 기본값으로 되돌릴까요? 써 둔 글은 그대로 남습니다.`)) return;
+    if (state.tab === 'text') {
+      TextTab.resetSettings();
+      TextTab.buildSlotBar(scheduleRender);
+      TextTab.buildSettings($('textSettings'), scheduleRender);
+    } else {
+      HtmlTab.resetSettings();
+      HtmlTab.buildSettings($('htmlSettings'), scheduleRender);
+    }
+    toast('설정을 기본값으로 되돌렸습니다');
+    scheduleRender();
+  });
 
   $('collapseBtn').addEventListener('click', () => {
     state.collapsed = !state.collapsed;
@@ -215,7 +244,8 @@ function boot() {
     else if (e.key === 'Enter') { e.preventDefault(); renderNow(); }
   });
 
-  renderNow();
+  // 탭 표시·손잡이 위치·첫 렌더를 한 경로로 처리한다
+  setTab(state.tab);
 }
 
 boot();

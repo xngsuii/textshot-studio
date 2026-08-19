@@ -40,6 +40,15 @@ export const FONTS = [
 
 export const fontById = (id) => FONTS.find(f => f.id === id) || FONTS[0];
 
+/* 캔버스 비율 — 세로/가로. 자동이면 글 길이만큼 늘어난다. */
+export const RATIOS = {
+  auto: null,
+  '1:1': 1,
+  a4: 297 / 210,
+  a5: 210 / 148,
+  b5: 250 / 176,
+};
+
 /* ── 기본 스타일 (= 기본 템플릿) ────────────── */
 export const DEFAULT_STYLE = {
   font: 'pretendard',
@@ -48,12 +57,18 @@ export const DEFAULT_STYLE = {
   letterSpacing: 0,
   align: 'left',
   paraGap: 10,
+  breakMode: 'word',            // word: 단어 단위 / char: 글자 단위
 
   width: 800,
+  ratio: 'auto',
   padTop: 56, padRight: 48, padBottom: 56, padLeft: 48,
   padLinked: false,
 
   bg: '#FFFFFF',
+  bgImage: '',                  // data URL
+  bgFit: 'cover',               // cover | contain | tile
+  bgOpacity: 100,
+
   fg: '#1A1A1A',
   actionColor: '#8A8F98',
   quoteColor: '#1F5D8C',
@@ -61,18 +76,25 @@ export const DEFAULT_STYLE = {
   dividerColor: '#D8D8D8',
   headingColor: '#111417',
   bqColor: '#14746F',
+  hlColor: '#FFE9A3',
   codeBg: '#23282D',
   codeFg: '#E6E9EC',
   codeTitleColor: '#8FA0AE',
-  // 「색1~색5」 버튼이 넣는 {c1 …} ~ {c5 …} 에 대응한다
-  colorSlots: ['#1F5D8C', '#8B3A4A', '#2F6B4F', '#8A5A2B', '#5B4B8A'],
+
+  // 「색」 버튼이 넣는 {c1 …} ~ {c5 …} 에 대응한다. 최대 5개.
+  slots: [
+    { name: '대사 A', color: '#1F5D8C' },
+    { name: '대사 B', color: '#8B3A4A' },
+  ],
   transparent: false,
 };
+
+export const MAX_SLOTS = 5;
 
 /* 자동 서식 — 항목별로 껐다 켠다. 템플릿에는 넣지 않는다. */
 export const DEFAULT_FORMATS = {
   bold: true, action: true, italic: true, quote: true, paren: true,
-  divider: true, heading: true, blockquote: true, code: true,
+  highlight: true, divider: true, heading: true, blockquote: true, code: true,
 };
 
 export const DEFAULT_OUTPUT = {
@@ -88,7 +110,7 @@ export const DEFAULT_HTML = {
   padOn: false,
   padTop: 24, padRight: 24, padBottom: 24, padLeft: 24, padLinked: true,
   padBg: '#FFFFFF',
-  transparent: false,
+  transparent: true,            // 코드가 정한 배경을 그대로 살리는 쪽이 기본
 };
 
 /* ── 상태 ───────────────────────────────────── */
@@ -96,6 +118,16 @@ const LS_DOC = 'textshot:doc:v1';
 const LS_TPL = 'textshot:templates:v1';
 
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
+
+/* 예전 버전은 색 슬롯이 색상 문자열 배열이었다. 이름을 가진 객체로 옮긴다. */
+export function normalizeSlots(raw) {
+  if (!Array.isArray(raw) || !raw.length) return clone(DEFAULT_STYLE.slots);
+  return raw.slice(0, MAX_SLOTS).map((s, i) => (
+    typeof s === 'string'
+      ? { name: `색${i + 1}`, color: s }
+      : { name: s?.name || `색${i + 1}`, color: s?.color || '#1F5D8C' }
+  ));
+}
 
 export const state = {
   tab: 'text',
@@ -133,9 +165,8 @@ export function loadAll() {
         }
         Object.assign(state.text.formats, d.text.formats || {});
         Object.assign(state.text.style, d.text.style || {});
-        if (!Array.isArray(state.text.style.colorSlots)) {
-          state.text.style.colorSlots = clone(DEFAULT_STYLE.colorSlots);
-        }
+        state.text.style.slots = normalizeSlots(state.text.style.slots ?? d.text.style?.colorSlots);
+        delete state.text.style.colorSlots;
       }
       if (d.html) {
         state.html.source = d.html.source ?? '';
