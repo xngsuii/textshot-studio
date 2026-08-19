@@ -9,6 +9,11 @@ import { ensureFont } from './fonts.js';
 import { initDrawer, initDrawerModes, isMobile } from './drawer.js';
 import { toast } from './ui.js';
 
+/* index.html 의 app-version 과 짝을 이룬다. 브라우저가 둘 중 하나만 새로
+   받으면 화면은 새것인데 동작은 옛것인 상태가 되어 원인 찾기가 어렵다.
+   어긋나면 하단에 알려 준다. 고칠 때 두 값을 같이 올릴 것. */
+const APP_VERSION = '8';
+
 const $ = (id) => document.getElementById(id);
 
 const host = () => $('stageHost');
@@ -328,6 +333,16 @@ function boot() {
     else if (e.key.toLowerCase() === 'c' && e.shiftKey) { e.preventDefault(); doCopy(); }
     else if (e.key === 'Enter') { e.preventDefault(); renderNow(); }
   });
+
+  // 화면과 코드가 서로 다른 판인지 확인해 둔다
+  const pageVer = document.querySelector('meta[name="app-version"]')?.content;
+  const verEl = $('appVersion');
+  if (pageVer && pageVer !== APP_VERSION) {
+    verEl.textContent = `옛 버전이 남아 있습니다 (화면 ${pageVer} · 코드 ${APP_VERSION}) — 새로고침하세요`;
+    verEl.classList.add('is-warn');
+  } else {
+    verEl.textContent = `v${APP_VERSION}`;
+  }
 
   initDrawer({ onChange: () => { if (state.zoom === 'fit') applyZoom(); } });
   initDrawerModes();

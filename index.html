@@ -12,8 +12,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- Pretendard 는 js/fonts.js 가 불러온다. dynamic-subset 판은 @font-face 가 300개 가까이라
      캡쳐할 때 그 폰트 조각을 전부 내려받느라 멈춘다. 통짜 variable 판 하나만 쓴다. -->
-<link rel="stylesheet" href="css/tokens.css">
-<link rel="stylesheet" href="css/app.css">
+<!-- ?v= 를 올리면 브라우저가 새로 받는다. js/main.js 의 APP_VERSION 과 같이 올릴 것 -->
+<link rel="stylesheet" href="css/tokens.css?v=8">
+<link rel="stylesheet" href="css/app.css?v=8">
+<meta name="app-version" content="8">
 <script src="vendor/jszip.min.js" defer></script>
 </head>
 <body>
@@ -153,6 +155,7 @@
       <span class="dims" id="dims">—</span>
       <span class="zoom-label" id="zoomLabel"></span>
       <span class="status-msg" id="statusMsg"></span>
+      <span class="app-version" id="appVersion"></span>
     </div>
   </section>
 
@@ -160,6 +163,6 @@
 
 <div class="toast" id="toast" hidden></div>
 
-<script type="module" src="js/main.js"></script>
+<script type="module" src="js/main.js?v=8"></script>
 </body>
 </html>

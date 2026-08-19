@@ -454,6 +454,12 @@ input[type="checkbox"] { accent-color: var(--accent); }
   font-variant-numeric: tabular-nums; color: var(--fg-3);
   font-size: 11.5px; flex: none;
 }
+.app-version {
+  margin-left: auto; flex: none;
+  font-size: 11px; color: var(--line-2);
+  font-variant-numeric: tabular-nums;
+}
+.app-version.is-warn { color: var(--danger); font-weight: 700; }
 .status-msg { color: var(--fg-3); }
 .status-msg.is-warn { color: var(--danger); }
 
