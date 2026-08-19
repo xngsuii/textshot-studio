@@ -6,7 +6,7 @@ import {
 } from './store.js';
 import {
   splitChunks, hasSplit, renderChunk, renderWithSplitMarks, stripMarkers,
-  imageOrder, reorderImageMarkers, removeImageMarker,
+  imageOrder, removeImageMarker,
 } from './markup.js';
 import { ensureFont, isAvailable } from './fonts.js';
 import { buildTemplateSection } from './templates.js';
@@ -254,61 +254,39 @@ function panelBody(container, onChange) {
 }
 
 /* 본문에 넣은 사진 — 순서는 글 안의 마커 순서를 그대로 따른다.
-   손잡이를 끌어 옮기면 마커 자리는 그대로 두고 어떤 사진이 어디에 놓일지만 바뀐다. */
+   자리를 옮기려면 편집기에서 [[img:…]] 줄을 옮기면 된다. 여기서는
+   크기와 빼기만 다룬다. */
 function photoList(container, onChange) {
   const rebuild = () => buildSettings(container, onChange);
-  const order = imageOrder(state.text.source);
   const byId = new Map(state.text.images.map(im => [im.id, im]));
-  const rows = order.map(id => byId.get(id)).filter(Boolean);
+  const rows = imageOrder(state.text.source).map(id => byId.get(id)).filter(Boolean);
 
-  const list = U.el('div', { class: 'photo-list' });
-  let dragFrom = null;
-
-  rows.forEach((im, idx) => {
-    const row = U.el('div', { class: 'photo-row', draggable: 'true' }, [
-      U.el('span', { class: 'photo-grip', text: '⋮⋮', title: '끌어서 순서 바꾸기' }),
-      (() => { const t = U.el('img', { class: 'photo-thumb', alt: '' }); t.src = im.data; return t; })(),
-      U.el('div', { class: 'photo-w' }, [
-        U.stepper(im.width ?? 100, {
-          min: 10, max: 100, step: 5, unit: '%',
-          onChange: (v) => { im.width = v; onChange(); },
-        }),
-      ]),
-      U.el('button', {
-        class: 'photo-x', type: 'button', text: '×', title: '사진 빼기',
-        onClick: () => {
-          state.text.source = removeImageMarker(state.text.source, im.id);
-          state.text.images = state.text.images.filter(x => x.id !== im.id);
-          srcEl().value = state.text.source;
-          rebuild(); onChange();
-        },
+  const list = U.el('div', { class: 'photo-list' }, rows.map((im, i) => U.el('div', { class: 'photo-row' }, [
+    U.el('span', { class: 'photo-no', text: String(i + 1) }),
+    (() => { const t = U.el('img', { class: 'photo-thumb', alt: '' }); t.src = im.data; return t; })(),
+    U.el('div', { class: 'photo-w' }, [
+      U.stepper(im.width ?? 100, {
+        min: 10, max: 100, step: 5, unit: '%',
+        onChange: (v) => { im.width = v; onChange(); },
       }),
-    ]);
-
-    row.addEventListener('dragstart', () => { dragFrom = idx; row.classList.add('is-dragging'); });
-    row.addEventListener('dragend', () => { dragFrom = null; row.classList.remove('is-dragging'); });
-    row.addEventListener('dragover', (e) => { e.preventDefault(); row.classList.add('is-over'); });
-    row.addEventListener('dragleave', () => row.classList.remove('is-over'));
-    row.addEventListener('drop', (e) => {
-      e.preventDefault();
-      row.classList.remove('is-over');
-      if (dragFrom === null || dragFrom === idx) return;
-      const next = order.slice();
-      next.splice(idx, 0, next.splice(dragFrom, 1)[0]);
-      state.text.source = reorderImageMarkers(state.text.source, next);
-      srcEl().value = state.text.source;
-      rebuild(); onChange();
-    });
-
-    list.appendChild(row);
-  });
+    ]),
+    U.el('button', {
+      class: 'photo-x', type: 'button', text: '×', title: '사진 빼기',
+      onClick: () => {
+        state.text.source = removeImageMarker(state.text.source, im.id);
+        state.text.images = state.text.images.filter(x => x.id !== im.id);
+        srcEl().value = state.text.source;
+        rebuild(); onChange();
+      },
+    }),
+  ])));
 
   return U.el('div', { style: 'display:flex;flex-direction:column;gap:8px' }, [
     rows.length ? list : U.el('div', { class: 'empty', text: '아직 넣은 사진이 없습니다.' }),
     U.el('div', { class: 'field-row' }, [
       U.el('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: '사진 넣기', onClick: () => pickImage(onChange, rebuild) }),
     ]),
-    U.el('div', { class: 'hint', text: '입력칸 위의 「사진」 버튼으로도 넣을 수 있습니다. 커서가 있는 자리에 들어갑니다.' }),
+    U.el('div', { class: 'hint', text: '자리를 옮기려면 편집기에서 [[img:…]] 줄을 원하는 곳으로 옮기세요.' }),
   ]);
 }
 

@@ -34,7 +34,8 @@
   /* metrics */
   --topbar-h: 52px;
   --bar-h: 46px;
-  --editor-w: 460px;
+  /* 설정 탭 6개가 같은 폭으로 나란히 들어갈 만큼은 되어야 한다 */
+  --editor-w: 500px;
   --r: 6px;
   --r-sm: 4px;
 
