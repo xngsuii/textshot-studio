@@ -13,9 +13,9 @@
 <!-- Pretendard 는 js/fonts.js 가 불러온다. dynamic-subset 판은 @font-face 가 300개 가까이라
      캡쳐할 때 그 폰트 조각을 전부 내려받느라 멈춘다. 통짜 variable 판 하나만 쓴다. -->
 <!-- ?v= 를 올리면 브라우저가 새로 받는다. js/main.js 의 APP_VERSION 과 같이 올릴 것 -->
-<link rel="stylesheet" href="css/tokens.css?v=8">
-<link rel="stylesheet" href="css/app.css?v=8">
-<meta name="app-version" content="8">
+<link rel="stylesheet" href="css/tokens.css?v=9">
+<link rel="stylesheet" href="css/app.css?v=9">
+<meta name="app-version" content="9">
 <script src="vendor/jszip.min.js" defer></script>
 </head>
 <body>
@@ -148,7 +148,10 @@
     </div>
 
     <div class="preview-scroll" id="previewScroll">
-      <div class="stage-host" id="stageHost"></div>
+      <!-- sizer 는 축소된 크기만큼만 자리를 차지해 스크롤 범위를 맞춘다 -->
+      <div class="stage-sizer" id="stageSizer">
+        <div class="stage-host" id="stageHost"></div>
+      </div>
     </div>
 
     <div class="preview-status">
@@ -163,6 +166,6 @@
 
 <div class="toast" id="toast" hidden></div>
 
-<script type="module" src="js/main.js?v=8"></script>
+<script type="module" src="js/main.js?v=9"></script>
 </body>
 </html>

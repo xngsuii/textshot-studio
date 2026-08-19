@@ -12,12 +12,29 @@ import { toast } from './ui.js';
 /* index.html 의 app-version 과 짝을 이룬다. 브라우저가 둘 중 하나만 새로
    받으면 화면은 새것인데 동작은 옛것인 상태가 되어 원인 찾기가 어렵다.
    어긋나면 하단에 알려 준다. 고칠 때 두 값을 같이 올릴 것. */
-const APP_VERSION = '8';
+const APP_VERSION = '9';
 
 const $ = (id) => document.getElementById(id);
 
 const host = () => $('stageHost');
+const sizer = () => $('stageSizer');
 const scroller = () => $('previewScroll');
+
+/* 지금 배율. transform 으로 줄이므로 DOM 에서 읽지 않고 여기에 들고 있는다. */
+let zoomLevel = 1;
+
+/* 화면에 보이는 것을 그대로 줄인다.
+   zoom 을 쓰면 레이아웃을 다시 계산해 글줄이 다시 접히지만,
+   transform 은 이미 그려진 것을 그대로 줄이므로 줄바꿈이 바뀌지 않는다. */
+function applyScale(z) {
+  const h = host();
+  zoomLevel = z;
+  h.style.transform = z === 1 ? '' : `scale(${z})`;
+  // transform 은 자리를 원래 크기대로 차지하므로 스크롤 범위를 따로 맞춰 준다
+  const s = sizer();
+  s.style.width = Math.ceil(h.offsetWidth * z) + 'px';
+  s.style.height = Math.ceil(h.offsetHeight * z) + 'px';
+}
 
 let renderTimer = null;
 
@@ -30,22 +47,22 @@ function setDims(w, h, count = 1) {
 
 function applyZoom() {
   const h = host();
-  if (state.zoom !== 'fit') { h.style.zoom = String(state.zoom); return; }
+  if (state.zoom !== 'fit') { applyScale(state.zoom); showZoom(state.zoom); return; }
 
   // 「맞춤」은 가로세로 모두 들어와야 한다. 너비만 맞추면 세로로 긴 글에서
   // 100% 와 다를 바가 없어진다. 모바일에서는 아래를 서랍이 덮으므로
   // 안쪽 여백을 빼고 재야 실제로 보이는 만큼에 맞는다.
-  h.style.zoom = '1';
+  applyScale(1);                        // 원래 크기를 재기 위해 잠시 되돌린다
   const box = scroller();
   const cs = getComputedStyle(box);
   const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
   const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
   const availW = (box.clientWidth - padX) * 0.96;
   const availH = (box.clientHeight - padY) * 0.98;
-  const natW = h.scrollWidth || 1;
-  const natH = h.scrollHeight || 1;
+  const natW = h.offsetWidth || 1;
+  const natH = h.offsetHeight || 1;
   const z = Math.min(1, availW / natW, availH / natH);
-  h.style.zoom = String(z);
+  applyScale(z);
   showZoom(z);
 }
 
@@ -67,7 +84,7 @@ function stepZoom(dir) {
 }
 
 function currentZoom() {
-  return parseFloat(host().style.zoom) || 1;
+  return zoomLevel;
 }
 
 function showZoom(z) {
@@ -78,7 +95,7 @@ function showZoom(z) {
 function setZoom(z) {
   const clamped = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
   state.zoom = clamped;
-  host().style.zoom = String(clamped);
+  applyScale(clamped);
   document.querySelectorAll('#zoomSeg .seg-btn').forEach((b) => {
     b.classList.toggle('is-active', parseFloat(b.dataset.zoom) === clamped);
   });
@@ -87,7 +104,7 @@ function setZoom(z) {
 
 async function renderNow() {
   host().classList.toggle('is-checker', state.checker);
-  host().style.zoom = '1';
+  applyScale(1);
 
   if (state.tab === 'text') {
     const stages = TextTab.renderPreview(host());
@@ -162,12 +179,13 @@ async function collectBlobs() {
   if (!shot) throw new Error('미리보기가 아직 준비되지 않았습니다');
   const o = state.html.opts;
   const background = (format !== 'png' && o.transparent) ? '#FFFFFF' : null;
-  const prevZoom = host().style.zoom;
-  host().style.zoom = '1';
+  // 축소된 상태 그대로 찍으면 크기가 어긋나므로 잠시 원래대로 돌린다
+  const prev = zoomLevel;
+  applyScale(1);
   try {
     const s = safeScale(shot, scale);
     return [await nodeToBlob(shot, { scale: s, format, quality, background, trim: o.trim })];
-  } finally { host().style.zoom = prevZoom; }
+  } finally { applyScale(prev); }
 }
 
 function busy(on, msg = '') {

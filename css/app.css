@@ -410,11 +410,15 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .seg-btn.is-active { background: var(--accent-soft); color: var(--accent-hi); font-weight: 600; }
 
 .preview-scroll { flex: 1 1 0; min-height: 0; overflow: auto; padding: 28px; }
+
+/* 축소는 transform 으로 한다. zoom 은 레이아웃을 다시 계산해서 글줄이
+   다시 접히지만, transform 은 이미 그려진 것을 그대로 줄인다.
+   대신 자리는 원래 크기대로 차지하므로 sizer 가 줄어든 만큼만 잡아 준다. */
+.stage-sizer { margin: 0 auto; }
 .stage-host {
   display: flex; align-items: flex-start; gap: 24px;
   width: max-content;
-  margin: 0 auto;          /* 미리보기를 가운데에 둔다 */
-  padding-bottom: 28px;
+  transform-origin: top left;
 }
 
 /* 캡쳐 대상 */
