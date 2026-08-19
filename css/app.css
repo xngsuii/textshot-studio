@@ -117,7 +117,7 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .fmt-clear { margin-left: auto; color: var(--fg-3); }
 .fmt-clear:hover { background: var(--danger-soft); color: var(--danger); }
 .fmt-note { font-size: 12px; color: var(--fg-3); }
-.s-action { color: #8A8F98; font-style: italic; }
+.s-action { color: #8A8F98; }
 .s-quote { color: #1F5D8C; }
 .s-hl { background: #FFE9A3; padding: 0 3px; border-radius: 2px; }
 
@@ -216,6 +216,22 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
   color: var(--fg-3); font-size: 15px; line-height: 1;
 }
 .photo-x:hover { background: var(--danger-soft); color: var(--danger); }
+
+/* 색상 격자 — 라벨을 위에 얹어 좁게 쓴다 */
+.ccell-grid { display: grid; gap: 8px 10px; }
+.ccell-grid.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ccell-grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ccell { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ccell-l { font-size: 11px; color: var(--fg-2); }
+/* 색상코드는 딱 필요한 만큼만 차지한다 */
+.hex-input {
+  flex: 0 0 82px; min-width: 0;
+  padding: 0 5px; font-size: 11.5px;
+  font-family: var(--mono); text-align: center;
+}
+/* 격자 안에서는 남는 자리를 색상 막대가 가져간다 */
+.ccell .field-row { gap: 4px; }
+.ccell .field-row input[type="color"] { flex: 1 1 auto; width: auto; min-width: 30px; }
 
 /* 색 슬롯 편집 행 */
 .slot-row { display: grid; grid-template-columns: 16px 1fr auto auto; align-items: center; gap: 6px; }
@@ -371,7 +387,8 @@ input[type="checkbox"] { accent-color: var(--accent); }
 /* ─── rendered markup (캡쳐되는 내용) ─────────── */
 .mk-p { margin: 0; }
 .mk-blank { height: .9em; }
-.mk-action { color: var(--c-action, #8A8F98); font-style: italic; }
+/* 행동지문은 색만 바꾼다. 기울임은 _글자_ 로 따로 준다. */
+.mk-action { color: var(--c-action, #8A8F98); }
 .mk-quote  { color: var(--c-quote, #1F5D8C); }
 .mk-paren  { color: var(--c-paren, #B0B4B8); }
 .mk-divider {

@@ -361,14 +361,16 @@ function panelColor(container, onChange) {
 
   return U.el('div', { class: 'panel' }, [
     group('본문', [
-      U.field('글자', U.color(st.fg, (v) => { st.fg = v; touch(); })),
-      U.field('제목', U.color(st.headingColor, (v) => { st.headingColor = v; touch(); })),
-      U.field('행동지문', U.color(st.actionColor, (v) => { st.actionColor = v; touch(); })),
-      U.field('대사', U.color(st.quoteColor, (v) => { st.quoteColor = v; touch(); })),
-      U.field('괄호', U.color(st.parenColor, (v) => { st.parenColor = v; touch(); })),
-      U.field('형광펜', U.color(st.hlColor, (v) => { st.hlColor = v; touch(); })),
-      U.field('인용구', U.color(st.bqColor, (v) => { st.bqColor = v; touch(); })),
-      U.field('구분선', U.color(st.dividerColor, (v) => { st.dividerColor = v; touch(); })),
+      U.colorGrid(2, [
+        U.colorCell('글자', st.fg, (v) => { st.fg = v; touch(); }),
+        U.colorCell('제목', st.headingColor, (v) => { st.headingColor = v; touch(); }),
+        U.colorCell('행동지문', st.actionColor, (v) => { st.actionColor = v; touch(); }),
+        U.colorCell('대사', st.quoteColor, (v) => { st.quoteColor = v; touch(); }),
+        U.colorCell('괄호', st.parenColor, (v) => { st.parenColor = v; touch(); }),
+        U.colorCell('형광펜', st.hlColor, (v) => { st.hlColor = v; touch(); }),
+        U.colorCell('인용구', st.bqColor, (v) => { st.bqColor = v; touch(); }),
+        U.colorCell('구분선', st.dividerColor, (v) => { st.dividerColor = v; touch(); }),
+      ]),
     ]),
     group('색 슬롯', [
       ...slotRows,
@@ -387,9 +389,11 @@ function panelColor(container, onChange) {
       U.el('div', { class: 'hint', text: '입력칸 위에 이 이름으로 버튼이 생깁니다. 인용구도 > 뒤에 번호를 붙이면 (>2) 그 슬롯 색을 씁니다.' }),
     ]),
     group('코드블럭', [
-      U.field('배경', U.color(st.codeBg, (v) => { st.codeBg = v; touch(); })),
-      U.field('글자', U.color(st.codeFg, (v) => { st.codeFg = v; touch(); })),
-      U.field('제목', U.color(st.codeTitleColor, (v) => { st.codeTitleColor = v; touch(); })),
+      U.colorGrid(3, [
+        U.colorCell('배경', st.codeBg, (v) => { st.codeBg = v; touch(); }),
+        U.colorCell('글자', st.codeFg, (v) => { st.codeFg = v; touch(); }),
+        U.colorCell('제목', st.codeTitleColor, (v) => { st.codeTitleColor = v; touch(); }),
+      ]),
     ]),
   ]);
 }

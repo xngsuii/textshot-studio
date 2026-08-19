@@ -87,7 +87,7 @@ export function stepper(value, { min, max, step = 1, decimals = 0, unit = '', on
 export function color(value, onChange) {
   const swatch = el('input', { type: 'color', value, onInput: (e) => { hex.value = e.target.value; onChange(e.target.value); } });
   const hex = el('input', {
-    type: 'text', value,
+    type: 'text', value, class: 'hex-input',
     onChange: (e) => {
       const v = e.target.value.trim();
       if (/^#[0-9a-f]{6}$/i.test(v)) { swatch.value = v; onChange(v); }
@@ -95,6 +95,18 @@ export function color(value, onChange) {
     },
   });
   return el('div', { class: 'field-row' }, [swatch, hex]);
+}
+
+/* 라벨을 위에 얹은 좁은 색상 칸. 여러 개를 격자로 늘어놓을 때 쓴다. */
+export function colorCell(label, value, onChange) {
+  return el('div', { class: 'ccell' }, [
+    el('span', { class: 'ccell-l', text: label }),
+    color(value, onChange),
+  ]);
+}
+
+export function colorGrid(cols, cells) {
+  return el('div', { class: `ccell-grid cols-${cols}` }, cells);
 }
 
 export function select(value, options, onChange) {
