@@ -62,25 +62,32 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 }
 
 .save-hint { font-size: 12px; color: var(--fg-3); }
+.save-hint.is-warn { color: var(--danger); font-weight: 600; }
 
 /* ─── workspace ─────────────────────────────── */
+/* grid-template-columns 는 transition 을 걸어도 중간값 없이 툭 끊긴다.
+   (사용자 속성으로 우회해도 마찬가지다.) 자리 배분을 flex 로 두고
+   편집기의 width 를 움직이면 확실하게 미끄러진다. */
 .workspace {
   height: calc(100vh - var(--topbar-h));
-  display: grid;
-  grid-template-columns: var(--editor-w) 1fr;
+  display: flex;
   min-height: 0;
 }
-.workspace.is-collapsed { grid-template-columns: 0 1fr; }
 
 /* ─── editor pane ───────────────────────────── */
 .pane-editor {
+  width: var(--editor-w);
+  flex: none;
   border-right: 1px solid var(--line);
   background: var(--bg-panel);
   display: flex; flex-direction: column;
   min-width: 0; overflow: hidden;
+  transition: width .3s cubic-bezier(.4, 0, .2, 1);
 }
-.workspace.is-collapsed .pane-editor { border-right: 0; }
-.tabpane { display: none; flex: 1; min-height: 0; flex-direction: column; }
+.workspace.is-collapsed .pane-editor { width: 0; border-right: 0; }
+@media (prefers-reduced-motion: reduce) { .pane-editor { transition: none; } }
+/* 접히는 동안 안쪽이 다시 흐르지 않도록 폭을 고정해 둔다 */
+.tabpane { display: none; flex: 1; min-height: 0; width: var(--editor-w); flex-direction: column; }
 .tabpane.is-active { display: flex; }
 
 /* format bar — 입력칸 바로 위 */
@@ -186,6 +193,33 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
   padding: 1px 6px; border-radius: 3px;
 }
 
+/* 본문 사진 목록 */
+.photo-list { display: flex; flex-direction: column; gap: 5px; }
+.photo-row {
+  display: grid; grid-template-columns: 16px 40px minmax(0, 1fr) 22px;
+  align-items: center; gap: 7px;
+  padding: 5px 6px;
+  border: 1px solid var(--line); border-radius: var(--r-sm);
+  background: var(--bg);
+}
+.photo-row.is-dragging { opacity: .4; }
+.photo-row.is-over { border-color: var(--accent); background: var(--accent-soft); }
+.photo-grip {
+  cursor: grab; color: var(--fg-3); font-size: 11px;
+  letter-spacing: -2px; text-align: center; user-select: none;
+}
+.photo-grip:active { cursor: grabbing; }
+.photo-thumb {
+  width: 40px; height: 30px; object-fit: cover;
+  border-radius: 3px; background: var(--bg-sunken);
+}
+.photo-w .stepper { width: 100%; }
+.photo-x {
+  width: 22px; height: 22px; border-radius: var(--r-sm);
+  color: var(--fg-3); font-size: 15px; line-height: 1;
+}
+.photo-x:hover { background: var(--danger-soft); color: var(--danger); }
+
 /* 색 슬롯 편집 행 */
 .slot-row { display: grid; grid-template-columns: 16px 1fr auto auto; align-items: center; gap: 6px; }
 .slot-no {
@@ -193,10 +227,13 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
   font-family: var(--mono); text-align: center;
 }
 
-.field { display: grid; grid-template-columns: 84px 1fr; align-items: center; gap: 10px; }
+/* 라벨 폭과 조작부 폭을 모든 줄에서 똑같이 맞춘다 */
+.field { display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; gap: 10px; }
 .field > label { font-size: 12px; color: var(--fg-2); }
-.field-wide { grid-template-columns: 1fr; }
+.field > :last-child { width: 100%; min-width: 0; }
+.field-wide { grid-template-columns: minmax(0, 1fr); }
 .field-row { display: flex; align-items: center; gap: 6px; }
+.field-row > input[type="text"] { min-width: 0; }
 
 input[type="text"], input[type="number"], select {
   height: 28px; width: 100%; min-width: 0;
@@ -237,10 +274,24 @@ input[type="checkbox"] { accent-color: var(--accent); }
   font-variant-numeric: tabular-nums;
 }
 
-.seg-inline { display: flex; border: 1px solid var(--line-strong); border-radius: var(--r-sm); overflow: hidden; }
-.seg-inline button { flex: 1; height: 26px; font-size: 12px; color: var(--fg-2); }
-.seg-inline button + button { border-left: 1px solid var(--line-strong); }
-.seg-inline button.is-active { background: var(--accent-soft); color: var(--accent-hi); font-weight: 600; }
+/* 설정 안의 선택 버튼 — 고른 것이 진하게 채워진다 */
+.seg-inline {
+  display: flex; width: 100%;
+  border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+  overflow: hidden; background: var(--bg);
+}
+.seg-inline button {
+  flex: 1 1 0; min-width: 0; height: 28px;
+  font-size: 12px; color: var(--fg-2);
+  transition: background .14s, color .14s;
+}
+.seg-inline button + button { border-left: 1px solid var(--line); }
+.seg-inline button:hover { background: var(--bg-hover); color: var(--fg); }
+.seg-inline button.is-active {
+  background: var(--fg); color: #fff; font-weight: 600;
+}
+.seg-inline button.is-active:hover { background: var(--fg); color: #fff; }
+@media (prefers-reduced-motion: reduce) { .seg-inline button { transition: none; } }
 
 .pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .pad-cell { display: flex; flex-direction: column; gap: 2px; }
@@ -266,7 +317,7 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .hint-warn { color: var(--danger); }
 
 /* ─── preview pane ──────────────────────────── */
-.pane-preview { display: flex; flex-direction: column; min-width: 0; background: var(--bg-sunken); }
+.pane-preview { flex: 1 1 0; display: flex; flex-direction: column; min-width: 0; background: var(--bg-sunken); }
 
 .preview-bar {
   height: var(--bar-h); flex: none;
@@ -359,6 +410,13 @@ input[type="checkbox"] { accent-color: var(--accent); }
 
 /* 코드블럭을 그려서 보여줄 때 */
 .mk-view { text-align: left; }
+
+/* 본문에 넣은 사진 */
+.mk-img { display: block; max-width: 100%; height: auto; border-radius: 4px; }
+.mk-img-missing {
+  padding: .8em; border: 1px dashed currentColor; border-radius: 4px;
+  opacity: .5; font-size: .9em; text-align: center;
+}
 
 /* 배경 이미지 층 — 글보다 뒤에 깔린다 */
 .stage-bg { position: absolute; inset: 0; z-index: 0; pointer-events: none; }

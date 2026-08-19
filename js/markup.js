@@ -89,14 +89,28 @@ export function hasSplit(source) {
   return String(source).split(/\r?\n/).some(l => isSplitLine(l.trim()));
 }
 
-export function renderChunk(chunk, f = DEFAULT_FORMATS) {
+export const IMG_RE = /\[\[img:([a-z0-9]+)\]\]/g;
+const imgLine = (t) => (t.match(/^\[\[img:([a-z0-9]+)\]\]$/) || [])[1];
+
+export function renderChunk(chunk, f = DEFAULT_FORMATS, images = []) {
   const lines = String(chunk).split(/\r?\n/);
+  const byId = new Map(images.map(im => [im.id, im]));
   const out = [];
   let i = 0;
 
   while (i < lines.length) {
     const raw = lines[i];
     const t = raw.trim();
+
+    const imgId = imgLine(t);
+    if (imgId) {
+      const im = byId.get(imgId);
+      out.push(im
+        ? `<img class='mk-img' src="${im.data}" style='width:${im.width ?? 100}%' alt=''>`
+        : "<div class='mk-img-missing'>사진을 찾을 수 없습니다</div>");
+      i++;
+      continue;
+    }
 
     if (f.code && isFence(t)) {
       const title = t.slice(3).trim();
@@ -141,10 +155,28 @@ export function renderChunk(chunk, f = DEFAULT_FORMATS) {
   return out.join('');
 }
 
-export function renderWithSplitMarks(source, f) {
+export function renderWithSplitMarks(source, f, images = []) {
   return splitChunks(source)
-    .map(c => renderChunk(c, f))
+    .map(c => renderChunk(c, f, images))
     .join('<div class="mk-splitline-wrap"><hr class="mk-splitline"><span>분할</span><hr class="mk-splitline"></div>');
+}
+
+/* 본문에 박힌 사진 마커를 나온 순서대로 돌려준다 */
+export function imageOrder(source) {
+  return [...String(source).matchAll(IMG_RE)].map(m => m[1]);
+}
+
+/* 자리는 그대로 두고 어떤 사진이 어디에 놓일지만 바꾼다 */
+export function reorderImageMarkers(source, order) {
+  let i = 0;
+  return String(source).replace(IMG_RE, () => `[[img:${order[i++]}]]`);
+}
+
+export function removeImageMarker(source, id) {
+  return String(source)
+    .split(/\r?\n/)
+    .filter(l => l.trim() !== `[[img:${id}]]`)
+    .join('\n');
 }
 
 /* 서식 지우기 — 마커만 걷어내고 글은 그대로 둔다.

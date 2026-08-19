@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>textshot studio</title>
 <meta name="description" content="텍스트와 HTML을 이미지로 발췌하는 개인용 도구">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✂️</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- Pretendard 는 js/fonts.js 가 불러온다. dynamic-subset 판은 @font-face 가 300개 가까이라
@@ -18,7 +18,7 @@
 
 <header class="topbar">
   <div class="brand">
-    <span class="brand-mark">✂</span>
+    <span class="brand-mark">🎬</span>
     <span class="brand-name">textshot<span class="brand-thin"> studio</span></span>
   </div>
   <span class="save-hint" id="saveHint"></span>
@@ -55,6 +55,7 @@
             <button class="fmt-btn" data-prefix="## " title="부제목">부제목</button>
             <button class="fmt-btn" data-prefix="&gt; " title="인용구">인용</button>
             <button class="fmt-btn" data-fence="1" title="코드블럭">코드블럭</button>
+            <button class="fmt-btn" id="insertImage" title="커서 자리에 사진을 넣습니다">사진</button>
           </div>
           <div class="fmt-group">
             <button class="fmt-btn" data-line="---" title="구분선">— 구분선</button>

@@ -24,11 +24,16 @@ function setDims(w, h, count = 1) {
 function applyZoom() {
   const h = host();
   if (state.zoom !== 'fit') { h.style.zoom = String(state.zoom); return; }
-  // 패널을 꽉 채우지 않고 조금 여유를 둔다.
-  const avail = (scroller().clientWidth - 56) * 0.88;
+
+  // 「맞춤」은 가로세로 모두 들어와야 한다. 너비만 맞추면 세로로 긴 글에서
+  // 100% 와 다를 바가 없어진다.
   h.style.zoom = '1';
-  const natural = h.scrollWidth || 1;
-  h.style.zoom = String(Math.min(1, avail / natural));
+  const box = scroller();
+  const availW = (box.clientWidth - 56) * 0.92;
+  const availH = (box.clientHeight - 56) * 0.98;
+  const natW = h.scrollWidth || 1;
+  const natH = h.scrollHeight || 1;
+  h.style.zoom = String(Math.min(1, availW / natW, availH / natH));
 }
 
 async function renderNow() {
@@ -56,8 +61,15 @@ async function renderNow() {
 function scheduleRender() {
   clearTimeout(renderTimer);
   renderTimer = setTimeout(renderNow, 220);
-  saveSoon(() => {
+  saveSoon((err) => {
     const hint = $('saveHint');
+    if (err) {
+      // 사진을 여러 장 넣으면 브라우저 저장 한도를 넘긴다
+      hint.textContent = '자동 저장 안 됨 — 사진 용량 초과';
+      hint.classList.add('is-warn');
+      return;
+    }
+    hint.classList.remove('is-warn');
     hint.textContent = '저장됨';
     setTimeout(() => { hint.textContent = ''; }, 1200);
   });

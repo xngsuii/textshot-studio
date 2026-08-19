@@ -38,26 +38,33 @@ export function ensureFont(id) {
   document.head.appendChild(style);
 }
 
-/* 실제로 글리프가 나오는지 확인 — 로컬 폰트 파일 누락을 잡아낸다.
-   방금 넣은 @font-face 가 아직 파싱되지 않았을 수 있어 몇 번 다시 본다. */
+/* 폰트 파일이 자리에 있는지만 본다.
+   document.fonts.load 로 확인하면 @font-face 가 등록된 폰트만 잡히고,
+   등록 안 된 나머지는 전부 없는 것으로 나온다. 게다가 확인하자고
+   수 MB 짜리 파일을 내려받게 된다. 파일 머리만 물어보는 편이 정확하고 싸다. */
+const availCache = new Map();
+
 export async function isAvailable(id) {
   const f = fontById(id);
   if (f.source === 'cdn') return true;
-  const family = f.stack.split(',')[0].replace(/["']/g, '').trim();
-  const q = `400 16px "${family}"`;
+  if (availCache.has(id)) return availCache.get(id);
 
-  for (let i = 0; i < 4; i++) {
-    try {
-      const faces = await document.fonts.load(q, '가');
-      if (faces.length && document.fonts.check(q, '가')) return true;
-    } catch { /* 파일이 없으면 여기로 온다 */ }
-    await new Promise(r => setTimeout(r, 120));
-  }
-  return false;
-}
+  const probe = (async () => {
+    for (const [path] of f.files) {
+      for (const ext of ['woff2', 'woff']) {
+        try {
+          const r = await fetch(`${path}.${ext}`, { method: 'HEAD' });
+          if (r.ok) return true;
+        } catch { /* 다음 후보로 */ }
+      }
+    }
+    return false;
+  })();
 
-export function missingLocalFonts() {
-  return FONTS.filter(f => f.source === 'local');
+  availCache.set(id, probe);
+  const ok = await probe;
+  availCache.set(id, ok);
+  return ok;
 }
 
 /* 캡쳐 직전에 반드시 부른다. 폰트가 준비되기 전에 찍으면 대체 폰트로 나간다. */

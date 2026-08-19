@@ -2,9 +2,12 @@
 
 import {
   state, saveSoon, FONTS, fontById, DEFAULT_FORMATS, DEFAULT_STYLE,
-  DEFAULT_OUTPUT, RATIOS, MAX_SLOTS,
+  DEFAULT_OUTPUT, RATIOS, RATIO_ORDER, RATIO_LABEL, MAX_SLOTS,
 } from './store.js';
-import { splitChunks, hasSplit, renderChunk, renderWithSplitMarks, stripMarkers } from './markup.js';
+import {
+  splitChunks, hasSplit, renderChunk, renderWithSplitMarks, stripMarkers,
+  imageOrder, reorderImageMarkers, removeImageMarker,
+} from './markup.js';
 import { ensureFont, isAvailable } from './fonts.js';
 import { buildTemplateSection } from './templates.js';
 import * as U from './ui.js';
@@ -79,7 +82,8 @@ function makeStage(html) {
 
 export function buildExportStages() {
   const f = state.text.formats;
-  return splitChunks(state.text.source).map(c => makeStage(renderChunk(c, f)));
+  const im = state.text.images;
+  return splitChunks(state.text.source).map(c => makeStage(renderChunk(c, f, im)));
 }
 
 /* ── 미리보기 ───────────────────────────────── */
@@ -90,10 +94,11 @@ export function renderPreview(host) {
 
   document.getElementById('splitSeg').hidden = !split;
 
+  const im = state.text.images;
   host.textContent = '';
   const stages = (split && state.splitView === 'after')
-    ? splitChunks(src).map(c => makeStage(renderChunk(c, f)))
-    : [makeStage(split ? renderWithSplitMarks(src, f) : renderChunk(src, f))];
+    ? splitChunks(src).map(c => makeStage(renderChunk(c, f, im)))
+    : [makeStage(split ? renderWithSplitMarks(src, f, im) : renderChunk(src, f, im))];
 
   stages.forEach((s, i) => {
     const wrap = U.el('div', { class: 'stage-wrap' }, [s]);
@@ -131,10 +136,10 @@ const ICON = {
 };
 
 const SET_TABS = [
-  ['format', '자동 서식'],
   ['body', '본문·간격'],
   ['canvas', '캔버스'],
   ['color', '색상'],
+  ['format', '자동 서식'],
   ['output', '출력'],
   ['template', '템플릿'],
 ];
@@ -248,6 +253,65 @@ function panelBody(container, onChange) {
   ]);
 }
 
+/* 본문에 넣은 사진 — 순서는 글 안의 마커 순서를 그대로 따른다.
+   손잡이를 끌어 옮기면 마커 자리는 그대로 두고 어떤 사진이 어디에 놓일지만 바뀐다. */
+function photoList(container, onChange) {
+  const rebuild = () => buildSettings(container, onChange);
+  const order = imageOrder(state.text.source);
+  const byId = new Map(state.text.images.map(im => [im.id, im]));
+  const rows = order.map(id => byId.get(id)).filter(Boolean);
+
+  const list = U.el('div', { class: 'photo-list' });
+  let dragFrom = null;
+
+  rows.forEach((im, idx) => {
+    const row = U.el('div', { class: 'photo-row', draggable: 'true' }, [
+      U.el('span', { class: 'photo-grip', text: '⋮⋮', title: '끌어서 순서 바꾸기' }),
+      (() => { const t = U.el('img', { class: 'photo-thumb', alt: '' }); t.src = im.data; return t; })(),
+      U.el('div', { class: 'photo-w' }, [
+        U.stepper(im.width ?? 100, {
+          min: 10, max: 100, step: 5, unit: '%',
+          onChange: (v) => { im.width = v; onChange(); },
+        }),
+      ]),
+      U.el('button', {
+        class: 'photo-x', type: 'button', text: '×', title: '사진 빼기',
+        onClick: () => {
+          state.text.source = removeImageMarker(state.text.source, im.id);
+          state.text.images = state.text.images.filter(x => x.id !== im.id);
+          srcEl().value = state.text.source;
+          rebuild(); onChange();
+        },
+      }),
+    ]);
+
+    row.addEventListener('dragstart', () => { dragFrom = idx; row.classList.add('is-dragging'); });
+    row.addEventListener('dragend', () => { dragFrom = null; row.classList.remove('is-dragging'); });
+    row.addEventListener('dragover', (e) => { e.preventDefault(); row.classList.add('is-over'); });
+    row.addEventListener('dragleave', () => row.classList.remove('is-over'));
+    row.addEventListener('drop', (e) => {
+      e.preventDefault();
+      row.classList.remove('is-over');
+      if (dragFrom === null || dragFrom === idx) return;
+      const next = order.slice();
+      next.splice(idx, 0, next.splice(dragFrom, 1)[0]);
+      state.text.source = reorderImageMarkers(state.text.source, next);
+      srcEl().value = state.text.source;
+      rebuild(); onChange();
+    });
+
+    list.appendChild(row);
+  });
+
+  return U.el('div', { style: 'display:flex;flex-direction:column;gap:8px' }, [
+    rows.length ? list : U.el('div', { class: 'empty', text: '아직 넣은 사진이 없습니다.' }),
+    U.el('div', { class: 'field-row' }, [
+      U.el('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: '사진 넣기', onClick: () => pickImage(onChange, rebuild) }),
+    ]),
+    U.el('div', { class: 'hint', text: '입력칸 위의 「사진」 버튼으로도 넣을 수 있습니다. 커서가 있는 자리에 들어갑니다.' }),
+  ]);
+}
+
 /* 캔버스 */
 function panelCanvas(container, onChange) {
   const st = state.text.style;
@@ -270,11 +334,10 @@ function panelCanvas(container, onChange) {
   return U.el('div', { class: 'panel' }, [
     group('크기', [
       U.field('너비', U.stepper(st.width, { min: 200, max: 4000, step: 10, unit: 'px', onChange: (v) => { st.width = v; touch(); } })),
-      U.field('비율', U.select(st.ratio, [
-        ['auto', '자동 — 글 길이만큼'], ['1:1', '1 : 1'], ['a4', 'A4'], ['a5', 'A5'], ['b5', 'B5'],
-      ], (v) => { st.ratio = v; touch(); })),
+      U.field('비율', U.seg(st.ratio, RATIO_ORDER.map(r => [r, RATIO_LABEL[r] || r]), (v) => { st.ratio = v; touch(); })),
       U.el('div', { class: 'hint', text: '비율을 고르면 그 높이가 최소 높이가 됩니다. 글이 더 길면 잘리지 않고 아래로 늘어납니다.' }),
     ]),
+    group('본문 사진', [photoList(container, onChange)]),
     group('여백', [
       U.check('네 방향 동일', st.padLinked, (v) => { st.padLinked = v; }),
       U.padGrid(st, ['padTop', 'padRight', 'padBottom', 'padLeft'], () => st.padLinked, touch),
@@ -376,6 +439,38 @@ function panelTemplate(container, onChange) {
   return U.el('div', { class: 'panel' }, [tpl.node]);
 }
 
+/* ── 사진 넣기 ──────────────────────────────── */
+let pickerEl = null;
+
+export function pickImage(onChange, afterAdd) {
+  if (!pickerEl) {
+    pickerEl = U.el('input', { type: 'file', accept: 'image/*', style: 'display:none' });
+    document.body.appendChild(pickerEl);
+  }
+  pickerEl.onchange = () => {
+    const file = pickerEl.files?.[0];
+    pickerEl.value = '';
+    if (!file) return;
+    const fr = new FileReader();
+    fr.onload = () => {
+      const id = Math.random().toString(36).slice(2, 9);
+      state.text.images.push({ id, data: fr.result, width: 100 });
+
+      const ta = srcEl();
+      const pos = ta.selectionStart;
+      const before = ta.value.slice(0, pos);
+      const lead = before.length && !before.endsWith('\n') ? '\n' : '';
+      ta.setRangeText(`${lead}[[img:${id}]]\n`, pos, ta.selectionEnd, 'end');
+      state.text.source = ta.value;
+
+      afterAdd?.();
+      onChange();
+    };
+    fr.readAsDataURL(file);
+  };
+  pickerEl.click();
+}
+
 /* ── 설정 초기화 ────────────────────────────── */
 export function resetSettings() {
   Object.assign(state.text.style, clone(DEFAULT_STYLE));
@@ -459,6 +554,13 @@ export function bindEditor(onChange) {
   });
 
   document.querySelector('.fmt-btn[data-fence]').addEventListener('click', () => insertFence(onChange));
+
+  document.getElementById('insertImage').addEventListener('click', () => {
+    pickImage(onChange, () => {
+      srcEl().focus();
+      buildSettings(document.getElementById('textSettings'), onChange);
+    });
+  });
 
   document.querySelectorAll('.fmt-btn[data-line]').forEach((btn) => {
     btn.addEventListener('click', () => {

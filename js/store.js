@@ -40,14 +40,18 @@ export const FONTS = [
 
 export const fontById = (id) => FONTS.find(f => f.id === id) || FONTS[0];
 
-/* 캔버스 비율 — 세로/가로. 자동이면 글 길이만큼 늘어난다. */
+/* 캔버스 비율 — 값은 높이÷너비. 자동이면 글 길이만큼 늘어난다. */
 export const RATIOS = {
   auto: null,
+  '9:16': 16 / 9,
+  '4:5': 5 / 4,
   '1:1': 1,
-  a4: 297 / 210,
-  a5: 210 / 148,
-  b5: 250 / 176,
+  '5:4': 4 / 5,
+  '16:9': 9 / 16,
 };
+
+export const RATIO_ORDER = ['auto', '9:16', '4:5', '1:1', '5:4', '16:9'];
+export const RATIO_LABEL = { auto: '자동' };
 
 /* ── 기본 스타일 (= 기본 템플릿) ────────────── */
 export const DEFAULT_STYLE = {
@@ -140,6 +144,7 @@ export const state = {
     source: '',
     formats: clone(DEFAULT_FORMATS),
     style: clone(DEFAULT_STYLE),
+    images: [],          // { id, data, width }  본문에 [[img:id]] 로 자리를 잡는다
   },
   html: {
     source: '',
@@ -167,6 +172,9 @@ export function loadAll() {
         Object.assign(state.text.style, d.text.style || {});
         state.text.style.slots = normalizeSlots(state.text.style.slots ?? d.text.style?.colorSlots);
         delete state.text.style.colorSlots;
+        // A4·A5·B5 를 쓰던 설정은 자동으로 되돌린다
+        if (!(state.text.style.ratio in RATIOS)) state.text.style.ratio = 'auto';
+        state.text.images = Array.isArray(d.text.images) ? d.text.images : [];
       }
       if (d.html) {
         state.html.source = d.html.source ?? '';
@@ -184,7 +192,7 @@ export function loadAll() {
 }
 
 let saveTimer = null;
-export function saveSoon(onSaved) {
+export function saveSoon(onDone) {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     try {
@@ -192,8 +200,12 @@ export function saveSoon(onSaved) {
         text: state.text, html: state.html,
         output: state.output, activeTemplate: state.activeTemplate,
       }));
-      onSaved?.();
-    } catch (e) { console.warn('자동 저장 실패', e); }
+      onDone?.(null);
+    } catch (e) {
+      // 사진을 넣으면 브라우저 저장 한도(대개 5MB)를 넘기기 쉽다
+      console.warn('자동 저장 실패', e);
+      onDone?.(e);
+    }
   }, 400);
 }
 
