@@ -43,8 +43,11 @@ function applyStyle(stage) {
     overflowWrap: st.breakMode === 'char' ? 'break-word' : 'anywhere',
   });
 
+  // 비율을 정하면 남는 세로 공간이 생긴다. 글을 위에 붙이지 않고 가운데 둔다.
+  // (가로 정렬은 textAlign 그대로) 글이 더 길면 캔버스가 늘어나 영향이 없다.
   const r = RATIOS[st.ratio];
   stage.style.minHeight = r ? Math.round(st.width * r) + 'px' : '';
+  stage.style.justifyContent = r ? 'center' : '';
 
   const v = {
     '--c-action': st.actionColor,

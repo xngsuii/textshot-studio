@@ -421,6 +421,11 @@ input[type="checkbox"] { accent-color: var(--accent); }
   box-shadow: var(--shadow-2);
   overflow: hidden;
   position: relative;
+  /* 사파리는 블록 폭이 화면보다 훨씬 넓으면 읽기 쉬우라고 글자를 제멋대로
+     키운다(text autosizing). 캔버스는 지정한 크기 그대로 나와야 하므로
+     상속에 맡기지 않고 여기에 못 박는다. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 .stage-wrap { position: relative; flex: none; }
 .stage-label {
