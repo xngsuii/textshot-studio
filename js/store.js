@@ -27,14 +27,15 @@ export const FONTS = [
     css: 'https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&display=swap',
   },
   // ─ 아래 넷은 CDN에 없어 폰트 파일을 직접 넣어야 함 (assets/fonts/README.md 참고)
+  //   files 의 경로는 확장자를 뺀 것. woff2 를 먼저 찾고 없으면 woff 로 넘어간다.
   { id: 'maruburi',  label: '마루 부리',     source: 'local', stack: '"MaruBuri", serif',
-    files: [['assets/fonts/MaruBuri-Regular.woff2', 400], ['assets/fonts/MaruBuri-Bold.woff2', 700]] },
+    files: [['assets/fonts/MaruBuri-Regular', 400], ['assets/fonts/MaruBuri-Bold', 700]] },
   { id: 'kopub-dotum', label: 'KoPub 돋움',  source: 'local', stack: '"KoPubWorldDotum", sans-serif',
-    files: [['assets/fonts/KoPubWorldDotum-Medium.woff2', 400], ['assets/fonts/KoPubWorldDotum-Bold.woff2', 700]] },
+    files: [['assets/fonts/KoPubWorldDotum-Medium', 400], ['assets/fonts/KoPubWorldDotum-Bold', 700]] },
   { id: 'kopub-batang', label: 'KoPub 바탕', source: 'local', stack: '"KoPubWorldBatang", serif',
-    files: [['assets/fonts/KoPubWorldBatang-Medium.woff2', 400], ['assets/fonts/KoPubWorldBatang-Bold.woff2', 700]] },
+    files: [['assets/fonts/KoPubWorldBatang-Medium', 400], ['assets/fonts/KoPubWorldBatang-Bold', 700]] },
   { id: 'chosun', label: '조선일보명조',      source: 'local', stack: '"ChosunilboNM", serif',
-    files: [['assets/fonts/ChosunilboNM.woff2', 400]] },
+    files: [['assets/fonts/ChosunilboNM', 400]] },
 ];
 
 export const fontById = (id) => FONTS.find(f => f.id === id) || FONTS[0];

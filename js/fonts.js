@@ -23,10 +23,13 @@ export function ensureFont(id) {
   }
 
   const family = f.stack.split(',')[0].replace(/["']/g, '').trim();
-  const css = f.files.map(([url, weight]) => `
+  // woff2 를 먼저 시도하고 파일이 없으면 브라우저가 알아서 다음 줄로 넘어간다.
+  // 어느 형식을 넣든 동작하되, 용량이 작은 woff2 가 우선이다.
+  const css = f.files.map(([path, weight]) => `
 @font-face {
   font-family: "${family}";
-  src: url("${url}") format("woff2");
+  src: url("${path}.woff2") format("woff2"),
+       url("${path}.woff")  format("woff");
   font-weight: ${weight};
   font-display: swap;
 }`).join('\n');

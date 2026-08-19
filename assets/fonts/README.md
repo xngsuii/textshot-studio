@@ -7,17 +7,29 @@ CDN에 없는 폰트는 여기에 `.woff2` 파일을 직접 넣어야 목록에�
 
 정확히 이 이름으로 넣을 것. (`js/store.js`의 `FONTS`와 맞춰져 있다.)
 
-| 폰트 | 파일 이름 | 받는 곳 |
+확장자는 **`.woff2`를 권하지만 `.woff`도 된다.** woff2를 먼저 찾고 없으면 woff로 넘어간다.
+
+| 폰트 | 파일 이름 (확장자 제외) | 받는 곳 |
 |---|---|---|
-| 마루 부리 | `MaruBuri-Regular.woff2`, `MaruBuri-Bold.woff2` | 네이버 클로바 나눔글꼴 배포 페이지 |
-| KoPub 돋움 | `KoPubWorldDotum-Medium.woff2`, `KoPubWorldDotum-Bold.woff2` | 한국출판인회의 |
-| KoPub 바탕 | `KoPubWorldBatang-Medium.woff2`, `KoPubWorldBatang-Bold.woff2` | 한국출판인회의 |
-| 조선일보명조 | `ChosunilboNM.woff2` | 조선일보 |
+| 마루 부리 | `MaruBuri-Regular`, `MaruBuri-Bold` | 네이버 나눔글꼴 배포 페이지 |
+| KoPub 돋움 | `KoPubWorldDotum-Medium`, `KoPubWorldDotum-Bold` | 한국출판인회의 |
+| KoPub 바탕 | `KoPubWorldBatang-Medium`, `KoPubWorldBatang-Bold` | 한국출판인회의 |
+| 조선일보명조 | `ChosunilboNM` | 조선일보 |
+
+## 왜 woff2인가
+
+한글 폰트는 글자 수가 많아 원본이 무겁다. 같은 폰트라도 형식에 따라 용량이 크게 갈린다.
+
+| 형식 | 대략 |
+|---|---|
+| ttf / otf | 4~8MB |
+| woff | 3~5MB |
+| woff2 | 1.5~3MB |
 
 ## ttf/otf를 woff2로 바꾸기
 
-내려받은 파일이 `.ttf`나 `.otf`라면 변환해야 한다. 웹 변환기(예: cloudconvert, transfonter)에 넣고
-woff2로 받으면 된다. 용량이 1/3 정도로 줄어든다.
+내려받은 파일이 `.ttf`나 `.otf`라면 변환해야 한다. 웹 변환기(transfonter, cloudconvert 등)에 넣고
+woff2로 받으면 된다. transfonter는 한글만 남기는 서브셋 기능도 있어 용량을 더 줄일 수 있다.
 
 ## 라이선스
 
