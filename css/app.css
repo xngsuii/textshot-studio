@@ -664,16 +664,19 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
   }
   .src-code { font-size: 15px; }
 
-  /* 도구막대는 줄바꿈 대신 가로 스크롤 */
-  .fmt-bar { padding: 6px 10px; gap: 4px; }
-  .fmt-row {
-    flex-wrap: nowrap; overflow-x: auto;
-    scrollbar-width: none; padding-bottom: 1px;
+  /* 도구막대 — 세 줄을 한 줄로 이어 붙이고 통째로 옆으로 흘린다.
+     키보드가 뜨면 서랍이 330px 남짓이라 세로 60px 이 아깝다. */
+  .fmt-bar {
+    flex-direction: row; align-items: center;
+    padding: 6px 10px; gap: 0;
+    overflow-x: auto; scrollbar-width: none;
   }
-  .fmt-row::-webkit-scrollbar { display: none; }
+  .fmt-bar::-webkit-scrollbar { display: none; }
+  .fmt-row { flex: none; flex-wrap: nowrap; overflow: visible; }
+  .fmt-row + .fmt-row { margin-left: 6px; padding-left: 8px; border-left: 1px solid var(--line); }
   .fmt-btn, .fmt-tag, .fmt-group, .clear-pair { flex: none; }
   .fmt-spacer { display: none; }
-  .fmt-btn { height: 30px; padding: 0 9px; font-size: 13px; }
+  .fmt-btn { height: 32px; padding: 0 10px; font-size: 13px; }
 
   /* 설정 탭도 옆으로 흐르게 */
   .set-tabs { grid-auto-flow: column; grid-auto-columns: 76px; overflow-x: auto; scrollbar-width: none; }

@@ -113,6 +113,29 @@ export async function downloadMany(blobs, prefix, ext) {
   return `${blobs.length}장을 ZIP 으로 저장`;
 }
 
+/* 아이폰에서 다운로드는 사진첩이 아니라 「파일」 앱으로 들어간다.
+   공유 시트를 띄우면 사진첩 저장·메신저 전송을 바로 고를 수 있다.
+
+   share() 는 사용자가 누른 직후에만 열린다. 이미지를 만드느라 시간이 흐르면
+   사파리가 거절하는 일이 있어, 실패하면 호출한 쪽에서 다운로드로 넘긴다. */
+export async function shareBlobs(blobs, prefix, ext) {
+  if (!navigator.canShare || !navigator.share) return false;
+
+  const files = blobs.map((b, i) => new File(
+    [b], buildName(prefix, ext, blobs.length > 1 ? i + 1 : null), { type: b.type },
+  ));
+  if (!navigator.canShare({ files })) return false;
+
+  try {
+    await navigator.share({ files });
+    return true;
+  } catch (e) {
+    if (e.name === 'AbortError') return true;    // 사용자가 닫은 것이지 실패가 아니다
+    console.warn('공유 시트를 열지 못했습니다', e);
+    return false;
+  }
+}
+
 /* 클립보드는 PNG 만 안정적으로 지원된다. */
 export async function copyToClipboard(blob) {
   if (!navigator.clipboard || typeof ClipboardItem === 'undefined') {

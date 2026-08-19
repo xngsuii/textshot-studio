@@ -4,9 +4,9 @@ import { state, loadAll, saveSoon, fontById } from './store.js';
 import * as TextTab from './text-tab.js';
 import * as HtmlTab from './html-tab.js';
 import * as Capture from './capture.js';
-import { nodeToBlob, downloadMany, copyToClipboard } from './capture.js';
+import { nodeToBlob, downloadMany, copyToClipboard, shareBlobs } from './capture.js';
 import { ensureFont } from './fonts.js';
-import { initDrawer, initDrawerModes } from './drawer.js';
+import { initDrawer, initDrawerModes, isMobile } from './drawer.js';
 import { toast } from './ui.js';
 
 const $ = (id) => document.getElementById(id);
@@ -149,7 +149,14 @@ async function doSave() {
   try {
     const blobs = await collectBlobs();
     const ext = state.output.format === 'jpg' ? 'jpg' : state.output.format;
-    const msg = await downloadMany(blobs, state.output.filename, ext);
+
+    // 폰에서는 공유 시트가 먼저다. 사진첩 저장도 거기서 고른다.
+    let msg;
+    if (isMobile() && await shareBlobs(blobs, state.output.filename, ext)) {
+      msg = blobs.length > 1 ? `${blobs.length}장 공유` : '공유 시트를 열었습니다';
+    } else {
+      msg = await downloadMany(blobs, state.output.filename, ext);
+    }
     toast(msg);
     busy(false, '');
     // 잘라내기가 걸리면 저장된 크기가 미리보기와 다를 수 있어 실제 값을 보여 준다
@@ -282,6 +289,11 @@ function boot() {
 
   initDrawer({ onChange: () => { if (state.zoom === 'fit') applyZoom(); } });
   initDrawerModes();
+
+  // 폰에서는 다운로드보다 공유 시트가 자연스럽다
+  const labelSave = () => { $('saveBtn').textContent = isMobile() ? '공유' : '이미지 저장'; };
+  labelSave();
+  window.matchMedia('(max-width: 768px)').addEventListener('change', labelSave);
 
   // 탭 표시·손잡이 위치·첫 렌더를 한 경로로 처리한다
   setTab(state.tab);
