@@ -606,11 +606,7 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
   .workspace { display: block; height: calc(100dvh - var(--topbar-h)); }
 
   .pane-preview { height: 100%; }
-  /* 두 손가락 확대는 우리가 직접 처리하므로 브라우저 기본 동작을 끈다 */
-  .preview-scroll {
-    padding: 16px 12px calc(var(--drawer-h, 96px) + 24px);
-    touch-action: pan-x pan-y;
-  }
+  .preview-scroll { padding: 16px 12px calc(var(--drawer-h, 96px) + 24px); }
   .stage-host { margin: 0 auto; }
 
   /* 도구막대·미리보기 막대는 접지 말고 옆으로 흐르게 */
@@ -621,6 +617,9 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
   .preview-bar::-webkit-scrollbar { display: none; }
   .preview-bar .spacer { display: none; }
   .preview-bar .btn, .preview-bar .seg, .preview-bar .check { flex: none; }
+  /* 손가락으로 누를 만하게 */
+  .preview-bar .seg-btn { height: 34px; min-width: 42px; font-size: 13px; }
+  .preview-bar .btn { height: 34px; padding: 0 14px; }
   #collapseBtn { display: none; }
   .preview-status { padding: 0 12px; }
 
