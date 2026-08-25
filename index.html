@@ -8,14 +8,17 @@
 <meta name="description" content="텍스트와 HTML을 이미지로 발췌하는 개인용 도구">
 <!-- U+FE0E(VS15)를 붙여 컬러 이모지 대신 흑백 텍스트 글리프로 그린다 -->
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.92em' font-size='92' fill='%2314746F'>🎬︎</text></svg>">
+<!-- iOS 홈 화면 아이콘. apple-touch-icon 은 SVG 를 받지 않아 PNG 여야 한다 -->
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="textshot">
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- Pretendard 는 js/fonts.js 가 불러온다. dynamic-subset 판은 @font-face 가 300개 가까이라
      캡쳐할 때 그 폰트 조각을 전부 내려받느라 멈춘다. 통짜 variable 판 하나만 쓴다. -->
 <!-- ?v= 를 올리면 브라우저가 새로 받는다. js/main.js 의 APP_VERSION 과 같이 올릴 것 -->
-<link rel="stylesheet" href="css/tokens.css?v=9">
-<link rel="stylesheet" href="css/app.css?v=9">
-<meta name="app-version" content="9">
+<link rel="stylesheet" href="css/tokens.css?v=10">
+<link rel="stylesheet" href="css/app.css?v=10">
+<meta name="app-version" content="10">
 <script src="vendor/jszip.min.js" defer></script>
 </head>
 <body>
@@ -166,6 +169,6 @@
 
 <div class="toast" id="toast" hidden></div>
 
-<script type="module" src="js/main.js?v=9"></script>
+<script type="module" src="js/main.js?v=10"></script>
 </body>
 </html>
