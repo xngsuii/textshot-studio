@@ -167,30 +167,89 @@ function renderOpts() {
     chat: {
       hideQuotesInBubble: st.hideQuotesInBubble,
       parenBreak: st.parenBreakInBubble,
+      alpha: st.bubbleAlpha ?? 100,
     },
   };
 }
 
-export function buildExportStages() {
+/* 자동 분할은 비율을 정했을 때만 뜻이 있다. 자동 높이면 캔버스가 글만큼 늘어나
+   넘칠 일이 없기 때문이다. */
+function autoSplitOn() {
+  const st = state.text.style;
+  return !!st.autoSplit && !!RATIOS[st.ratio];
+}
+
+/* 한 장에 들어갈 만큼씩 블록을 끊는다.
+   실제로 그려 놓고 재야 정확하므로 화면 밖에 견본을 하나 세워 높이를 읽는다.
+   블록 하나가 한 장보다 크면 자르지 않고 그대로 둔다 — 글이 잘리는 것보다 낫다. */
+function splitToPages(html) {
+  const st = state.text.style;
+  const probe = makeStage(html);
+  Object.assign(probe.style, { position: 'fixed', left: '-99999px', top: '0', minHeight: '', justifyContent: '' });
+  document.body.appendChild(probe);
+
+  const inner = probe.querySelector('.stage-in');
+  let limit = Math.round(st.width * RATIOS[st.ratio]) - st.padTop - st.padBottom;
+  const band = probe.querySelector('.stage-header');
+  if (band) limit -= band.offsetHeight;
+  const sign = probe.querySelector('.stage-sign');
+  if (sign) limit -= sign.offsetHeight + (st.signGap ?? 32);
+
+  const gap = st.paraGap || 0;
+  const pages = [[]];
+  let used = 0;
+
+  for (const node of [...inner.children]) {
+    const cs = getComputedStyle(node);
+    const h = node.offsetHeight + (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0);
+    const cur = pages[pages.length - 1];
+    const add = (cur.length ? gap : 0) + h;
+    if (cur.length && used + add > limit) {
+      pages.push([node.outerHTML]);
+      used = h;
+    } else {
+      cur.push(node.outerHTML);
+      used += add;
+    }
+  }
+
+  probe.remove();
+  return pages.filter(p => p.length).map(p => p.join(''));
+}
+
+/* 한 장씩의 HTML. === 로 손수 나눈 자리는 그대로 두고,
+   자동 분할이 켜져 있으면 각 조각을 다시 장 단위로 끊는다. */
+function pageHtmls() {
   const opts = renderOpts();
   const offs = chunkOffsets(state.text.source);
-  return splitChunks(state.text.source).map((c, i) => makeStage(renderChunk(c, opts, offs[i])));
+  const parts = splitChunks(state.text.source).map((c, i) => renderChunk(c, opts, offs[i]));
+  if (!autoSplitOn()) return parts;
+  return parts.flatMap(h => splitToPages(h));
+}
+
+export function buildExportStages() {
+  return pageHtmls().map(makeStage);
 }
 
 /* ── 미리보기 ───────────────────────────────── */
 export function renderPreview(host) {
   const src = state.text.source;
-  const f = state.text.formats;
   const split = hasSplit(src);
+  const auto = autoSplitOn();
 
-  document.getElementById('splitSeg').hidden = !split;
+  // 자동 분할일 때는 늘 장별로 보여 준다. 분할 전/후를 고를 일이 없다.
+  document.getElementById('splitSeg').hidden = !split || auto;
 
   const opts = renderOpts();
   host.textContent = '';
   const offs = chunkOffsets(src);
-  const stages = (split && state.splitView === 'after')
-    ? splitChunks(src).map((c, i) => makeStage(renderChunk(c, opts, offs[i])))
-    : [makeStage(split ? renderWithSplitMarks(src, opts) : renderChunk(src, opts))];
+  let stages;
+  if (auto) stages = pageHtmls().map(makeStage);
+  else if (split && state.splitView === 'after') {
+    stages = splitChunks(src).map((c, i) => makeStage(renderChunk(c, opts, offs[i])));
+  } else {
+    stages = [makeStage(split ? renderWithSplitMarks(src, opts) : renderChunk(src, opts))];
+  }
 
   stages.forEach((s, i) => {
     const wrap = U.el('div', { class: 'stage-wrap' }, [s]);
@@ -559,9 +618,7 @@ function panelChat(container, onChange) {
       U.el('div', { class: 'prof-body' }, [
         U.field('위치', q.sideSeg),
         U.colorGrid(2, [
-          U.colorCellAlpha('말풍선', p.bubbleBg, p.bubbleAlpha,
-            (v) => { p.bubbleBg = v; buildProfileBar(onChange); touch(); },
-            (v) => { p.bubbleAlpha = v; buildProfileBar(onChange); touch(); }),
+          U.colorCell('말풍선', p.bubbleBg, (v) => { p.bubbleBg = v; touch(); }),
           U.colorCell('글자', p.textColor, (v) => { p.textColor = v; touch(); }),
           U.colorCell('이름', p.nameColor || NAME_COLOR, (v) => { p.nameColor = v; touch(); }),
           U.colorCell('따옴표', p.quoteColor || p.textColor, (v) => { p.quoteColor = v; touch(); }),
@@ -602,10 +659,13 @@ function panelChat(container, onChange) {
   });
 
   return U.el('div', { class: 'panel' }, [
-    U.el('div', { class: 'tgl-row tgl-boxed cols-3' }, [
-      U.toggle('이름 볼드', st.nameBold, (v) => { st.nameBold = v; touch(); }),
-      U.toggle('따옴표 감추기', st.hideQuotesInBubble, (v) => { st.hideQuotesInBubble = v; touch(); }),
-      U.toggle('괄호 줄바꿈', st.parenBreakInBubble, (v) => { st.parenBreakInBubble = v; touch(); }),
+    // 네 칸에 나눠 담느라 이름표를 줄였다. 무슨 뜻인지는 툴팁에 적어 둔다.
+    U.el('div', { class: 'tgl-row tgl-boxed cols-4' }, [
+      U.toggle('이름 볼드', st.nameBold, (v) => { st.nameBold = v; touch(); }, null, '이름을 굵게'),
+      U.toggle('따옴표', st.hideQuotesInBubble, (v) => { st.hideQuotesInBubble = v; touch(); }, null, '말풍선 안 따옴표 기호 감추기'),
+      U.toggle('괄호', st.parenBreakInBubble, (v) => { st.parenBreakInBubble = v; touch(); }, null, '말풍선 안 괄호를 늘 새 줄에'),
+      U.pct('투명도', st.bubbleAlpha ?? 100, (v) => { st.bubbleAlpha = v; touch(); },
+        '말풍선 투명도 — 프로필과 상관없이 모든 말풍선에 걸립니다'),
     ]),
     group('프로필', [
       listEl,
@@ -774,8 +834,16 @@ function panelCanvas(container, onChange) {
   return U.el('div', { class: 'panel' }, [
     group('크기', [
       U.field('너비', U.stepper(st.width, { min: 200, max: 4000, step: 10, unit: 'px', onChange: (v) => { st.width = v; touch(); } })),
-      U.field('비율', U.seg(st.ratio, RATIO_ORDER.map(r => [r, RATIO_LABEL[r] || r]), (v) => { st.ratio = v; touch(); })),
-      U.el('div', { class: 'hint', text: '비율을 고르면 그 높이가 최소 높이가 됩니다. 글이 더 길면 잘리지 않고 아래로 늘어납니다.' }),
+      U.field('비율', U.seg(st.ratio, RATIO_ORDER.map(r => [r, RATIO_LABEL[r] || r]), (v) => { st.ratio = v; rebuild(); touch(); })),
+      RATIOS[st.ratio] ? U.el('div', { class: 'tgl-row tgl-boxed' }, [
+        U.toggle('자동 분할', st.autoSplit, (v) => { st.autoSplit = v; touch(); }),
+      ]) : null,
+      U.el('div', {
+        class: 'hint',
+        text: RATIOS[st.ratio]
+          ? '비율을 고르면 그 높이가 최소 높이가 됩니다. 자동 분할을 켜면 넘치는 만큼 다음 장으로 넘어갑니다. === 로 손수 나눈 자리도 그대로 지켜집니다.'
+          : '비율을 고르면 그 높이가 최소 높이가 됩니다. 글이 더 길면 잘리지 않고 아래로 늘어납니다.',
+      }),
     ]),
     group('여백', [
       U.check('네 방향 동일', st.padLinked, (v) => { st.padLinked = v; }),

@@ -149,7 +149,7 @@ export function renderChunk(chunk, opts = {}, lineOffset = 0) {
     if (sp) {
       const p = sp.profile;
       // 따옴표·괄호 색은 말풍선 안에서만 프로필 것으로 갈아 끼운다
-      const skin = `background:${attr(withAlpha(p.bubbleBg, p.bubbleAlpha))};color:${attr(p.textColor)}`
+      const skin = `background:${attr(withAlpha(p.bubbleBg, chat.alpha))};color:${attr(p.textColor)}`
         + `;--c-quote:${attr(p.quoteColor || p.textColor)}`
         + `;--c-paren:${attr(p.parenColor || p.textColor)}`;
       const io = { stripQuotes: !!chat.hideQuotesInBubble };

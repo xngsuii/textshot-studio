@@ -66,6 +66,7 @@ export const DEFAULT_STYLE = {
 
   width: 800,
   ratio: 'auto',
+  autoSplit: false,             // 비율을 정했을 때 넘치는 만큼 다음 장으로 넘긴다
   padTop: 84, padRight: 84, padBottom: 84, padLeft: 84,
   padLinked: false,
 
@@ -100,7 +101,8 @@ export const DEFAULT_STYLE = {
   bubbleStyle: 'round',        // round 기본 / tail 꼬리 / corner 모서리만 뾰족
   avatarShape: 'square',       // square 라운드 사각 / circle 원형
   bubbleRadius: 16,
-  bubbleGap: 8,                // 말풍선끼리의 간격
+  bubbleAlpha: 100,            // 말풍선 투명도 — 프로필 구분 없이 모두에 걸린다
+  bubbleGap: 8,                // 말풍선 덩어리 사이의 간격
   nameGap: 3,                  // 이름과 말풍선 사이
   nameBold: false,
   bubbleMaxWidth: 76,        // %
@@ -131,14 +133,14 @@ export const NAME_COLOR = '#717171';
 export const DEFAULT_PROFILES = [
   {
     id: 'p1', name: '나', side: 'right',
-    bubbleBg: '#2F6B6B', bubbleAlpha: 100,
+    bubbleBg: '#2F6B6B',
     textColor: '#FFFFFF', quoteColor: '#FFFFFF', parenColor: '#BED8D6',
     nameColor: NAME_COLOR,
     avatar: '', avatarColor: '', showName: false, showAvatar: false,
   },
   {
     id: 'p2', name: '상대', side: 'left',
-    bubbleBg: '#EFF1F1', bubbleAlpha: 100,
+    bubbleBg: '#EFF1F1',
     textColor: '#1A1A1A', quoteColor: '#1F5D8C', parenColor: '#8C9594',
     nameColor: NAME_COLOR,
     avatar: '', avatarColor: '', showName: true, showAvatar: true,
@@ -150,7 +152,7 @@ export function newProfile(n = 1) {
   return {
     id: 'p' + Math.random().toString(36).slice(2, 7),
     name: `프로필${n}`, side: 'left',
-    bubbleBg: '#EFF1F1', bubbleAlpha: 100, textColor: '#1A1A1A',
+    bubbleBg: '#EFF1F1', textColor: '#1A1A1A',
     quoteColor: '#1A1A1A', parenColor: '#8A8F98', nameColor: NAME_COLOR,
     avatar: '', avatarColor: '', showName: true, showAvatar: true,
   };
@@ -238,14 +240,21 @@ export function loadAll() {
         // A4·A5·B5 를 쓰던 설정은 자동으로 되돌린다
         if (!(state.text.style.ratio in RATIOS)) state.text.style.ratio = 'auto';
         state.text.images = Array.isArray(d.text.images) ? d.text.images : [];
+        // 투명도를 프로필마다 두던 시절의 값을 전체 설정 하나로 모은다
+        if (d.text.style && d.text.style.bubbleAlpha === undefined) {
+          const olds = (d.text.profiles || [])
+            .map(p => (p?.bubbleBg === 'transparent' ? 0 : p?.bubbleAlpha))
+            .filter(v => typeof v === 'number');
+          if (olds.length) state.text.style.bubbleAlpha = Math.min(...olds);
+        }
         state.text.profiles = Array.isArray(d.text.profiles) && d.text.profiles.length
           ? d.text.profiles.map(p => {
             const q = {
               showName: p.side !== 'right', showAvatar: p.side !== 'right',
               quoteColor: p.textColor, parenColor: p.textColor,
-              nameColor: NAME_COLOR, avatarColor: '', bubbleAlpha: 100, ...p,
+              nameColor: NAME_COLOR, avatarColor: '', ...p,
             };
-            // 투명 여부만 있던 시절의 값을 투명도로 옮긴다
+            // 투명 여부만 있던 시절의 값
             if (q.bubbleBg === 'transparent') { q.bubbleBg = '#EFF1F1'; q.bubbleAlpha = 0; }
             return q;
           })

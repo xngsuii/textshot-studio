@@ -221,6 +221,13 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 /* 몇 개를 한 줄로 늘어놓을 때 */
 .tgl-row { display: flex; flex-wrap: wrap; gap: 6px; }
 .tgl-row.cols-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.tgl-row.cols-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+/* 네 칸은 좁으니 안쪽을 줄인다 */
+.tgl-row.cols-4 .tgl { padding: 6px 7px; gap: 4px; font-size: 12px; }
+.tgl-row.cols-4 .tgl-name { white-space: nowrap; }
+/* 토글 자리에 끼우는 퍼센트 칸 */
+.tgl-pct { gap: 4px; cursor: default; }
+.tgl-pct .alpha-input { width: 38px; height: 20px; padding: 0 1px; font-size: 11.5px; text-align: center; }
 .tgl-row .tgl-name { flex: 1 1 auto; font-weight: 700; }
 /* 칸으로 나눠 담는다 */
 .tgl-boxed .tgl {
@@ -240,7 +247,7 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
   flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-family: var(--mono); font-size: 11.5px; color: var(--fg-3);
 }
-.tgl > input { position: absolute; opacity: 0; width: 0; height: 0; }
+.tgl > input[type="checkbox"] { position: absolute; opacity: 0; width: 0; height: 0; }
 .tgl-track {
   flex: none; position: relative;
   width: 30px; height: 17px; border-radius: 9px;
@@ -253,9 +260,9 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
   background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .25);
   transition: transform .18s cubic-bezier(.32, .72, 0, 1);
 }
-.tgl > input:checked + .tgl-track { background: var(--accent); }
-.tgl > input:checked + .tgl-track .tgl-knob { transform: translateX(13px); }
-.tgl > input:focus-visible + .tgl-track { box-shadow: 0 0 0 2px var(--accent-soft); }
+.tgl > input[type="checkbox"]:checked + .tgl-track { background: var(--accent); }
+.tgl > input[type="checkbox"]:checked + .tgl-track .tgl-knob { transform: translateX(13px); }
+.tgl > input[type="checkbox"]:focus-visible + .tgl-track { box-shadow: 0 0 0 2px var(--accent-soft); }
 @media (prefers-reduced-motion: reduce) { .tgl-knob { transition: none; } }
 
 /* 배경으로 고른 사진 미리보기 */
@@ -686,7 +693,9 @@ input[type="checkbox"] { accent-color: var(--accent); }
   display: flex; flex-direction: column; gap: var(--name-gap, 3px);
   max-width: var(--b-max, 76%); min-width: 0;
 }
-.mk-bubbles { display: flex; flex-direction: column; gap: var(--b-gap, 8px); min-width: 0; }
+/* 한 사람이 이어 말하는 말풍선끼리는 늘 바싹 붙인다.
+   「말풍선 간격」은 덩어리와 덩어리 사이를 맡는다. */
+.mk-bubbles { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .mk-chat.is-right .mk-chat-body,
 .mk-chat.is-right .mk-bubbles { align-items: flex-end; }
 

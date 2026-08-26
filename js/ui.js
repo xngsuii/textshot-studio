@@ -114,28 +114,20 @@ export function colorGrid(cols, cells) {
   return el('div', { class: `ccell-grid cols-${cols}` }, cells);
 }
 
-/* 색 칸 + 투명도(%). 100 이면 그대로, 0 이면 완전히 투명하다. */
-export function colorCellAlpha(label, value, alpha, onColor, onAlpha) {
-  const row = color(value === 'transparent' ? '#EFF1F1' : value, onColor);
-  const a = el('input', {
-    type: 'number', class: 'alpha-input', min: 0, max: 100, step: 5,
-    value: alpha ?? 100, title: '투명도 — 0 이면 완전히 투명합니다',
+/* 토글 줄에 나란히 끼우는 퍼센트 칸. 생김새는 토글과 맞춘다. */
+export function pct(label, value, onChange, title) {
+  const input = el('input', {
+    type: 'number', class: 'alpha-input', min: 0, max: 100, step: 5, value,
     onInput: (e) => {
-      let v = parseFloat(e.target.value);
+      const v = parseFloat(e.target.value);
       if (Number.isNaN(v)) return;
-      v = Math.max(0, Math.min(100, v));
-      row.classList.toggle('is-faint', v < 100);
-      onAlpha(v);
+      onChange(Math.max(0, Math.min(100, v)));
     },
   });
-  if ((alpha ?? 100) < 100) row.classList.add('is-faint');
-
-  return el('div', { class: 'ccell' }, [
-    el('div', { class: 'ccell-top' }, [
-      el('span', { class: 'ccell-l', text: label }),
-      el('span', { class: 'alpha-box' }, [a, el('span', { class: 'alpha-u', text: '%' })]),
-    ]),
-    row,
+  return el('label', { class: 'tgl tgl-pct', title: title || null }, [
+    el('span', { class: 'tgl-name', text: label }),
+    input,
+    el('span', { class: 'alpha-u', text: '%' }),
   ]);
 }
 
@@ -306,10 +298,10 @@ export function shapeLabel(shape, text) {
 }
 
 /* 켜고 끄는 스위치. 체크박스보다 눈에 잘 들어와 목록에 쓴다. */
-export function toggle(label, value, onChange, note) {
+export function toggle(label, value, onChange, note, title) {
   const input = el('input', { type: 'checkbox', onChange: (e) => onChange(e.target.checked) });
   input.checked = !!value;
-  return el('label', { class: 'tgl' }, [
+  return el('label', { class: 'tgl', title: title || null }, [
     el('span', { class: 'tgl-name', text: label }),
     note ? el('code', { class: 'tgl-mark', text: note }) : null,
     input,
