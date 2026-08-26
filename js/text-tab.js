@@ -7,7 +7,7 @@ import {
 import {
   splitChunks, hasSplit, renderChunk, renderWithSplitMarks, stripMarkers,
   imageOrder, removeImageMarker, chunkOffsets, setSpeakerAt, speakerNameAt,
-  renameSpeaker, NAME_SEP, withAlpha,
+  renameSpeaker, NAME_SEP,
 } from './markup.js';
 import { ensureFont, isAvailable } from './fonts.js';
 import { buildTemplateSection } from './templates.js';
@@ -75,6 +75,11 @@ function applyStyle(stage) {
   for (const [k, val] of Object.entries(v)) stage.style.setProperty(k, val);
   (st.slots || []).forEach((s, i) => stage.style.setProperty(`--c-slot${i + 1}`, s.color));
 
+  // 말풍선 모양과 프로필 사진 모양은 스테이지 전체에 한 번에 건다
+  stage.classList.remove('bub-round', 'bub-tail', 'bub-corner');
+  stage.classList.add(`bub-${st.bubbleStyle || 'round'}`);
+  stage.style.setProperty('--ava-r', st.avatarShape === 'circle' ? '50%' : '.45em');
+
   stage.style.setProperty('--para-gap', st.paraGap + 'px');
   stage.style.setProperty('--b-radius', st.bubbleRadius + 'px');
   stage.style.setProperty('--b-gap', st.bubbleGap + 'px');
@@ -84,17 +89,66 @@ function applyStyle(stage) {
   stage.style.setProperty('--b-pad-v', st.bubblePadV + 'px');
   stage.style.setProperty('--b-pad-h', st.bubblePadH + 'px');
 
-  if (st.bgImage) {
-    const layer = U.el('div', { class: 'stage-bg' });
-    Object.assign(layer.style, {
-      backgroundImage: `url("${st.bgImage}")`,
-      backgroundSize: st.bgFit === 'tile' ? 'auto' : st.bgFit,
-      backgroundRepeat: st.bgFit === 'tile' ? 'repeat' : 'no-repeat',
-      backgroundPosition: 'center',
-      opacity: String((st.bgOpacity ?? 100) / 100),
-    });
-    stage.prepend(layer);
-  }
+  const sign = signLine(st);
+  if (sign) stage.appendChild(sign);
+
+  if (st.bgImage) stage.prepend(st.bgAsHeader ? headerBand(st) : bgLayer(st));
+}
+
+/* 캔버스 전체에 깔리는 배경. 흐리게 하면 가장자리가 비쳐서
+   흐린 만큼 판을 밖으로 넓혀 두고 스테이지가 잘라 내게 한다. */
+function bgLayer(st) {
+  const blur = st.bgBlur ?? 0;
+  const layer = U.el('div', { class: 'stage-bg' });
+  Object.assign(layer.style, {
+    backgroundImage: `url("${st.bgImage}")`,
+    backgroundSize: st.bgFit === 'tile' ? 'auto' : st.bgFit,
+    backgroundRepeat: st.bgFit === 'tile' ? 'repeat' : 'no-repeat',
+    backgroundPosition: `${st.bgX ?? 50}% ${st.bgY ?? 50}%`,
+    opacity: String((st.bgOpacity ?? 100) / 100),
+    filter: blur ? `blur(${blur}px)` : '',
+    inset: blur ? `${-blur * 2}px` : '',
+  });
+  return layer;
+}
+
+/* 배경 대신 본문 위에 얹는 띠. 캔버스 좌우 끝까지 닿도록 여백만큼 밖으로 뺀다.
+   아래 간격은 위 여백과 같게 두어 글이 원래 자리에서 시작하는 것처럼 보인다. */
+function headerBand(st) {
+  const blur = st.bgBlur ?? 0;
+  const band = U.el('div', { class: 'stage-header' });
+  Object.assign(band.style, {
+    height: (st.bgHeaderH ?? 220) + 'px',
+    marginTop: -st.padTop + 'px',
+    marginLeft: -st.padLeft + 'px',
+    marginRight: -st.padRight + 'px',
+    marginBottom: st.padTop + 'px',
+    backgroundImage: `url("${st.bgImage}")`,
+    backgroundSize: 'cover',
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: `${st.bgX ?? 50}% ${st.bgY ?? 50}%`,
+    opacity: String((st.bgOpacity ?? 100) / 100),
+    filter: blur ? `blur(${blur}px)` : '',
+  });
+  return band;
+}
+
+/* 캔버스 아래 한 줄 — 이름과 소속. 둘 다 비어 있으면 아예 만들지 않는다.
+   장평에 눌리면 안 되므로 stage-in 바깥에 둔다. */
+function signLine(st) {
+  const name = (st.signName || '').trim();
+  const org = (st.signOrg || '').trim();
+  if (!name && !org) return null;
+
+  const sep = st.signSep === 'bar' ? '|' : '·';
+  const el = U.el('div', { class: 'stage-sign', text: [name, org].filter(Boolean).join(`  ${sep}  `) });
+  Object.assign(el.style, {
+    marginTop: (st.signGap ?? 28) + 'px',
+    fontSize: (st.signSize ?? 12) + 'px',
+    color: st.signColor || '#9AA0A6',
+    textAlign: st.signAlign || 'center',
+  });
+  return el;
 }
 
 function makeStage(html) {
@@ -169,6 +223,80 @@ export function bindPreviewClicks(host, onChange) {
   });
 }
 
+/* 배경 사진의 보이는 자리를 여백을 끌어서 옮긴다.
+   꽉 채움과 헤더 띠는 사진이 캔버스보다 커서 넘치는 만큼만 움직인다. */
+const natSize = new Map();
+
+function naturalSize(src) {
+  if (natSize.has(src)) return natSize.get(src);
+  const im = new Image();
+  im.src = src;
+  const box = { w: im.naturalWidth || 0, h: im.naturalHeight || 0 };
+  if (box.w) natSize.set(src, box);
+  else im.onload = () => natSize.set(src, { w: im.naturalWidth, h: im.naturalHeight });
+  return box;
+}
+
+function draggableBg() {
+  const st = state.text.style;
+  if (!st.bgImage) return null;
+  if (!st.bgAsHeader && st.bgFit !== 'cover') return null;   // 전체 보임·반복은 옮길 곳이 없다
+  return st;
+}
+
+export function bindBgDrag(host, onChange) {
+  let drag = null;
+
+  host.addEventListener('pointerdown', (e) => {
+    const st = draggableBg();
+    if (!st) return;
+    // 글이나 말풍선이 아니라 빈 여백을 잡았을 때만 움직인다
+    const t = e.target;
+    const ok = t.classList?.contains('stage') || t.classList?.contains('stage-in')
+      || t.classList?.contains('stage-bg') || t.classList?.contains('stage-header');
+    if (!ok) return;
+
+    const band = t.closest('.stage')?.querySelector('.stage-header');
+    const box = (band || t.closest('.stage'))?.getBoundingClientRect();
+    if (!box) return;
+
+    const nat = naturalSize(st.bgImage);
+    if (!nat.w || !nat.h) return;
+
+    // cover 로 채운 사진의 실제 크기에서 넘치는 폭·높이를 구한다
+    const k = Math.max(box.width / nat.w, box.height / nat.h);
+    const overX = Math.max(0, nat.w * k - box.width);
+    const overY = Math.max(0, nat.h * k - box.height);
+    if (!overX && !overY) return;
+
+    e.preventDefault();
+    try { host.setPointerCapture(e.pointerId); } catch { /* 못 잡아도 끌기는 된다 */ }
+    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, overX, overY, st,
+      x0: st.bgX ?? 50, y0: st.bgY ?? 50 };
+    host.classList.add('is-bgdrag');
+  });
+
+  host.addEventListener('pointermove', (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const { st, overX, overY } = drag;
+    const clamp = (v) => Math.max(0, Math.min(100, v));
+    // 사진을 오른쪽으로 밀면 보이는 자리는 왼쪽으로 간다
+    if (overX) st.bgX = clamp(drag.x0 - (e.clientX - drag.x) / overX * 100);
+    if (overY) st.bgY = clamp(drag.y0 - (e.clientY - drag.y) / overY * 100);
+    onChange();
+  });
+
+  const end = (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    drag = null;
+    host.classList.remove('is-bgdrag');
+    state.activeTemplate = null;
+    onChange();
+  };
+  host.addEventListener('pointerup', end);
+  host.addEventListener('pointercancel', end);
+}
+
 /* ── 색 슬롯 버튼 (입력칸 위) ───────────────── */
 export function buildSlotBar(onChange) {
   const bar = document.getElementById('slotBar');
@@ -198,10 +326,8 @@ export function buildProfileBar(onChange) {
       U.el('span', { class: 'slot-dot' }),
       U.el('span', { text: p.name || '이름 없음' }),
     ]);
-    const dot = btn.querySelector('.slot-dot');
-    const bg = withAlpha(p.bubbleBg, p.bubbleAlpha);
-    if (bg === 'transparent') dot.classList.add('is-clear');
-    else dot.style.background = bg;
+    // 점은 말풍선 색이 아니라 따옴표 색으로 채운다. 말풍선 색은 투명일 수 있어서다.
+    btn.querySelector('.slot-dot').style.background = p.quoteColor || p.textColor;
     bar.appendChild(btn);
   });
 }
@@ -273,16 +399,49 @@ function group(title, children, action) {
   return U.el('div', { class: 'grp' }, [head, ...children.filter(Boolean)]);
 }
 
+/* 고른 탭 뒤에 깔리는 청록 판. 탭을 갈아탈 때 자리를 옮겨 미끄러진다.
+   탭 버튼을 매번 새로 만들면 뚝 끊기므로 처음 한 번만 만들고 이후엔 옮기기만 한다. */
+let inkPlaced = false;
+
+function moveInk() {
+  const host = document.getElementById('setTabs');
+  const ink = host?.querySelector('.set-ink');
+  const on = host?.querySelector('.set-tab.is-active');
+  if (!ink || !on) return;
+
+  // 처음 놓을 때는 미끄러질 자리가 없다. 그때만 애니메이션을 끈다.
+  if (!inkPlaced) ink.style.transition = 'none';
+  ink.style.width = on.offsetWidth + 'px';
+  ink.style.transform = `translateX(${on.offsetLeft}px)`;
+  ink.style.opacity = '1';
+  if (!inkPlaced) {
+    void ink.offsetWidth;               // 지금 값으로 한 번 굳힌 뒤 애니메이션을 돌려준다
+    ink.style.transition = '';
+    inkPlaced = true;
+  }
+}
+window.addEventListener('resize', moveInk);
+// 폰트가 늦게 오면 탭 폭이 바뀐다. 그때 한 번 더 맞춘다.
+document.fonts?.ready.then(moveInk).catch(() => {});
+
 export function buildSettings(container, onChange) {
   const tabsHost = document.getElementById('setTabs');
-  tabsHost.textContent = '';
-  SET_TABS.forEach(([id, label]) => {
-    const b = U.el('button', {
-      class: `set-tab${activeSetTab === id ? ' is-active' : ''}`, type: 'button',
-      onClick: () => { activeSetTab = id; buildSettings(container, onChange); },
-    }, [icon(id), U.el('span', { text: label })]);
-    tabsHost.appendChild(b);
-  });
+  let tabs = [...tabsHost.querySelectorAll('.set-tab')];
+
+  if (tabs.length !== SET_TABS.length) {
+    tabsHost.textContent = '';
+    tabsHost.appendChild(U.el('span', { class: 'set-ink' }));
+    SET_TABS.forEach(([id, label]) => {
+      tabsHost.appendChild(U.el('button', {
+        class: 'set-tab', type: 'button',
+        onClick: () => { activeSetTab = id; buildSettings(container, onChange); },
+      }, [icon(id), U.el('span', { text: label })]));
+    });
+    tabs = [...tabsHost.querySelectorAll('.set-tab')];
+  }
+  tabs.forEach((b, i) => b.classList.toggle('is-active', SET_TABS[i][0] === activeSetTab));
+  moveInk();
+  setTimeout(moveInk, 0);               // 탭 폭이 아직 안 잡혔을 때를 위한 한 번 더
 
   container.textContent = '';
   container.appendChild(PANELS[activeSetTab](container, onChange));
@@ -440,6 +599,11 @@ function panelChat(container, onChange) {
   });
 
   return U.el('div', { class: 'panel' }, [
+    U.el('div', { class: 'tgl-row tgl-boxed cols-3' }, [
+      U.toggle('이름 볼드', st.nameBold, (v) => { st.nameBold = v; touch(); }),
+      U.toggle('따옴표 감추기', st.hideQuotesInBubble, (v) => { st.hideQuotesInBubble = v; touch(); }),
+      U.toggle('괄호 줄바꿈', st.parenBreakInBubble, (v) => { st.parenBreakInBubble = v; touch(); }),
+    ]),
     group('프로필', [
       listEl,
       U.el('div', { class: 'field-row' }, [
@@ -455,6 +619,13 @@ function panelChat(container, onChange) {
       U.el('div', { class: 'hint', text: '본문에서 「이름 | 내용」으로 쓰면 말풍선이 됩니다. 미리보기에서 말풍선을 누르면 다음 프로필로 넘어갑니다.' }),
     ], viewBtn),
     group('모양', [
+      U.field('말풍선', U.seg(st.bubbleStyle || 'round', [
+        ['round', '기본'], ['tail', '꼬리'], ['corner', '모서리'],
+      ], (v) => { st.bubbleStyle = v; touch(); })),
+      U.field('사진 모양', U.seg(st.avatarShape || 'square', [
+        ['circle', U.shapeLabel('circle', '원형')],
+        ['square', U.shapeLabel('square', '라운드 사각')],
+      ], (v) => { st.avatarShape = v; touch(); })),
       U.fieldGrid([
         U.field('최대 폭', U.stepper(st.bubbleMaxWidth, { min: 30, max: 100, step: 2, unit: '%', onChange: (v) => { st.bubbleMaxWidth = v; touch(); } })),
         U.field('모서리', U.stepper(st.bubbleRadius, { min: 0, max: 40, step: 1, unit: 'px', onChange: (v) => { st.bubbleRadius = v; touch(); } })),
@@ -465,12 +636,7 @@ function panelChat(container, onChange) {
         U.stepper(st.bubblePadV, { min: 0, max: 40, step: 1, unit: '↕', onChange: (v) => { st.bubblePadV = v; touch(); } }),
         U.stepper(st.bubblePadH, { min: 0, max: 40, step: 1, unit: '↔', onChange: (v) => { st.bubblePadH = v; touch(); } }),
       ])),
-      U.el('div', { class: 'prof-toggles' }, [
-        U.check('이름 볼드', st.nameBold, (v) => { st.nameBold = v; touch(); }),
-      ]),
-      U.check('말풍선 안 따옴표 감추기', st.hideQuotesInBubble, (v) => { st.hideQuotesInBubble = v; touch(); }),
-      U.check('말풍선 안 괄호 줄바꿈', st.parenBreakInBubble, (v) => { st.parenBreakInBubble = v; touch(); }),
-      U.el('div', { class: 'hint', text: '「말풍선 간격」은 말풍선끼리, 「이름 간격」은 이름과 말풍선 사이입니다. 괄호 줄바꿈을 켜면 (괄호)가 늘 새 줄에 놓입니다.' }),
+      U.el('div', { class: 'hint', text: '「꼬리」와 「모서리」는 한 사람이 이어 말할 때 첫 말풍선에만 붙습니다. 「말풍선 간격」은 말풍선끼리, 「이름 간격」은 이름과 말풍선 사이입니다.' }),
     ]),
   ]);
 }
@@ -492,16 +658,10 @@ function panelFormat(container, onChange) {
     ['divider', '구분선', '---'],
   ];
   return U.el('div', { class: 'panel' }, [
-    group('', items.map(([k, label, mark]) =>
-      U.el('label', { class: 'fmt-check' }, [
-        (() => {
-          const c = U.el('input', { type: 'checkbox', onChange: (e) => { fm[k] = e.target.checked; onChange(); } });
-          c.checked = !!fm[k];
-          return c;
-        })(),
-        U.el('span', { class: 'fmt-check-name', text: label }),
-        U.el('code', { class: 'fmt-check-mark', text: mark }),
-      ]))),
+    group('', [
+      U.el('div', { class: 'tgl-grid' }, items.map(([k, label, mark]) =>
+        U.toggle(label, fm[k], (v) => { fm[k] = v; onChange(); }, mark))),
+    ]),
     U.el('div', { class: 'field-row' }, [
       U.el('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: '모두 켜기',
         onClick: () => { Object.assign(fm, DEFAULT_FORMATS); rebuild(); onChange(); } }),
@@ -529,6 +689,7 @@ function panelBody(container, onChange) {
       U.field('폰트', fontSel),
       U.field('크기', U.stepper(st.fontSize, { min: 8, max: 96, step: 1, unit: 'px', onChange: (v) => { st.fontSize = v; touch(); } })),
     ]),
+    group('본문 사진', [photoList(container, onChange)]),
     group('간격', [
       U.fieldGrid([
         U.field('행간', U.stepper(st.lineHeight, { min: 0.8, max: 5, step: 0.1, decimals: 2, onChange: (v) => { st.lineHeight = v; touch(); } })),
@@ -561,6 +722,11 @@ function photoList(container, onChange) {
       U.stepper(im.width ?? 100, {
         min: 10, max: 100, step: 5, unit: '%',
         onChange: (v) => { im.width = v; onChange(); },
+      }),
+    ]),
+    U.el('div', { class: 'photo-w' }, [
+      U.stepper(im.radius ?? 4, {
+        min: 0, max: 80, step: 1, unit: 'px', onChange: (v) => { im.radius = v; onChange(); },
       }),
     ]),
     U.el('button', {
@@ -596,7 +762,7 @@ function panelCanvas(container, onChange) {
       if (!file) return;
       if (file.size > 3 * 1024 * 1024) U.toast('이미지가 3MB를 넘어 자동 저장에서 빠질 수 있습니다');
       const fr = new FileReader();
-      fr.onload = () => { st.bgImage = fr.result; rebuild(); touch(); };
+      fr.onload = () => { st.bgImage = fr.result; st.bgX = 50; st.bgY = 50; rebuild(); touch(); };
       fr.readAsDataURL(file);
       e.target.value = '';
     },
@@ -608,23 +774,75 @@ function panelCanvas(container, onChange) {
       U.field('비율', U.seg(st.ratio, RATIO_ORDER.map(r => [r, RATIO_LABEL[r] || r]), (v) => { st.ratio = v; touch(); })),
       U.el('div', { class: 'hint', text: '비율을 고르면 그 높이가 최소 높이가 됩니다. 글이 더 길면 잘리지 않고 아래로 늘어납니다.' }),
     ]),
-    group('본문 사진', [photoList(container, onChange)]),
     group('여백', [
       U.check('네 방향 동일', st.padLinked, (v) => { st.padLinked = v; }),
       U.padGrid(st, ['padTop', 'padRight', 'padBottom', 'padLeft'], () => st.padLinked, touch),
       U.el('div', { class: 'hint', text: '분할하면 각 장에 이 여백이 새로 들어갑니다.' }),
     ]),
     group('배경', [
-      U.field('배경색', U.color(st.bg, (v) => { st.bg = v; touch(); })),
-      U.check('배경 투명 (PNG 저장 시에만 적용)', st.transparent, (v) => { st.transparent = v; touch(); }),
+      U.el('div', { class: 'field' }, [
+        U.el('label', { text: '배경색' }),
+        U.el('div', { class: 'field-row' }, [
+          U.color(st.bg, (v) => { st.bg = v; touch(); }),
+          U.check('투명 (PNG 만)', st.transparent, (v) => { st.transparent = v; touch(); }),
+        ]),
+      ]),
+      st.bgImage ? (() => {
+        const t = U.el('img', { class: 'bg-thumb', alt: '' });
+        t.src = st.bgImage;
+        return t;
+      })() : null,
       U.el('div', { class: 'field-row' }, [
         U.el('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: st.bgImage ? '이미지 바꾸기' : '이미지 넣기', onClick: () => fileInput.click() }),
         st.bgImage ? U.el('button', { class: 'btn btn-danger btn-sm', type: 'button', text: '이미지 빼기',
           onClick: () => { st.bgImage = ''; rebuild(); touch(); } }) : null,
         fileInput,
       ]),
-      st.bgImage ? U.field('맞춤', U.seg(st.bgFit, [['cover', '꽉 채움'], ['contain', '전체 보임'], ['tile', '반복']], (v) => { st.bgFit = v; touch(); })) : null,
-      st.bgImage ? U.field('불투명도', U.stepper(st.bgOpacity, { min: 0, max: 100, step: 5, unit: '%', onChange: (v) => { st.bgOpacity = v; touch(); } })) : null,
+      st.bgImage ? U.el('div', { class: 'tgl-row tgl-boxed' }, [
+        U.toggle('헤더 이미지로 사용', st.bgAsHeader, (v) => { st.bgAsHeader = v; rebuild(); touch(); }),
+      ]) : null,
+      st.bgImage && st.bgAsHeader
+        ? U.field('헤더 높이', U.stepper(st.bgHeaderH ?? 220, { min: 40, max: 1200, step: 10, unit: 'px', onChange: (v) => { st.bgHeaderH = v; touch(); } }))
+        : null,
+      st.bgImage && !st.bgAsHeader
+        ? U.field('맞춤', U.seg(st.bgFit, [['cover', '꽉 채움'], ['contain', '전체 보임'], ['tile', '반복']], (v) => { st.bgFit = v; touch(); }))
+        : null,
+      st.bgImage ? U.fieldGrid([
+        U.field('불투명도', U.stepper(st.bgOpacity, { min: 0, max: 100, step: 5, unit: '%', onChange: (v) => { st.bgOpacity = v; touch(); } })),
+        U.field('흐림', U.stepper(st.bgBlur ?? 0, { min: 0, max: 60, step: 1, unit: 'px', onChange: (v) => { st.bgBlur = v; touch(); } })),
+      ]) : null,
+      st.bgImage && (st.bgAsHeader || st.bgFit === 'cover') ? U.el('div', { class: 'field-row' }, [
+        U.el('div', { class: 'hint', text: '미리보기의 빈 여백을 끌면 사진에서 보이는 자리가 움직입니다.' }),
+        U.el('button', {
+          class: 'btn btn-ghost btn-sm', type: 'button', text: '자리 가운데로',
+          onClick: () => { st.bgX = 50; st.bgY = 50; touch(); },
+        }),
+      ]) : null,
+    ]),
+    group('서명', [
+      U.el('div', { class: 'field-row' }, [
+        U.el('input', { type: 'text', value: st.signName, placeholder: '이름',
+          onInput: (e) => { st.signName = e.target.value; touch(); } }),
+        U.el('input', { type: 'text', value: st.signOrg, placeholder: '제작자',
+          onInput: (e) => { st.signOrg = e.target.value; touch(); } }),
+      ]),
+      U.el('div', { class: 'field' }, [
+        U.el('label', { text: '구분·위치' }),
+        U.el('div', { class: 'field-row' }, [
+          (() => {
+            const g = U.seg(st.signSep || 'dot', [['dot', '·'], ['bar', '|']], (v) => { st.signSep = v; touch(); });
+            g.classList.add('seg-narrow');
+            return g;
+          })(),
+          U.seg(st.signAlign || 'right', [['left', '왼쪽'], ['center', '가운데'], ['right', '오른쪽']], (v) => { st.signAlign = v; touch(); }),
+        ]),
+      ]),
+      U.fieldGrid([
+        U.field('크기', U.stepper(st.signSize ?? 12, { min: 6, max: 60, step: 1, unit: 'px', onChange: (v) => { st.signSize = v; touch(); } })),
+        U.field('본문과 간격', U.stepper(st.signGap ?? 28, { min: 0, max: 200, step: 2, unit: 'px', onChange: (v) => { st.signGap = v; touch(); } })),
+      ]),
+      U.field('색상', U.color(st.signColor || '#9AA0A6', (v) => { st.signColor = v; touch(); })),
+      U.el('div', { class: 'hint', text: '둘 다 비워 두면 아무것도 그리지 않습니다. 분할하면 각 장에 함께 들어갑니다.' }),
     ]),
   ]);
 }

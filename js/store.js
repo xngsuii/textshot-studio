@@ -73,6 +73,10 @@ export const DEFAULT_STYLE = {
   bgImage: '',                  // data URL
   bgFit: 'cover',               // cover | contain | tile
   bgOpacity: 100,
+  bgX: 50, bgY: 50,             // 꽉 채움일 때 보이는 자리 (%). 미리보기에서 끌어 옮긴다.
+  bgBlur: 0,
+  bgAsHeader: false,            // 배경 대신 본문 위 띠로 쓴다
+  bgHeaderH: 220,
 
   fg: '#1A1A1A',
   actionColor: '#8A8F98',
@@ -93,6 +97,8 @@ export const DEFAULT_STYLE = {
   ],
 
   // 말풍선 공통 모양 (이름·사진 표시 여부는 프로필마다 따로)
+  bubbleStyle: 'round',        // round 기본 / tail 꼬리 / corner 모서리만 뾰족
+  avatarShape: 'square',       // square 라운드 사각 / circle 원형
   bubbleRadius: 16,
   bubbleGap: 8,                // 말풍선끼리의 간격
   nameGap: 3,                  // 이름과 말풍선 사이
@@ -104,6 +110,15 @@ export const DEFAULT_STYLE = {
   parenBreakInBubble: false,   // 말풍선 안 괄호를 늘 새 줄에 둘지
 
   transparent: false,
+
+  // 캔버스 아래에 남기는 한 줄 — 이름과 소속
+  signName: '',
+  signOrg: '',
+  signSep: 'dot',              // dot 가운데점 / bar 세로줄
+  signAlign: 'right',
+  signSize: 12,
+  signGap: 32,
+  signColor: '#9AA0A6',
 };
 
 export const MAX_SLOTS = 5;

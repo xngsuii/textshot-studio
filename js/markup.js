@@ -158,8 +158,10 @@ export function renderChunk(chunk, opts = {}, lineOffset = 0) {
       while (i < lines.length) {
         const cur = speakerOf(lines[i], profiles);
         if (!cur || cur.profile !== p) break;
+        // 꼬리와 뾰족한 모서리는 한 묶음의 첫 말풍선에만 붙는다
+        const head = bubbles.length === 0 ? ' is-head' : '';
         bubbles.push(
-          `<div class='${bcls}' data-ln='${lineOffset + i}' style='${skin}'>${inline(cur.body, f, io)}</div>`,
+          `<div class='${bcls}${head}' data-ln='${lineOffset + i}' style='${skin}'>${inline(cur.body, f, io)}</div>`,
         );
         i++;
       }
@@ -182,7 +184,7 @@ export function renderChunk(chunk, opts = {}, lineOffset = 0) {
     if (imgId) {
       const im = byId.get(imgId);
       out.push(im
-        ? `<img class='mk-img' src="${im.data}" style='--imgw:${im.width ?? 100}%' alt=''>`
+        ? `<img class='mk-img' src="${im.data}" style='--imgw:${im.width ?? 100}%;border-radius:${im.radius ?? 4}px' alt=''>`
         : "<div class='mk-img-missing'>사진을 찾을 수 없습니다</div>");
       i++;
       continue;

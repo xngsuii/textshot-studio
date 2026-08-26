@@ -85,7 +85,7 @@ export function stepper(value, { min, max, step = 1, decimals = 0, unit = '', on
     el('button', { type: 'button', class: 'step-btn', text: '−', title: `− ${step}`, onClick: () => bump(-step) }),
     input,
     el('button', { type: 'button', class: 'step-btn', text: '+', title: `+ ${step}`, onClick: () => bump(step) }),
-    unit ? el('span', { class: 'step-unit', text: unit }) : null,
+    el('span', { class: 'step-unit', text: unit || '' }),
   ]);
 }
 
@@ -281,18 +281,40 @@ export function select(value, options, onChange) {
 export function seg(value, options, onChange) {
   const wrap = el('div', { class: 'seg-inline' });
   options.forEach(([v, label]) => {
+    const isText = typeof label === 'string';
     const b = el('button', {
-      type: 'button', text: label,
+      type: 'button', text: isText ? label : null,
       class: v === value ? 'is-active' : '',
       onClick: () => {
         [...wrap.children].forEach(c => c.classList.remove('is-active'));
         b.classList.add('is-active');
         onChange(v);
       },
-    });
+    }, isText ? [] : [label]);
     wrap.appendChild(b);
   });
   return wrap;
+}
+
+/* 모양 미리보기가 붙은 선택 칸 이름표 — 원형·라운드 사각처럼 말로만 하면
+   헷갈리는 것에 쓴다. shape 는 CSS 클래스 이름. */
+export function shapeLabel(shape, text) {
+  return el('span', { class: 'shape-opt' }, [
+    el('span', { class: `shape-dot shape-${shape}` }),
+    el('span', { text }),
+  ]);
+}
+
+/* 켜고 끄는 스위치. 체크박스보다 눈에 잘 들어와 목록에 쓴다. */
+export function toggle(label, value, onChange, note) {
+  const input = el('input', { type: 'checkbox', onChange: (e) => onChange(e.target.checked) });
+  input.checked = !!value;
+  return el('label', { class: 'tgl' }, [
+    el('span', { class: 'tgl-name', text: label }),
+    note ? el('code', { class: 'tgl-mark', text: note }) : null,
+    input,
+    el('span', { class: 'tgl-track' }, [el('span', { class: 'tgl-knob' })]),
+  ]);
 }
 
 export function check(label, value, onChange) {
