@@ -283,7 +283,10 @@ export function bindBgDrag(host, onChange) {
     // 사진을 오른쪽으로 밀면 보이는 자리는 왼쪽으로 간다
     if (overX) st.bgX = clamp(drag.x0 - (e.clientX - drag.x) / overX * 100);
     if (overY) st.bgY = clamp(drag.y0 - (e.clientY - drag.y) / overY * 100);
-    onChange();
+    // 다시 그리면 한 박자 늦어 끌리는 게 안 보인다. 지금 판을 바로 옮긴다.
+    const pos = `${st.bgX}% ${st.bgY}%`;
+    host.querySelectorAll('.stage-bg, .stage-header')
+      .forEach(n => { n.style.backgroundPosition = pos; });
   });
 
   const end = (e) => {
@@ -797,10 +800,10 @@ function panelCanvas(container, onChange) {
         st.bgImage ? U.el('button', { class: 'btn btn-danger btn-sm', type: 'button', text: '이미지 빼기',
           onClick: () => { st.bgImage = ''; rebuild(); touch(); } }) : null,
         fileInput,
+        st.bgImage ? U.el('div', { class: 'tgl-row tgl-boxed push-right' }, [
+          U.toggle('헤더 이미지로 사용', st.bgAsHeader, (v) => { st.bgAsHeader = v; rebuild(); touch(); }),
+        ]) : null,
       ]),
-      st.bgImage ? U.el('div', { class: 'tgl-row tgl-boxed' }, [
-        U.toggle('헤더 이미지로 사용', st.bgAsHeader, (v) => { st.bgAsHeader = v; rebuild(); touch(); }),
-      ]) : null,
       st.bgImage && st.bgAsHeader
         ? U.field('헤더 높이', U.stepper(st.bgHeaderH ?? 220, { min: 40, max: 1200, step: 10, unit: 'px', onChange: (v) => { st.bgHeaderH = v; touch(); } }))
         : null,

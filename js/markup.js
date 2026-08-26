@@ -157,13 +157,24 @@ export function renderChunk(chunk, opts = {}, lineOffset = 0) {
       const bubbles = [];
       while (i < lines.length) {
         const cur = speakerOf(lines[i], profiles);
-        if (!cur || cur.profile !== p) break;
-        // 꼬리와 뾰족한 모서리는 한 묶음의 첫 말풍선에만 붙는다
-        const head = bubbles.length === 0 ? ' is-head' : '';
-        bubbles.push(
-          `<div class='${bcls}${head}' data-ln='${lineOffset + i}' style='${skin}'>${inline(cur.body, f, io)}</div>`,
-        );
-        i++;
+        if (cur && cur.profile === p) {
+          // 꼬리와 뾰족한 모서리는 한 묶음의 첫 말풍선에만 붙는다
+          const head = bubbles.length === 0 ? ' is-head' : '';
+          bubbles.push(
+            `<div class='${bcls}${head}' data-ln='${lineOffset + i}' style='${skin}'>${inline(cur.body, f, io)}</div>`,
+          );
+          i++;
+          continue;
+        }
+        // 빈 줄만 사이에 두고 같은 사람이 이어지면 한 덩어리로 본다.
+        // 안 그러면 이름과 사진이 바로 아래 또 나와 딴 사람처럼 보인다.
+        if (lines[i].trim() === '') {
+          let j = i;
+          while (j < lines.length && lines[j].trim() === '') j++;
+          const nxt = j < lines.length ? speakerOf(lines[j], profiles) : null;
+          if (nxt && nxt.profile === p) { i = j; continue; }
+        }
+        break;
       }
       const side = p.side === 'right' ? 'is-right' : 'is-left';
       // 이름·사진 표시는 프로필마다 따로 정한다
@@ -228,6 +239,20 @@ export function renderChunk(chunk, opts = {}, lineOffset = 0) {
     out.push(`<p class='mk-p'>${inline(raw, f)}</p>`);
     i++;
   }
+
+  /* 말풍선과 말풍선 사이에만 놓인 빈 줄은 걷어낸다.
+     원문에서는 읽기 좋으라고 한 줄 띄우는 일이 많은데, 그러면 말풍선 사이가
+     빈 줄 높이에 묶여 「말풍선 간격」이 아무 일도 못 한다. 그 사이만큼은
+     설정값이 맡도록 비켜 준다. (지문이 끼어 있으면 손대지 않는다) */
+  const isChat = (h) => h.startsWith("<div class='mk-chat ");
+  const isBlank = (h) => h === "<div class='mk-blank'></div>";
+  for (let a = 0; a < out.length; a++) {
+    if (!isChat(out[a])) continue;
+    let b = a + 1;
+    while (b < out.length && isBlank(out[b])) b++;
+    if (b > a + 1 && b < out.length && isChat(out[b])) out.splice(a + 1, b - a - 1);
+  }
+
   return out.join('');
 }
 

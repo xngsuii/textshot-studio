@@ -514,6 +514,8 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .field-row > .seg-inline { flex: 1 1 auto; width: auto; min-width: 0; }
 .field-row > .seg-inline.seg-narrow { flex: 0 0 72px; }
 
+.field-row > .push-right { margin-left: auto; }
+
 .shape-opt { display: inline-flex; align-items: center; gap: 5px; }
 .shape-dot {
   width: 11px; height: 11px; flex: none;
@@ -639,7 +641,8 @@ input[type="checkbox"] { accent-color: var(--accent); }
 
 /* 제목 */
 .mk-h1 { margin: 0; font-size: 1.6em; font-weight: 700; line-height: 1.35; color: var(--c-heading, inherit); }
-.mk-h2 { margin: 0; font-size: 1.22em; font-weight: 700; line-height: 1.4; color: var(--c-heading, inherit); }
+/* 부제목은 크기로만 구분한다. 굵기는 본문을 그대로 따라간다. */
+.mk-h2 { margin: 0; font-size: 1.22em; font-weight: inherit; line-height: 1.4; color: var(--c-heading, inherit); }
 
 /* 인용구 — > 뒤에 번호를 붙이면 그 색 슬롯을 쓴다 */
 .mk-bq {
