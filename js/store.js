@@ -103,7 +103,9 @@ export const DEFAULT_STYLE = {
 };
 
 export const MAX_SLOTS = 5;
-export const MAX_PROFILES = 6;
+
+/* 이름표 기본색. 예전에는 본문색을 62% 로 흐리게 깔았는데 그 결과와 비슷한 회색이다. */
+export const NAME_COLOR = '#717171';
 
 /* 말풍선 프로필. 이름은 본문에서 「이름 | 대사」로 쓰이므로 비워 두면 안 된다.
    오른쪽은 본인 자리라 이름과 사진을 기본으로 감춘다. */
@@ -111,14 +113,27 @@ export const DEFAULT_PROFILES = [
   {
     id: 'p1', name: '나', side: 'right',
     bubbleBg: '#2F6B6B', textColor: '#FFFFFF', quoteColor: '#FFFFFF', parenColor: '#BED8D6',
-    avatar: '', showName: false, showAvatar: false,
+    nameColor: NAME_COLOR,
+    avatar: '', avatarColor: '', showName: false, showAvatar: false,
   },
   {
     id: 'p2', name: '상대', side: 'left',
     bubbleBg: '#EFF1F1', textColor: '#1A1A1A', quoteColor: '#1F5D8C', parenColor: '#8C9594',
-    avatar: '', showName: true, showAvatar: true,
+    nameColor: NAME_COLOR,
+    avatar: '', avatarColor: '', showName: true, showAvatar: true,
   },
 ];
+
+/* 새로 만드는 프로필. 개수에는 제한을 두지 않는다. */
+export function newProfile(n = 1) {
+  return {
+    id: 'p' + Math.random().toString(36).slice(2, 7),
+    name: `프로필${n}`, side: 'left',
+    bubbleBg: '#EFF1F1', textColor: '#1A1A1A',
+    quoteColor: '#1A1A1A', parenColor: '#8A8F98', nameColor: NAME_COLOR,
+    avatar: '', avatarColor: '', showName: true, showAvatar: true,
+  };
+}
 
 /* 자동 서식 — 항목별로 껐다 켠다. 템플릿에는 넣지 않는다. */
 export const DEFAULT_FORMATS = {
@@ -205,7 +220,8 @@ export function loadAll() {
         state.text.profiles = Array.isArray(d.text.profiles) && d.text.profiles.length
           ? d.text.profiles.map(p => ({
             showName: p.side !== 'right', showAvatar: p.side !== 'right',
-            quoteColor: p.textColor, parenColor: p.textColor, ...p,
+            quoteColor: p.textColor, parenColor: p.textColor,
+            nameColor: NAME_COLOR, avatarColor: '', ...p,
           }))
           : clone(DEFAULT_PROFILES);
       }

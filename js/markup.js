@@ -153,10 +153,14 @@ export function renderChunk(chunk, opts = {}, lineOffset = 0) {
       }
       const side = p.side === 'right' ? 'is-right' : 'is-left';
       // 이름·사진 표시는 프로필마다 따로 정한다
+      const avaSkin = p.avatarColor ? ` style='background:${attr(p.avatarColor)}'` : '';
       const ava = p.showAvatar
-        ? (p.avatar ? `<img class='mk-ava' src="${p.avatar}" alt=''>` : `<span class='mk-ava mk-ava-blank'></span>`)
+        ? (p.avatar
+          ? `<img class='mk-ava' src="${p.avatar}" alt=''>`
+          : `<span class='mk-ava mk-ava-blank'${avaSkin}></span>`)
         : '';
-      const name = p.showName ? `<div class='mk-speaker'>${esc(p.name)}</div>` : '';
+      const nameSkin = p.nameColor ? ` style='color:${attr(p.nameColor)}'` : '';
+      const name = p.showName ? `<div class='mk-speaker'${nameSkin}>${esc(p.name)}</div>` : '';
       out.push(`<div class='mk-chat ${side}'>${ava}<div class='mk-chat-body'>${name}${bubbles.join('')}</div></div>`);
       continue;
     }

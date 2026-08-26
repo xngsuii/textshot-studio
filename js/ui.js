@@ -109,6 +109,91 @@ export function colorGrid(cols, cells) {
   return el('div', { class: `ccell-grid cols-${cols}` }, cells);
 }
 
+/* 색 칸 + 「투명」. 투명을 켜면 값이 transparent 가 되고, 끄면 마지막에 고른 색으로 돌아온다. */
+export function colorCellClear(label, value, fallback, onChange) {
+  const off = value === 'transparent';
+  let last = off ? fallback : value;
+
+  const row = color(last, (v) => { last = v; cb.checked = false; row.classList.remove('is-off'); onChange(v); });
+  if (off) row.classList.add('is-off');
+
+  const cb = el('input', {
+    type: 'checkbox',
+    onChange: (e) => {
+      row.classList.toggle('is-off', e.target.checked);
+      onChange(e.target.checked ? 'transparent' : last);
+    },
+  });
+  cb.checked = off;
+
+  return el('div', { class: 'ccell' }, [
+    el('div', { class: 'ccell-top' }, [
+      el('span', { class: 'ccell-l', text: label }),
+      el('label', { class: 'check check-mini' }, [cb, el('span', { text: '투명' })]),
+    ]),
+    row,
+  ]);
+}
+
+/* 버튼 아래에 뜨는 작은 차림표. 바깥을 누르면 닫힌다.
+   색 고르개를 안에 담으므로 안쪽을 눌러서는 닫지 않는다. */
+let openPop = null;
+let lastClose = { anchor: null, t: 0 };
+
+export function closePopup() {
+  if (!openPop) return;
+  lastClose = { anchor: openPop.__anchor, t: Date.now() };
+  document.removeEventListener('pointerdown', onOutside, true);
+  document.removeEventListener('scroll', closePopup, true);
+  window.removeEventListener('resize', closePopup);
+  openPop.remove();
+  openPop = null;
+}
+
+function onOutside(e) {
+  if (openPop && !openPop.contains(e.target)) closePopup();
+}
+
+export function popup(anchor, rows) {
+  // 열려 있는 차림표는 바깥 누름이 이미 닫았다. 같은 버튼을 다시 누른 것이면 그대로 둔다.
+  if (lastClose.anchor === anchor && Date.now() - lastClose.t < 300) {
+    lastClose = { anchor: null, t: 0 };
+    return null;
+  }
+  closePopup();
+  const menu = el('div', { class: 'popup' }, rows);
+  menu.__anchor = anchor;
+  document.body.appendChild(menu);
+  openPop = menu;
+
+  const r = anchor.getBoundingClientRect();
+  const left = Math.max(8, Math.min(r.left, window.innerWidth - menu.offsetWidth - 8));
+  // 아래로 넘치면 버튼 위쪽에 붙인다
+  const below = r.bottom + 4;
+  const top = below + menu.offsetHeight + 8 > window.innerHeight
+    ? Math.max(8, r.top - menu.offsetHeight - 4)
+    : below;
+  menu.style.left = Math.round(left) + 'px';
+  menu.style.top = Math.round(top) + 'px';
+
+  // 지금 이 클릭이 곧바로 닫아 버리지 않도록 한 틱 뒤에 건다
+  setTimeout(() => {
+    if (openPop !== menu) return;
+    document.addEventListener('pointerdown', onOutside, true);
+    // 설정칸이 스크롤되면 버튼과 어긋나므로 닫는다
+    document.addEventListener('scroll', closePopup, true);
+    window.addEventListener('resize', closePopup);
+  }, 0);
+  return menu;
+}
+
+/* 차림표 한 줄. control 을 넘기면 그 칸을 눌러도 control 이 눌린다. */
+export function popupRow(label, { onClick, control, danger } = {}) {
+  const kids = [el('span', { class: 'popup-l', text: label }), control || null];
+  if (control) return el('label', { class: 'popup-row' }, kids);
+  return el('button', { class: `popup-row${danger ? ' is-danger' : ''}`, type: 'button', onClick }, kids);
+}
+
 export function select(value, options, onChange) {
   const s = el('select', { onChange: (e) => onChange(e.target.value) },
     options.map(([v, label]) => el('option', { value: v, text: label, selected: v === value })));

@@ -2,7 +2,7 @@
 
 import {
   state, saveSoon, FONTS, fontById, DEFAULT_FORMATS, DEFAULT_STYLE,
-  DEFAULT_OUTPUT, RATIOS, RATIO_ORDER, RATIO_LABEL, MAX_SLOTS, MAX_PROFILES,
+  DEFAULT_OUTPUT, RATIOS, RATIO_ORDER, RATIO_LABEL, MAX_SLOTS, newProfile, NAME_COLOR,
 } from './store.js';
 import {
   splitChunks, hasSplit, renderChunk, renderWithSplitMarks, stripMarkers,
@@ -181,7 +181,9 @@ export function buildProfileBar(onChange) {
       U.el('span', { class: 'slot-dot' }),
       U.el('span', { text: p.name || '이름 없음' }),
     ]);
-    btn.querySelector('.slot-dot').style.background = p.bubbleBg;
+    const dot = btn.querySelector('.slot-dot');
+    if (p.bubbleBg === 'transparent') dot.classList.add('is-clear');
+    else dot.style.background = p.bubbleBg;
     bar.appendChild(btn);
   });
 }
@@ -294,7 +296,7 @@ function panelChat(container, onChange) {
         e.target.value = '';
         if (!file) return;
         const fr = new FileReader();
-        fr.onload = () => { p.avatar = fr.result; rebuild(); touch(); };
+        fr.onload = () => { p.avatar = fr.result; U.closePopup(); rebuild(); touch(); };
         fr.readAsDataURL(file);
       },
     });
@@ -302,10 +304,34 @@ function panelChat(container, onChange) {
     const face = p.avatar
       ? (() => { const im = U.el('img', { class: 'prof-face', alt: '' }); im.src = p.avatar; return im; })()
       : U.el('span', { class: 'prof-face prof-face-blank', text: (p.name || '?').slice(0, 1) });
+    if (!p.avatar && p.avatarColor) face.style.background = p.avatarColor;
+
+    // 프로필 사진을 누르면 사진·컬러·초기화를 고르는 차림표가 열린다
+    const faceBtn = U.el('button', {
+      class: 'prof-face-btn', type: 'button', title: '프로필 사진',
+    }, [face]);
+    faceBtn.addEventListener('click', () => {
+      const swatch = U.el('input', {
+        type: 'color', class: 'popup-swatch', value: p.avatarColor || '#C9CED4',
+        onInput: (e) => {
+          p.avatarColor = e.target.value;
+          face.style.background = e.target.value;
+          touch();
+        },
+      });
+      U.popup(faceBtn, [
+        U.popupRow('사진', { onClick: () => { avatarInput.click(); U.closePopup(); } }),
+        U.popupRow('컬러', { control: swatch }),
+        U.popupRow('초기화', {
+          danger: true,
+          onClick: () => { p.avatar = ''; p.avatarColor = ''; U.closePopup(); rebuild(); touch(); },
+        }),
+      ]);
+    });
 
     return U.el('div', { class: 'prof-card' }, [
       U.el('div', { class: 'prof-head' }, [
-        U.el('button', { class: 'prof-face-btn', type: 'button', title: '프로필 사진 넣기', onClick: () => avatarInput.click() }, [face]),
+        faceBtn,
         U.el('input', {
           type: 'text', class: 'prof-name', value: p.name, placeholder: '이름',
           onInput: (e) => {
@@ -325,6 +351,7 @@ function panelChat(container, onChange) {
           class: 'prof-x', type: 'button', text: '×', title: '이 프로필 삭제',
           onClick: () => {
             if (ps.length <= 1) { U.toast('프로필은 하나 이상 있어야 합니다'); return; }
+            U.closePopup();
             state.text.profiles = ps.filter(x => x !== p);
             buildProfileBar(onChange); rebuild(); touch();
           },
@@ -334,8 +361,9 @@ function panelChat(container, onChange) {
       U.el('div', { class: 'prof-body' }, [
         U.field('위치', U.seg(p.side, [['left', '왼쪽'], ['right', '오른쪽']], (v) => { p.side = v; touch(); })),
         U.colorGrid(2, [
-          U.colorCell('말풍선', p.bubbleBg, (v) => { p.bubbleBg = v; touch(); }),
+          U.colorCellClear('말풍선', p.bubbleBg, '#EFF1F1', (v) => { p.bubbleBg = v; buildProfileBar(onChange); touch(); }),
           U.colorCell('글자', p.textColor, (v) => { p.textColor = v; touch(); }),
+          U.colorCell('이름', p.nameColor || NAME_COLOR, (v) => { p.nameColor = v; touch(); }),
           U.colorCell('따옴표', p.quoteColor || p.textColor, (v) => { p.quoteColor = v; touch(); }),
           U.colorCell('괄호', p.parenColor || p.textColor, (v) => { p.parenColor = v; touch(); }),
         ]),
@@ -343,10 +371,6 @@ function panelChat(container, onChange) {
           U.check('이름 표시', p.showName, (v) => { p.showName = v; touch(); }),
           U.check('사진 표시', p.showAvatar, (v) => { p.showAvatar = v; touch(); }),
         ]),
-        p.avatar ? U.el('button', {
-          class: 'btn btn-ghost btn-sm', type: 'button', text: '사진 빼기',
-          onClick: () => { p.avatar = ''; rebuild(); touch(); },
-        }) : null,
       ]),
     ]);
   });
@@ -357,16 +381,9 @@ function panelChat(container, onChange) {
       U.el('div', { class: 'field-row' }, [
         U.el('button', {
           class: 'btn btn-ghost btn-sm', type: 'button',
-          text: `프로필 추가 (${ps.length}/${MAX_PROFILES})`,
-          disabled: ps.length >= MAX_PROFILES,
+          text: `프로필 추가 (${ps.length})`,
           onClick: () => {
-            if (ps.length >= MAX_PROFILES) return;
-            ps.push({
-              id: 'p' + Math.random().toString(36).slice(2, 7),
-              name: `프로필${ps.length + 1}`, side: 'left',
-              bubbleBg: '#EFF1F1', textColor: '#1A1A1A', avatar: '',
-              showName: true, showAvatar: true,
-            });
+            ps.push(newProfile(ps.length + 1));
             buildProfileBar(onChange); rebuild(); touch();
           },
         }),
