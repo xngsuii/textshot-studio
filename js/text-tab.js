@@ -7,7 +7,7 @@ import {
 import {
   splitChunks, hasSplit, renderChunk, renderWithSplitMarks, stripMarkers,
   imageOrder, removeImageMarker, chunkOffsets, setSpeakerAt, speakerNameAt,
-  renameSpeaker, NAME_SEP,
+  renameSpeaker, NAME_SEP, withAlpha,
 } from './markup.js';
 import { ensureFont, isAvailable } from './fonts.js';
 import { buildTemplateSection } from './templates.js';
@@ -182,8 +182,9 @@ export function buildProfileBar(onChange) {
       U.el('span', { text: p.name || '이름 없음' }),
     ]);
     const dot = btn.querySelector('.slot-dot');
-    if (p.bubbleBg === 'transparent') dot.classList.add('is-clear');
-    else dot.style.background = p.bubbleBg;
+    const bg = withAlpha(p.bubbleBg, p.bubbleAlpha);
+    if (bg === 'transparent') dot.classList.add('is-clear');
+    else dot.style.background = bg;
     bar.appendChild(btn);
   });
 }
@@ -248,11 +249,11 @@ function icon(name) {
   return s;
 }
 
-function group(title, children) {
-  return U.el('div', { class: 'grp' }, [
-    title ? U.el('div', { class: 'grp-t', text: title }) : null,
-    ...children.filter(Boolean),
-  ]);
+function group(title, children, action) {
+  const head = title
+    ? U.el('div', { class: 'grp-t' }, [U.el('span', { text: title }), action || null])
+    : null;
+  return U.el('div', { class: 'grp' }, [head, ...children.filter(Boolean)]);
 }
 
 export function buildSettings(container, onChange) {
@@ -281,6 +282,9 @@ const PANELS = {
   template: panelTemplate,
 };
 
+/* 프로필 보기 — card: 색까지 펼친 카드 / list: 색을 접은 목록 */
+let profileView = 'card';
+
 /* 말풍선 — 화자 프로필과 공통 모양 */
 function panelChat(container, onChange) {
   const st = state.text.style;
@@ -288,7 +292,8 @@ function panelChat(container, onChange) {
   const touch = () => { state.activeTemplate = null; onChange(); };
   const rebuild = () => buildSettings(container, onChange);
 
-  const cards = ps.map((p, i) => {
+  /* 카드와 목록이 함께 쓰는 조각들. compact 는 한 줄에 들어가도록 이름표를 줄인다. */
+  const parts = (p, compact = false) => {
     const avatarInput = U.el('input', {
       type: 'file', accept: 'image/*', style: 'display:none',
       onChange: (e) => {
@@ -329,55 +334,91 @@ function panelChat(container, onChange) {
       ]);
     });
 
+    const nameInput = U.el('input', {
+      type: 'text', class: 'prof-name', value: p.name, placeholder: '이름',
+      onInput: (e) => {
+        const old = p.name;
+        const next = e.target.value;
+        // 본문에 이미 쓰인 이름표도 같이 바꿔 준다
+        if (old && next) {
+          state.text.source = renameSpeaker(state.text.source, old, next, ps);
+          srcEl().value = state.text.source;
+        }
+        p.name = next;
+        buildProfileBar(onChange);
+        touch();
+      },
+    });
+
+    const delBtn = U.el('button', {
+      class: 'prof-x', type: 'button', text: '×', title: '이 프로필 삭제',
+      onClick: () => {
+        if (ps.length <= 1) { U.toast('프로필은 하나 이상 있어야 합니다'); return; }
+        U.closePopup();
+        state.text.profiles = ps.filter(x => x !== p);
+        buildProfileBar(onChange); rebuild(); touch();
+      },
+    });
+
+    const sideSeg = U.seg(p.side, [['left', '왼쪽'], ['right', '오른쪽']], (v) => { p.side = v; touch(); });
+    const toggles = [
+      U.check(compact ? '이름' : '이름 표시', p.showName, (v) => { p.showName = v; touch(); }),
+      U.check(compact ? '사진' : '사진 표시', p.showAvatar, (v) => { p.showAvatar = v; touch(); }),
+    ];
+    if (compact) {
+      toggles[0].title = '말풍선 위에 이름을 보일지';
+      toggles[1].title = '말풍선 옆에 프로필 사진을 보일지';
+    }
+
+    return { avatarInput, faceBtn, nameInput, delBtn, sideSeg, toggles };
+  };
+
+  const card = (p) => {
+    const q = parts(p);
     return U.el('div', { class: 'prof-card' }, [
-      U.el('div', { class: 'prof-head' }, [
-        faceBtn,
-        U.el('input', {
-          type: 'text', class: 'prof-name', value: p.name, placeholder: '이름',
-          onInput: (e) => {
-            const old = p.name;
-            const next = e.target.value;
-            // 본문에 이미 쓰인 이름표도 같이 바꿔 준다
-            if (old && next) {
-              state.text.source = renameSpeaker(state.text.source, old, next, ps);
-              srcEl().value = state.text.source;
-            }
-            p.name = next;
-            buildProfileBar(onChange);
-            touch();
-          },
-        }),
-        U.el('button', {
-          class: 'prof-x', type: 'button', text: '×', title: '이 프로필 삭제',
-          onClick: () => {
-            if (ps.length <= 1) { U.toast('프로필은 하나 이상 있어야 합니다'); return; }
-            U.closePopup();
-            state.text.profiles = ps.filter(x => x !== p);
-            buildProfileBar(onChange); rebuild(); touch();
-          },
-        }),
-        avatarInput,
-      ]),
+      U.el('div', { class: 'prof-head' }, [q.faceBtn, q.nameInput, q.delBtn, q.avatarInput]),
       U.el('div', { class: 'prof-body' }, [
-        U.field('위치', U.seg(p.side, [['left', '왼쪽'], ['right', '오른쪽']], (v) => { p.side = v; touch(); })),
+        U.field('위치', q.sideSeg),
         U.colorGrid(2, [
-          U.colorCellClear('말풍선', p.bubbleBg, '#EFF1F1', (v) => { p.bubbleBg = v; buildProfileBar(onChange); touch(); }),
+          U.colorCellAlpha('말풍선', p.bubbleBg, p.bubbleAlpha,
+            (v) => { p.bubbleBg = v; buildProfileBar(onChange); touch(); },
+            (v) => { p.bubbleAlpha = v; buildProfileBar(onChange); touch(); }),
           U.colorCell('글자', p.textColor, (v) => { p.textColor = v; touch(); }),
           U.colorCell('이름', p.nameColor || NAME_COLOR, (v) => { p.nameColor = v; touch(); }),
           U.colorCell('따옴표', p.quoteColor || p.textColor, (v) => { p.quoteColor = v; touch(); }),
           U.colorCell('괄호', p.parenColor || p.textColor, (v) => { p.parenColor = v; touch(); }),
         ]),
-        U.el('div', { class: 'prof-toggles' }, [
-          U.check('이름 표시', p.showName, (v) => { p.showName = v; touch(); }),
-          U.check('사진 표시', p.showAvatar, (v) => { p.showAvatar = v; touch(); }),
-        ]),
+        U.el('div', { class: 'prof-toggles' }, q.toggles),
       ]),
     ]);
+  };
+
+  /* 색을 접은 한 줄짜리 — 이름·위치·표시 여부만 */
+  const row = (p) => {
+    const q = parts(p, true);
+    // 좁은 화면에서 설정 줄만 아래로 접히도록 삭제 버튼을 앞에 두고 순서로 자리를 바꾼다
+    return U.el('div', { class: 'prof-row' }, [
+      q.faceBtn, q.nameInput, q.delBtn,
+      U.el('div', { class: 'prof-row-opts' }, [q.sideSeg, U.el('div', { class: 'prof-toggles' }, q.toggles)]),
+      q.avatarInput,
+    ]);
+  };
+
+  const isList = profileView === 'list';
+  const viewBtn = U.el('button', {
+    class: 'grp-act', type: 'button',
+    text: isList ? '카드로 보기' : '리스트로 보기',
+    title: isList ? '색까지 펼쳐서 봅니다' : '색을 접고 이름·위치만 봅니다',
+    onClick: () => { U.closePopup(); profileView = isList ? 'card' : 'list'; rebuild(); },
   });
+
+  const listEl = isList
+    ? U.el('div', { class: 'prof-list' }, ps.map(row))
+    : U.el('div', { class: 'prof-grid' }, ps.map(card));
 
   return U.el('div', { class: 'panel' }, [
     group('프로필', [
-      U.el('div', { class: 'prof-grid' }, cards),
+      listEl,
       U.el('div', { class: 'field-row' }, [
         U.el('button', {
           class: 'btn btn-ghost btn-sm', type: 'button',
@@ -389,7 +430,7 @@ function panelChat(container, onChange) {
         }),
       ]),
       U.el('div', { class: 'hint', text: '본문에서 「이름 | 내용」으로 쓰면 말풍선이 됩니다. 미리보기에서 말풍선을 누르면 다음 프로필로 넘어갑니다.' }),
-    ]),
+    ], viewBtn),
     group('모양', [
       U.field('최대 폭', U.stepper(st.bubbleMaxWidth, { min: 30, max: 100, step: 2, unit: '%', onChange: (v) => { st.bubbleMaxWidth = v; touch(); } })),
       U.field('모서리', U.stepper(st.bubbleRadius, { min: 0, max: 40, step: 1, unit: 'px', onChange: (v) => { st.bubbleRadius = v; touch(); } })),

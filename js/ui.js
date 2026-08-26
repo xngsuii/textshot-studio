@@ -109,27 +109,26 @@ export function colorGrid(cols, cells) {
   return el('div', { class: `ccell-grid cols-${cols}` }, cells);
 }
 
-/* 색 칸 + 「투명」. 투명을 켜면 값이 transparent 가 되고, 끄면 마지막에 고른 색으로 돌아온다. */
-export function colorCellClear(label, value, fallback, onChange) {
-  const off = value === 'transparent';
-  let last = off ? fallback : value;
-
-  const row = color(last, (v) => { last = v; cb.checked = false; row.classList.remove('is-off'); onChange(v); });
-  if (off) row.classList.add('is-off');
-
-  const cb = el('input', {
-    type: 'checkbox',
-    onChange: (e) => {
-      row.classList.toggle('is-off', e.target.checked);
-      onChange(e.target.checked ? 'transparent' : last);
+/* 색 칸 + 투명도(%). 100 이면 그대로, 0 이면 완전히 투명하다. */
+export function colorCellAlpha(label, value, alpha, onColor, onAlpha) {
+  const row = color(value === 'transparent' ? '#EFF1F1' : value, onColor);
+  const a = el('input', {
+    type: 'number', class: 'alpha-input', min: 0, max: 100, step: 5,
+    value: alpha ?? 100, title: '투명도 — 0 이면 완전히 투명합니다',
+    onInput: (e) => {
+      let v = parseFloat(e.target.value);
+      if (Number.isNaN(v)) return;
+      v = Math.max(0, Math.min(100, v));
+      row.classList.toggle('is-faint', v < 100);
+      onAlpha(v);
     },
   });
-  cb.checked = off;
+  if ((alpha ?? 100) < 100) row.classList.add('is-faint');
 
   return el('div', { class: 'ccell' }, [
     el('div', { class: 'ccell-top' }, [
       el('span', { class: 'ccell-l', text: label }),
-      el('label', { class: 'check check-mini' }, [cb, el('span', { text: '투명' })]),
+      el('span', { class: 'alpha-box' }, [a, el('span', { class: 'alpha-u', text: '%' })]),
     ]),
     row,
   ]);

@@ -33,6 +33,17 @@ function esc(s) {
 }
 const attr = (s) => String(s).replace(/'/g, '&#39;').replace(/</g, '&lt;');
 
+/* 색 + 투명도(0~100) 를 하나의 CSS 색으로. 0 이면 아예 투명하다. */
+export function withAlpha(hex, pct) {
+  const a = pct === undefined || pct === null ? 100 : Number(pct);
+  if (hex === 'transparent' || !(a > 0)) return 'transparent';
+  if (a >= 100) return hex;
+  const m = /^#([0-9a-f]{6})$/i.exec(String(hex).trim());
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${Math.round(a) / 100})`;
+}
+
 function inline(raw, f, o = {}) {
   let s = esc(raw);
 
@@ -138,7 +149,7 @@ export function renderChunk(chunk, opts = {}, lineOffset = 0) {
     if (sp) {
       const p = sp.profile;
       // 따옴표·괄호 색은 말풍선 안에서만 프로필 것으로 갈아 끼운다
-      const skin = `background:${attr(p.bubbleBg)};color:${attr(p.textColor)}`
+      const skin = `background:${attr(withAlpha(p.bubbleBg, p.bubbleAlpha))};color:${attr(p.textColor)}`
         + `;--c-quote:${attr(p.quoteColor || p.textColor)}`
         + `;--c-paren:${attr(p.parenColor || p.textColor)}`;
       const io = { stripQuotes: !!chat.hideQuotesInBubble };

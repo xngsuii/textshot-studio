@@ -186,10 +186,19 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 
 .grp { display: flex; flex-direction: column; gap: 9px; }
 .grp-t {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
   font-size: 10.5px; font-weight: 700; letter-spacing: .07em;
   color: var(--fg-3); text-transform: uppercase;
   padding-bottom: 5px; border-bottom: 1px solid var(--line);
 }
+/* 제목 줄 오른쪽 끝의 작은 전환 버튼 */
+.grp-act {
+  flex: none; padding: 2px 7px; border-radius: var(--r-sm);
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0; text-transform: none;
+  color: var(--fg-2); background: var(--bg-sunken); border: 1px solid var(--line);
+  cursor: pointer;
+}
+.grp-act:hover { color: var(--accent); border-color: var(--accent); }
 
 /* 자동 서식 체크 목록 */
 .fmt-check {
@@ -244,11 +253,20 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 /* 격자 안에서는 남는 자리를 색상 막대가 가져간다 */
 .ccell .field-row { gap: 4px; }
 .ccell .field-row input[type="color"] { flex: 1 1 auto; width: auto; min-width: 30px; }
-/* 라벨 옆에 「투명」을 두는 칸 */
+/* 라벨 옆에 투명도를 두는 칸 */
 .ccell-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; }
-.check-mini { font-size: 10.5px; color: var(--fg-3); gap: 3px; flex: none; }
-.ccell-top .check-mini input { width: 12px; height: 12px; }
-.field-row.is-off { opacity: .38; pointer-events: none; }
+.alpha-box { flex: none; display: flex; align-items: center; gap: 1px; }
+.alpha-u { font-size: 9.5px; color: var(--fg-3); }
+.ccell-top .alpha-input {
+  width: 34px; height: 18px; padding: 0 1px;
+  font-size: 10.5px; text-align: center;
+  -moz-appearance: textfield;
+}
+.alpha-input::-webkit-inner-spin-button, .alpha-input::-webkit-outer-spin-button {
+  -webkit-appearance: none; margin: 0;
+}
+/* 투명도를 내린 색은 칸도 옅게 보인다 */
+.field-row.is-faint input[type="color"] { opacity: .55; }
 
 /* 투명한 색을 보여 주는 체크무늬 */
 .is-clear {
@@ -313,6 +331,23 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
   font-size: 10.5px; font-weight: 700; color: var(--fg-3);
   letter-spacing: .04em; flex: none;
 }
+
+/* 색을 접은 목록 — 이름·위치·표시 여부만 한 줄에 */
+.prof-list { display: flex; flex-direction: column; gap: 6px; }
+.prof-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--line); border-radius: var(--r);
+  background: var(--bg);
+}
+.prof-row .prof-face, .prof-row .prof-face-blank { width: 26px; height: 26px; border-radius: 6px; }
+.prof-row .prof-name { flex: 1 1 60px; min-width: 50px; height: 26px; font-size: 12.5px; padding: 0 6px; }
+.prof-row-opts { display: flex; align-items: center; gap: 10px; flex: none; order: 2; }
+.prof-row .prof-x { order: 3; }
+.prof-row .seg-inline { width: auto; flex: none; }
+.prof-row .seg-inline button { flex: 0 0 auto; height: 24px; font-size: 11px; padding: 0 8px; white-space: nowrap; }
+.prof-row .prof-toggles { flex-direction: row; gap: 9px; }
+.prof-row .check { font-size: 11px; gap: 4px; white-space: nowrap; }
 
 /* 프로필 카드를 가로 2열로 — 카드가 좁아지므로 안쪽도 함께 줄인다 */
 .prof-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
@@ -760,6 +795,14 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
   .ccell-grid.cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .popup-row { height: 40px; font-size: 13.5px; }
   .popup .popup-swatch { width: 40px; height: 26px; }
+  /* 목록은 좁으니 설정 줄을 아래로 내린다 */
+  .prof-row { flex-wrap: wrap; }
+  .prof-row .prof-name { flex: 1 1 120px; height: 32px; font-size: 15px; }
+  .prof-row .prof-x { order: 0; }
+  .prof-row-opts { order: 0; flex: 1 1 100%; justify-content: space-between; }
+  .prof-row .seg-inline button { height: 30px; font-size: 12.5px; }
+  .prof-row .check { font-size: 12.5px; }
+  .ccell-top .alpha-input { width: 46px; height: 22px; font-size: 12px; }
 
   .toast { bottom: calc(var(--drawer-h, 96px) + 16px); }
 }

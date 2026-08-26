@@ -56,16 +56,16 @@ export const RATIO_LABEL = { auto: '자동' };
 /* ── 기본 스타일 (= 기본 템플릿) ────────────── */
 export const DEFAULT_STYLE = {
   font: 'pretendard',
-  fontSize: 17,
-  lineHeight: 1.9,
+  fontSize: 15,
+  lineHeight: 1.7,
   letterSpacing: 0,
   align: 'left',
-  paraGap: 10,
+  paraGap: 5,
   breakMode: 'word',            // word: 단어 단위 / char: 글자 단위
 
   width: 800,
   ratio: 'auto',
-  padTop: 56, padRight: 48, padBottom: 56, padLeft: 48,
+  padTop: 84, padRight: 84, padBottom: 84, padLeft: 84,
   padLinked: false,
 
   bg: '#FFFFFF',
@@ -112,13 +112,15 @@ export const NAME_COLOR = '#717171';
 export const DEFAULT_PROFILES = [
   {
     id: 'p1', name: '나', side: 'right',
-    bubbleBg: '#2F6B6B', textColor: '#FFFFFF', quoteColor: '#FFFFFF', parenColor: '#BED8D6',
+    bubbleBg: '#2F6B6B', bubbleAlpha: 100,
+    textColor: '#FFFFFF', quoteColor: '#FFFFFF', parenColor: '#BED8D6',
     nameColor: NAME_COLOR,
     avatar: '', avatarColor: '', showName: false, showAvatar: false,
   },
   {
     id: 'p2', name: '상대', side: 'left',
-    bubbleBg: '#EFF1F1', textColor: '#1A1A1A', quoteColor: '#1F5D8C', parenColor: '#8C9594',
+    bubbleBg: '#EFF1F1', bubbleAlpha: 100,
+    textColor: '#1A1A1A', quoteColor: '#1F5D8C', parenColor: '#8C9594',
     nameColor: NAME_COLOR,
     avatar: '', avatarColor: '', showName: true, showAvatar: true,
   },
@@ -129,7 +131,7 @@ export function newProfile(n = 1) {
   return {
     id: 'p' + Math.random().toString(36).slice(2, 7),
     name: `프로필${n}`, side: 'left',
-    bubbleBg: '#EFF1F1', textColor: '#1A1A1A',
+    bubbleBg: '#EFF1F1', bubbleAlpha: 100, textColor: '#1A1A1A',
     quoteColor: '#1A1A1A', parenColor: '#8A8F98', nameColor: NAME_COLOR,
     avatar: '', avatarColor: '', showName: true, showAvatar: true,
   };
@@ -218,11 +220,16 @@ export function loadAll() {
         if (!(state.text.style.ratio in RATIOS)) state.text.style.ratio = 'auto';
         state.text.images = Array.isArray(d.text.images) ? d.text.images : [];
         state.text.profiles = Array.isArray(d.text.profiles) && d.text.profiles.length
-          ? d.text.profiles.map(p => ({
-            showName: p.side !== 'right', showAvatar: p.side !== 'right',
-            quoteColor: p.textColor, parenColor: p.textColor,
-            nameColor: NAME_COLOR, avatarColor: '', ...p,
-          }))
+          ? d.text.profiles.map(p => {
+            const q = {
+              showName: p.side !== 'right', showAvatar: p.side !== 'right',
+              quoteColor: p.textColor, parenColor: p.textColor,
+              nameColor: NAME_COLOR, avatarColor: '', bubbleAlpha: 100, ...p,
+            };
+            // 투명 여부만 있던 시절의 값을 투명도로 옮긴다
+            if (q.bubbleBg === 'transparent') { q.bubbleBg = '#EFF1F1'; q.bubbleAlpha = 0; }
+            return q;
+          })
           : clone(DEFAULT_PROFILES);
       }
       if (d.html) {
