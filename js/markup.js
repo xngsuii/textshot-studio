@@ -153,12 +153,13 @@ export function renderChunk(chunk, opts = {}, lineOffset = 0) {
         + `;--c-quote:${attr(p.quoteColor || p.textColor)}`
         + `;--c-paren:${attr(p.parenColor || p.textColor)}`;
       const io = { stripQuotes: !!chat.hideQuotesInBubble };
+      const bcls = `mk-bubble${chat.parenBreak ? ' is-parenbreak' : ''}`;
       const bubbles = [];
       while (i < lines.length) {
         const cur = speakerOf(lines[i], profiles);
         if (!cur || cur.profile !== p) break;
         bubbles.push(
-          `<div class='mk-bubble' data-ln='${lineOffset + i}' style='${skin}'>${inline(cur.body, f, io)}</div>`,
+          `<div class='${bcls}' data-ln='${lineOffset + i}' style='${skin}'>${inline(cur.body, f, io)}</div>`,
         );
         i++;
       }
@@ -172,7 +173,8 @@ export function renderChunk(chunk, opts = {}, lineOffset = 0) {
         : '';
       const nameSkin = p.nameColor ? ` style='color:${attr(p.nameColor)}'` : '';
       const name = p.showName ? `<div class='mk-speaker'${nameSkin}>${esc(p.name)}</div>` : '';
-      out.push(`<div class='mk-chat ${side}'>${ava}<div class='mk-chat-body'>${name}${bubbles.join('')}</div></div>`);
+      out.push(`<div class='mk-chat ${side}'>${ava}<div class='mk-chat-body'>${name}`
+        + `<div class='mk-bubbles'>${bubbles.join('')}</div></div></div>`);
       continue;
     }
 
@@ -180,7 +182,7 @@ export function renderChunk(chunk, opts = {}, lineOffset = 0) {
     if (imgId) {
       const im = byId.get(imgId);
       out.push(im
-        ? `<img class='mk-img' src="${im.data}" style='width:${im.width ?? 100}%' alt=''>`
+        ? `<img class='mk-img' src="${im.data}" style='--imgw:${im.width ?? 100}%' alt=''>`
         : "<div class='mk-img-missing'>사진을 찾을 수 없습니다</div>");
       i++;
       continue;

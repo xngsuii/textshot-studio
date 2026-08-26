@@ -61,6 +61,7 @@ export const DEFAULT_STYLE = {
   letterSpacing: 0,
   align: 'left',
   paraGap: 5,
+  squeeze: 100,                 // 장평 % — 100 이면 글자를 그대로 둔다
   breakMode: 'word',            // word: 단어 단위 / char: 글자 단위
 
   width: 800,
@@ -93,11 +94,14 @@ export const DEFAULT_STYLE = {
 
   // 말풍선 공통 모양 (이름·사진 표시 여부는 프로필마다 따로)
   bubbleRadius: 16,
-  bubbleGap: 8,
+  bubbleGap: 8,                // 말풍선끼리의 간격
+  nameGap: 3,                  // 이름과 말풍선 사이
+  nameBold: false,
   bubbleMaxWidth: 76,        // %
   bubblePadV: 9,
   bubblePadH: 13,
   hideQuotesInBubble: false,   // 말풍선 안 따옴표 기호를 감출지
+  parenBreakInBubble: false,   // 말풍선 안 괄호를 늘 새 줄에 둘지
 
   transparent: false,
 };

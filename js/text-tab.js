@@ -38,10 +38,21 @@ function applyStyle(stage) {
     textAlign: st.align,
     display: 'flex',
     flexDirection: 'column',
-    gap: st.paraGap + 'px',
     wordBreak: st.breakMode === 'char' ? 'break-all' : 'keep-all',
     overflowWrap: st.breakMode === 'char' ? 'break-word' : 'anywhere',
   });
+
+  /* 장평 — 안쪽 판을 1/배율 만큼 넓게 깔고 가로로 눌러서 그린다.
+     그래야 글자가 좁아지는 만큼 한 줄에 더 들어간다. 판 바깥의 여백과
+     캔버스 크기는 그대로다. 사진·프로필 사진처럼 눌리면 안 되는 것은
+     아래 CSS 에서 되돌린다. */
+  const inner = stage.querySelector('.stage-in') || stage;
+  const k = (st.squeeze ?? 100) / 100;
+  Object.assign(inner.style, {
+    display: 'flex', flexDirection: 'column', gap: st.paraGap + 'px',
+  });
+  stage.style.setProperty('--sq', String(k));
+  stage.classList.toggle('is-squeezed', k !== 1);
 
   // 비율을 정하면 남는 세로 공간이 생긴다. 글을 위에 붙이지 않고 가운데 둔다.
   // (가로 정렬은 textAlign 그대로) 글이 더 길면 캔버스가 늘어나 영향이 없다.
@@ -64,8 +75,11 @@ function applyStyle(stage) {
   for (const [k, val] of Object.entries(v)) stage.style.setProperty(k, val);
   (st.slots || []).forEach((s, i) => stage.style.setProperty(`--c-slot${i + 1}`, s.color));
 
+  stage.style.setProperty('--para-gap', st.paraGap + 'px');
   stage.style.setProperty('--b-radius', st.bubbleRadius + 'px');
   stage.style.setProperty('--b-gap', st.bubbleGap + 'px');
+  stage.style.setProperty('--name-gap', (st.nameGap ?? 3) + 'px');
+  stage.style.setProperty('--name-w', st.nameBold ? '700' : '400');
   stage.style.setProperty('--b-max', st.bubbleMaxWidth + '%');
   stage.style.setProperty('--b-pad-v', st.bubblePadV + 'px');
   stage.style.setProperty('--b-pad-h', st.bubblePadH + 'px');
@@ -85,7 +99,7 @@ function applyStyle(stage) {
 
 function makeStage(html) {
   const stage = U.el('div', { class: 'stage' });
-  stage.innerHTML = html;
+  stage.innerHTML = `<div class="stage-in">${html}</div>`;
   applyStyle(stage);
   return stage;
 }
@@ -96,7 +110,10 @@ function renderOpts() {
     formats: state.text.formats,
     images: state.text.images,
     profiles: state.text.profiles,
-    chat: { hideQuotesInBubble: state.text.style.hideQuotesInBubble },
+    chat: {
+      hideQuotesInBubble: st.hideQuotesInBubble,
+      parenBreak: st.parenBreakInBubble,
+    },
   };
 }
 
@@ -370,13 +387,13 @@ function panelChat(container, onChange) {
       toggles[1].title = '말풍선 옆에 프로필 사진을 보일지';
     }
 
-    return { avatarInput, faceBtn, nameInput, delBtn, sideSeg, toggles };
+    return { avatarInput, faceBtn, nameInput, delBtn, sideSeg, toggles, grip: U.dragGrip() };
   };
 
   const card = (p) => {
     const q = parts(p);
     return U.el('div', { class: 'prof-card' }, [
-      U.el('div', { class: 'prof-head' }, [q.faceBtn, q.nameInput, q.delBtn, q.avatarInput]),
+      U.el('div', { class: 'prof-head' }, [q.grip, q.faceBtn, q.nameInput, q.delBtn, q.avatarInput]),
       U.el('div', { class: 'prof-body' }, [
         U.field('위치', q.sideSeg),
         U.colorGrid(2, [
@@ -398,7 +415,7 @@ function panelChat(container, onChange) {
     const q = parts(p, true);
     // 좁은 화면에서 설정 줄만 아래로 접히도록 삭제 버튼을 앞에 두고 순서로 자리를 바꾼다
     return U.el('div', { class: 'prof-row' }, [
-      q.faceBtn, q.nameInput, q.delBtn,
+      q.grip, q.faceBtn, q.nameInput, q.delBtn,
       U.el('div', { class: 'prof-row-opts' }, [q.sideSeg, U.el('div', { class: 'prof-toggles' }, q.toggles)]),
       q.avatarInput,
     ]);
@@ -416,6 +433,12 @@ function panelChat(container, onChange) {
     ? U.el('div', { class: 'prof-list' }, ps.map(row))
     : U.el('div', { class: 'prof-grid' }, ps.map(card));
 
+  U.dragSort(listEl, isList ? '.prof-row' : '.prof-card', (from, to) => {
+    const [moved] = ps.splice(from, 1);
+    ps.splice(to, 0, moved);
+    buildProfileBar(onChange); rebuild(); touch();
+  });
+
   return U.el('div', { class: 'panel' }, [
     group('프로필', [
       listEl,
@@ -432,15 +455,22 @@ function panelChat(container, onChange) {
       U.el('div', { class: 'hint', text: '본문에서 「이름 | 내용」으로 쓰면 말풍선이 됩니다. 미리보기에서 말풍선을 누르면 다음 프로필로 넘어갑니다.' }),
     ], viewBtn),
     group('모양', [
-      U.field('최대 폭', U.stepper(st.bubbleMaxWidth, { min: 30, max: 100, step: 2, unit: '%', onChange: (v) => { st.bubbleMaxWidth = v; touch(); } })),
-      U.field('모서리', U.stepper(st.bubbleRadius, { min: 0, max: 40, step: 1, unit: 'px', onChange: (v) => { st.bubbleRadius = v; touch(); } })),
-      U.field('말풍선 간격', U.stepper(st.bubbleGap, { min: 0, max: 40, step: 1, unit: 'px', onChange: (v) => { st.bubbleGap = v; touch(); } })),
+      U.fieldGrid([
+        U.field('최대 폭', U.stepper(st.bubbleMaxWidth, { min: 30, max: 100, step: 2, unit: '%', onChange: (v) => { st.bubbleMaxWidth = v; touch(); } })),
+        U.field('모서리', U.stepper(st.bubbleRadius, { min: 0, max: 40, step: 1, unit: 'px', onChange: (v) => { st.bubbleRadius = v; touch(); } })),
+        U.field('말풍선 간격', U.stepper(st.bubbleGap, { min: 0, max: 40, step: 1, unit: 'px', onChange: (v) => { st.bubbleGap = v; touch(); } })),
+        U.field('이름 간격', U.stepper(st.nameGap ?? 3, { min: 0, max: 40, step: 1, unit: 'px', onChange: (v) => { st.nameGap = v; touch(); } })),
+      ]),
       U.field('안쪽 여백', U.el('div', { class: 'field-row' }, [
         U.stepper(st.bubblePadV, { min: 0, max: 40, step: 1, unit: '↕', onChange: (v) => { st.bubblePadV = v; touch(); } }),
         U.stepper(st.bubblePadH, { min: 0, max: 40, step: 1, unit: '↔', onChange: (v) => { st.bubblePadH = v; touch(); } }),
       ])),
+      U.el('div', { class: 'prof-toggles' }, [
+        U.check('이름 볼드', st.nameBold, (v) => { st.nameBold = v; touch(); }),
+      ]),
       U.check('말풍선 안 따옴표 감추기', st.hideQuotesInBubble, (v) => { st.hideQuotesInBubble = v; touch(); }),
-      U.el('div', { class: 'hint', text: '따옴표를 감춰도 따옴표 색은 그대로 입혀집니다. 프로필 사진 크기는 글자 크기에 맞춰 함께 움직입니다.' }),
+      U.check('말풍선 안 괄호 줄바꿈', st.parenBreakInBubble, (v) => { st.parenBreakInBubble = v; touch(); }),
+      U.el('div', { class: 'hint', text: '「말풍선 간격」은 말풍선끼리, 「이름 간격」은 이름과 말풍선 사이입니다. 괄호 줄바꿈을 켜면 (괄호)가 늘 새 줄에 놓입니다.' }),
     ]),
   ]);
 }
@@ -500,9 +530,13 @@ function panelBody(container, onChange) {
       U.field('크기', U.stepper(st.fontSize, { min: 8, max: 96, step: 1, unit: 'px', onChange: (v) => { st.fontSize = v; touch(); } })),
     ]),
     group('간격', [
-      U.field('행간', U.stepper(st.lineHeight, { min: 0.8, max: 5, step: 0.1, decimals: 2, onChange: (v) => { st.lineHeight = v; touch(); } })),
-      U.field('자간', U.stepper(st.letterSpacing, { min: -3, max: 10, step: 0.5, decimals: 1, unit: 'px', onChange: (v) => { st.letterSpacing = v; touch(); } })),
-      U.field('문단 간격', U.stepper(st.paraGap, { min: 0, max: 80, step: 1, unit: 'px', onChange: (v) => { st.paraGap = v; touch(); } })),
+      U.fieldGrid([
+        U.field('행간', U.stepper(st.lineHeight, { min: 0.8, max: 5, step: 0.1, decimals: 2, onChange: (v) => { st.lineHeight = v; touch(); } })),
+        U.field('자간', U.stepper(st.letterSpacing, { min: -3, max: 10, step: 0.5, decimals: 1, unit: 'px', onChange: (v) => { st.letterSpacing = v; touch(); } })),
+        U.field('문단 간격', U.stepper(st.paraGap, { min: 0, max: 80, step: 1, unit: 'px', onChange: (v) => { st.paraGap = v; touch(); } })),
+        U.field('장평', U.stepper(st.squeeze ?? 100, { min: 50, max: 150, step: 1, unit: '%', onChange: (v) => { st.squeeze = v; touch(); } })),
+      ]),
+      U.el('div', { class: 'hint', text: '장평은 글자를 가로로 눌러 좁게(또는 넓게) 만듭니다. 좁힌 만큼 한 줄에 더 들어갑니다.' }),
     ]),
     group('흐름', [
       U.field('정렬', U.seg(st.align, [['left', '왼쪽'], ['center', '가운데'], ['justify', '양쪽']], (v) => { st.align = v; touch(); })),

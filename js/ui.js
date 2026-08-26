@@ -32,6 +32,11 @@ export function fieldWide(control) {
   return el('div', { class: 'field field-wide' }, [control]);
 }
 
+/* 좁은 칸 넷을 2×2 로. 라벨은 값 위에 얹는다. */
+export function fieldGrid(fields) {
+  return el('div', { class: 'field-grid' }, fields);
+}
+
 export function num(value, { min, max, step = 1, onChange }) {
   return el('input', {
     type: 'number', value, min, max, step,
@@ -184,6 +189,79 @@ export function popup(anchor, rows) {
     window.addEventListener('resize', closePopup);
   }, 0);
   return menu;
+}
+
+/* 손잡이를 잡고 끌어 순서를 바꾼다.
+   끌리는 칸은 손끝을 그대로 따라가고(투명도는 건드리지 않는다),
+   나머지가 처음 재 둔 자리를 오가며 비켜 준다. */
+export function dragGrip(label = '끌어서 순서 바꾸기') {
+  return el('button', {
+    class: 'drag-grip', type: 'button', title: label, 'aria-label': label,
+    html: "<svg viewBox='0 0 10 16' aria-hidden='true'>"
+      + "<circle cx='3' cy='3.5' r='1.15'/><circle cx='7' cy='3.5' r='1.15'/>"
+      + "<circle cx='3' cy='8' r='1.15'/><circle cx='7' cy='8' r='1.15'/>"
+      + "<circle cx='3' cy='12.5' r='1.15'/><circle cx='7' cy='12.5' r='1.15'/></svg>",
+  });
+}
+
+export function dragSort(container, itemSel, onDrop) {
+  let drag = null;
+
+  const shift = () => {
+    const { items, rects, from, to } = drag;
+    items.forEach((n, j) => {
+      if (j === from) return;
+      let k = j;
+      if (from < to && j > from && j <= to) k = j - 1;
+      else if (from > to && j >= to && j < from) k = j + 1;
+      n.style.transform = k === j ? ''
+        : `translate(${rects[k].left - rects[j].left}px, ${rects[k].top - rects[j].top}px)`;
+    });
+  };
+
+  container.addEventListener('pointerdown', (e) => {
+    const grip = e.target.closest?.('.drag-grip');
+    if (!grip || !container.contains(grip)) return;
+    const el = grip.closest(itemSel);
+    const items = [...container.querySelectorAll(itemSel)];
+    const from = items.indexOf(el);
+    if (from < 0 || items.length < 2) return;
+
+    e.preventDefault();
+    closePopup();
+    try { grip.setPointerCapture(e.pointerId); } catch { /* 포인터를 못 잡아도 끌기는 된다 */ }
+    drag = {
+      grip, items, from, to: from, id: e.pointerId,
+      rects: items.map(n => n.getBoundingClientRect()),
+      x: e.clientX, y: e.clientY,
+    };
+    container.classList.add('is-sorting');
+    el.classList.add('is-dragging');
+  });
+
+  container.addEventListener('pointermove', (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    drag.items[drag.from].style.transform =
+      `translate(${e.clientX - drag.x}px, ${e.clientY - drag.y}px)`;
+    // 처음 재 둔 자리를 기준으로 손끝이 어느 칸 위에 있는지 본다
+    let to = drag.to;
+    drag.rects.forEach((r, j) => {
+      if (e.clientX >= r.left && e.clientX <= r.right
+        && e.clientY >= r.top && e.clientY <= r.bottom) to = j;
+    });
+    if (to !== drag.to) { drag.to = to; shift(); }
+  });
+
+  const end = (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const { items, from, to } = drag;
+    items.forEach(n => { n.style.transform = ''; n.classList.remove('is-dragging'); });
+    container.classList.remove('is-sorting');
+    drag = null;
+    if (to !== from) onDrop(from, to);
+  };
+  container.addEventListener('pointerup', end);
+  container.addEventListener('pointercancel', end);
 }
 
 /* 차림표 한 줄. control 을 넘기면 그 칸을 눌러도 control 이 눌린다. */

@@ -332,6 +332,26 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
   letter-spacing: .04em; flex: none;
 }
 
+/* 끌어서 순서 바꾸기 */
+.drag-grip {
+  flex: none; width: 16px; height: 26px;
+  display: grid; place-items: center;
+  color: var(--fg-3); cursor: grab; touch-action: none;
+  border-radius: var(--r-sm);
+}
+.drag-grip svg { width: 10px; height: 16px; fill: currentColor; }
+.drag-grip:hover { color: var(--fg-2); background: var(--bg-sunken); }
+/* 비켜 주는 칸만 움직임을 부드럽게. 잡고 있는 칸은 손끝을 그대로 따라간다. */
+.is-sorting > * { transition: transform .18s cubic-bezier(.2, 0, .2, 1); }
+.is-sorting > .is-dragging {
+  transition: none; position: relative; z-index: 5;
+  box-shadow: 0 10px 24px rgba(20, 30, 30, .22);
+  border-color: var(--accent);
+}
+.is-sorting .drag-grip { cursor: grabbing; }
+.is-sorting input, .is-sorting button:not(.drag-grip) { pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .is-sorting > * { transition: none; } }
+
 /* 색을 접은 목록 — 이름·위치·표시 여부만 한 줄에 */
 .prof-list { display: flex; flex-direction: column; gap: 6px; }
 .prof-row {
@@ -359,7 +379,7 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .prof-grid .ccell-l { font-size: 10px; }
 .prof-grid .hex-input { flex: 0 0 54px; font-size: 10.5px; padding: 0 2px; }
 .prof-grid .seg-inline button { height: 24px; font-size: 11px; }
-.prof-grid .prof-toggles { flex-direction: column; gap: 5px; }
+.prof-grid .prof-toggles { flex-direction: row; flex-wrap: wrap; gap: 6px 10px; }
 .prof-grid .check { font-size: 11px; }
 .prof-x {
   flex: none; width: 20px; height: 20px; border-radius: var(--r-sm);
@@ -379,6 +399,11 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .field > label { font-size: 12px; color: var(--fg-2); }
 .field > :last-child { width: 100%; min-width: 0; }
 .field-wide { grid-template-columns: minmax(0, 1fr); }
+/* 좁은 칸 넷을 2×2 로 — 라벨을 값 위에 얹어야 자리가 난다 */
+.field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px 10px; }
+.field-grid .field { grid-template-columns: minmax(0, 1fr); gap: 3px; }
+.field-grid .field > label { font-size: 11px; color: var(--fg-3); }
+.field-grid .step-input { min-width: 0; }
 .field-row { display: flex; align-items: center; gap: 6px; }
 .field-row > input[type="text"] { min-width: 0; }
 
@@ -592,17 +617,26 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .mk-ava-blank { background: rgba(128, 128, 128, .22); }
 
 .mk-chat-body {
-  display: flex; flex-direction: column; gap: var(--b-gap, 8px);
+  display: flex; flex-direction: column; gap: var(--name-gap, 3px);
   max-width: var(--b-max, 76%); min-width: 0;
 }
-.mk-chat.is-right .mk-chat-body { align-items: flex-end; }
+.mk-bubbles { display: flex; flex-direction: column; gap: var(--b-gap, 8px); min-width: 0; }
+.mk-chat.is-right .mk-chat-body,
+.mk-chat.is-right .mk-bubbles { align-items: flex-end; }
+
+/* 말풍선끼리의 간격은 문단 간격과 따로 둔다. 스테이지의 flex gap 위에
+   덧대는 값이라 문단 간격만큼 빼 준다. */
+.mk-chat + .mk-chat { margin-top: calc(var(--b-gap, 8px) - var(--para-gap, 0px)); }
 
 /* 색은 프로필마다 따로 정한다. 지정이 없던 예전 글은 본문색을 흐리게 쓴다. */
 .mk-speaker {
   font-size: .78em; opacity: .62;
-  line-height: 1.15; margin-bottom: .1em;
+  line-height: 1.15; font-weight: var(--name-w, 400);
 }
 .mk-speaker[style] { opacity: 1; }
+
+/* 켜면 말풍선 안 괄호가 늘 제 줄을 차지한다 */
+.mk-bubble.is-parenbreak .mk-paren { display: block; }
 
 .mk-bubble {
   padding: var(--b-pad-v, 9px) var(--b-pad-h, 13px);
@@ -614,7 +648,29 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .mk-chat.is-right .mk-bubble { text-align: left; }
 
 /* 본문에 넣은 사진 */
-.mk-img { display: block; max-width: 100%; height: auto; border-radius: 4px; }
+.mk-img { display: block; width: var(--imgw, 100%); max-width: 100%; height: auto; border-radius: 4px; }
+
+/* ─── 장평 ──────────────────────────────────
+   안쪽 판을 1/배율 만큼 넓게 깔고 가로로 누른다. 글은 넓은 폭에서
+   줄을 나눈 뒤 눌리므로 좁힌 만큼 한 줄에 더 들어간다.
+   눌리면 안 되는 것(사진·프로필 사진·코드 뷰어)은 여기서 되돌린다. */
+.stage-in { min-width: 0; }
+.stage.is-squeezed .stage-in {
+  width: calc(100% / var(--sq));
+  transform: scaleX(var(--sq));
+  transform-origin: left top;
+}
+.stage.is-squeezed .mk-ava { width: calc(2.5em / var(--sq)); }
+.stage.is-squeezed .mk-img {
+  width: calc(var(--imgw, 100%) * var(--sq));
+  transform: scaleX(calc(1 / var(--sq)));
+  transform-origin: left top;
+}
+.stage.is-squeezed .mk-view {
+  width: calc(100% * var(--sq));
+  transform: scaleX(calc(1 / var(--sq)));
+  transform-origin: left top;
+}
 .mk-img-missing {
   padding: .8em; border: 1px dashed currentColor; border-radius: 4px;
   opacity: .5; font-size: .9em; text-align: center;
@@ -802,6 +858,7 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
   .prof-row-opts { order: 0; flex: 1 1 100%; justify-content: space-between; }
   .prof-row .seg-inline button { height: 30px; font-size: 12.5px; }
   .prof-row .check { font-size: 12.5px; }
+  .drag-grip { width: 24px; height: 32px; }
   .ccell-top .alpha-input { width: 46px; height: 22px; font-size: 12px; }
 
   .toast { bottom: calc(var(--drawer-h, 96px) + 16px); }
