@@ -86,11 +86,11 @@ export const SKINS = [
     label: '다크',
     note: '캔버스 배경을 어둡게(예: #16181B) 두면 어울립니다. 지문 색은 색상 탭에서 따로 맞추세요.',
     right: {
-      bubbleBg: '#14746F', textColor: '#FFFFFF',
-      nameColor: '#8C9594', quoteColor: '#FFFFFF', parenColor: '#A8D5D2',
+      bubbleBg: '#31373D', textColor: '#E3E6E9',
+      nameColor: '#8C9594', quoteColor: 'lift', parenColor: '#7A8085',
     },
     left: {
-      bubbleBg: '#24282D', textColor: '#E3E6E9',
+      bubbleBg: '#22262B', textColor: '#E3E6E9',
       nameColor: '#8C9594', quoteColor: 'lift', parenColor: '#7A8085',
     },
   },
@@ -111,9 +111,17 @@ export const SKINS = [
 
 export const skinById = (id) => SKINS.find(s => s.id === id) || null;
 
-/* 미리보기 칩에 쓰는 차례 — 이름표도 이 순서다 */
-export const CHIP_KEYS = ['bubbleBg', 'textColor', 'nameColor', 'quoteColor', 'parenColor'];
-export const CHIP_LABELS = ['말풍선', '글자', '이름', '따옴표', '괄호'];
+/* 스킨이 덮는 색 전부 */
+export const SKIN_KEYS = ['bubbleBg', 'textColor', 'nameColor', 'quoteColor', 'parenColor'];
+
+/* 칸에 보여 줄 칩 — 스킨을 알아볼 만한 셋만 고른다.
+   글자색은 어느 스킨이나 검정 아니면 흰색이라 구별에 도움이 안 되고,
+   말풍선 색은 왼쪽·오른쪽이 달라야 그 스킨인 줄 안다. */
+export const CHIPS = [
+  { side: 'left', key: 'bubbleBg', label: '왼쪽 말풍선' },
+  { side: 'right', key: 'bubbleBg', label: '오른쪽 말풍선' },
+  { side: 'left', key: 'nameColor', label: '이름' },
+];
 
 /* 색 한 벌의 값 하나를 실제 색으로 푼다. 풀 수 없으면 null. */
 export function resolve(v, base) {
@@ -132,7 +140,7 @@ export function skinProfiles(profiles, id) {
     const set = p.side === 'right' ? skin.right : skin.left;
     if (!set) return p;
     const q = { ...p };
-    for (const k of CHIP_KEYS) {
+    for (const k of SKIN_KEYS) {
       const v = resolve(set[k], p[k]);
       if (v) q[k] = v;
     }

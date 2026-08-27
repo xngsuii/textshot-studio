@@ -10,7 +10,7 @@ import {
   renameSpeaker, NAME_SEP,
 } from './markup.js';
 import { ensureFont, isAvailable } from './fonts.js';
-import { SKINS, skinById, skinProfiles, resolve, CHIP_KEYS, CHIP_LABELS } from './skins.js';
+import { SKINS, skinById, skinProfiles, resolve, CHIPS } from './skins.js';
 import { buildTemplateSection } from './templates.js';
 import { extract as extractMeta } from './png-meta.js';
 import {
@@ -21,32 +21,29 @@ import * as U from './ui.js';
 const srcEl = () => document.getElementById('src');
 const clone = (o) => JSON.parse(JSON.stringify(o));
 
-/* 스킨 고르는 칸. 이름 아래에 그 스킨이 입힐 색을 칩으로 미리 보여 준다.
-   「그대로 둠」인 자리는 지금 프로필의 색을 그대로 보여 주고,
+/* 스킨 고르는 칸. 알아볼 만한 색 셋만 칩으로 보여 준다.
+   「그대로 둠」인 자리는 지금 프로필의 색을 보여 주고,
    보여 줄 프로필이 없으면 빗금 친 칩으로 「안 건드림」을 나타낸다. */
-function chipRow(set, side) {
-  const base = state.text.profiles.find(p => (p.side === 'right') === (side === 'right'));
-  return U.el('div', { class: 'skin-row' }, [
-    U.el('span', { class: 'skin-side', text: side === 'right' ? '오' : '왼' }),
-    ...CHIP_KEYS.map((k, i) => {
-      const v = set ? resolve(set[k], base?.[k]) : base?.[k];
-      const chip = U.el('span', { class: 'skin-chip', title: CHIP_LABELS[i] });
-      if (!v) chip.classList.add('is-none');
-      else if (v === 'transparent') chip.classList.add('is-clear');
-      else chip.style.background = v;
-      return chip;
-    }),
-  ]);
+function skinChips(skin) {
+  return U.el('span', { class: 'skin-chips' }, CHIPS.map((c) => {
+    const base = state.text.profiles.find(p => (p.side === 'right') === (c.side === 'right'));
+    const v = resolve(skin[c.side]?.[c.key], base?.[c.key]);
+    const chip = U.el('span', { class: 'skin-chip', title: c.label });
+    if (!v) chip.classList.add('is-none');
+    else if (v === 'transparent') chip.classList.add('is-clear');
+    else chip.style.background = v;
+    return chip;
+  }));
 }
 
 function skinCard(skin, on, onPick) {
   return U.el('button', {
-    class: `skin-card${on ? ' is-on' : ''}`, type: 'button',
+    class: `skin-card${on ? ' is-on' : ''}${skin ? '' : ' is-bare'}`, type: 'button',
+    title: skin?.note || null,
     onClick: () => onPick(skin ? skin.id : ''),
   }, [
+    skin ? skinChips(skin) : null,
     U.el('span', { class: 'skin-name', text: skin ? skin.label : '없음' }),
-    chipRow(skin?.left, 'left'),
-    chipRow(skin?.right, 'right'),
   ]);
 }
 
@@ -56,15 +53,6 @@ function skinPicker(st, after) {
     skinCard(null, !st.skin, pick),
     ...SKINS.map(k => skinCard(k, st.skin === k.id, pick)),
   ]);
-}
-
-/* 스킨이 켜져 있으면 설정에 보이는 색과 그림의 색이 다르다. 그걸 알린다. */
-function skinNotice() {
-  const skin = skinById(state.text.style.skin);
-  if (!skin) return null;
-  return U.el('div', { class: 'hint hint-skin',
-    text: `「${skin.label}」 스킨이 켜져 있어 말풍선 색은 스킨의 것입니다. `
-      + '프로필에 정해 둔 색은 스킨을 끄면 그대로 돌아옵니다.' });
 }
 
 /* 그릴 때만 스킨의 말풍선 색을 얹는다. 설정에 저장된 색은 그대로 두므로
@@ -733,10 +721,8 @@ function panelChat(container, onChange) {
   return U.el('div', { class: 'panel' }, [
     group('스킨', [
       skinPicker(st, () => { rebuild(); touch(); }),
-      U.el('div', { class: 'hint', text: '말풍선 색만 잠깐 덮어씌웁니다. 배경·지문 색과 말풍선 모양은 건드리지 않습니다. '
-        + '칩은 왼쪽부터 말풍선 · 글자 · 이름 · 따옴표 · 괄호이고, 윗줄이 왼쪽 화자, 아랫줄이 오른쪽 화자입니다.' }),
+      U.el('div', { class: 'hint', text: '스킨을 클릭하면 말풍선 색을 덮어씌웁니다.' }),
       skinById(st.skin)?.note ? U.el('div', { class: 'hint', text: skinById(st.skin).note }) : null,
-      skinNotice(),
     ]),
     // 네 칸에 나눠 담느라 이름표를 줄였다. 무슨 뜻인지는 툴팁에 적어 둔다.
     U.el('div', { class: 'tgl-row tgl-boxed cols-4' }, [
