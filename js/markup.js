@@ -124,6 +124,16 @@ export function hasSplit(source) {
 }
 
 export const IMG_RE = /\[\[img:([a-z0-9]+)\]\]/g;
+
+/* 본문 사진 한 장. 높이를 정해 두면 그만큼만 잘라 보여 준다.
+   높이와 보이는 자리는 미리보기에서 사진을 끌어 정한다. */
+function imgTag(im) {
+  const css = [`--imgw:${im.width ?? 100}%`, `border-radius:${im.radius ?? 4}px`];
+  if (im.height) {
+    css.push(`height:${im.height}px`, 'object-fit:cover', `object-position:50% ${im.posY ?? 50}%`);
+  }
+  return `<img class='mk-img' data-img='${attr(im.id)}' src="${im.data}" style='${css.join(';')}' alt=''>`;
+}
 const imgLine = (t) => (t.match(/^\[\[img:([a-z0-9]+)\]\]$/) || [])[1];
 
 /* opts: { formats, images, profiles, chat }
@@ -195,9 +205,7 @@ export function renderChunk(chunk, opts = {}, lineOffset = 0) {
     const imgId = imgLine(t);
     if (imgId) {
       const im = byId.get(imgId);
-      out.push(im
-        ? `<img class='mk-img' src="${im.data}" style='--imgw:${im.width ?? 100}%;border-radius:${im.radius ?? 4}px' alt=''>`
-        : "<div class='mk-img-missing'>사진을 찾을 수 없습니다</div>");
+      out.push(im ? imgTag(im) : "<div class='mk-img-missing'>사진을 찾을 수 없습니다</div>");
       i++;
       return;
     }

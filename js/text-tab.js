@@ -766,12 +766,11 @@ function panelBody(container, onChange) {
   });
 
   return U.el('div', { class: 'panel' }, [
-    group('글꼴', [
-      U.field('폰트', fontSel),
-      U.field('크기', U.stepper(st.fontSize, { min: 8, max: 96, step: 1, unit: 'px', onChange: (v) => { st.fontSize = v; touch(); } })),
-    ]),
-    group('본문 사진', [photoList(container, onChange)]),
-    group('간격', [
+    group('글꼴 · 간격', [
+      U.fieldGrid([
+        U.field('폰트', fontSel),
+        U.field('크기', U.stepper(st.fontSize, { min: 8, max: 96, step: 1, unit: 'px', onChange: (v) => { st.fontSize = v; touch(); } })),
+      ]),
       U.fieldGrid([
         U.field('행간', U.stepper(st.lineHeight, { min: 0.8, max: 5, step: 0.1, decimals: 2, onChange: (v) => { st.lineHeight = v; touch(); } })),
         U.field('자간', U.stepper(st.letterSpacing, { min: -3, max: 10, step: 0.5, decimals: 1, unit: 'px', onChange: (v) => { st.letterSpacing = v; touch(); } })),
@@ -785,6 +784,7 @@ function panelBody(container, onChange) {
       U.field('줄바꿈', U.seg(st.breakMode, [['word', '단어 단위'], ['char', '글자 단위']], (v) => { st.breakMode = v; touch(); })),
       U.el('div', { class: 'hint', text: '단어 단위는 낱말이 잘리지 않게 넘깁니다. 좁은 폭에서 오른쪽이 들쭉날쭉하면 글자 단위로 바꿔 보세요.' }),
     ]),
+    group('본문 사진', [photoList(container, onChange)]),
   ]);
 }
 
@@ -827,6 +827,8 @@ function photoList(container, onChange) {
       U.el('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: '사진 넣기', onClick: () => pickImage(onChange, rebuild) }),
     ]),
     U.el('div', { class: 'hint', text: '자리를 옮기려면 편집기에서 [[img:…]] 줄을 원하는 곳으로 옮기세요.' }),
+    U.el('div', { class: 'hint', text: '미리보기에서 사진의 위·아래 가장자리를 끌면 높이를 줄여 잘라 낼 수 있고, '
+      + '자른 뒤 가운데를 끌면 그 안에서 보이는 자리가 바뀝니다. 원래 높이까지 도로 늘리면 자르기가 풀립니다.' }),
   ]);
 }
 
@@ -864,10 +866,9 @@ function panelCanvas(container, onChange) {
       }),
     ]),
     group('여백', [
-      U.check('네 방향 동일', st.padLinked, (v) => { st.padLinked = v; }),
       U.padGrid(st, ['padTop', 'padRight', 'padBottom', 'padLeft'], () => st.padLinked, touch),
       U.el('div', { class: 'hint', text: '분할하면 각 장에 이 여백이 새로 들어갑니다.' }),
-    ]),
+    ], U.check('네 방향 동일', st.padLinked, (v) => { st.padLinked = v; })),
     group('배경', [
       U.el('div', { class: 'field' }, [
         U.el('label', { text: '배경색' }),
@@ -1025,9 +1026,13 @@ function panelOutput(container, onChange) {
       ]),
       out.format === 'png' ? null
         : U.el('div', { class: 'hint hint-warn', text: `원문은 PNG 에만 심을 수 있습니다. 지금 포맷(${out.format.toUpperCase()})으로는 저장돼도 담기지 않습니다.` }),
-      U.el('div', { class: 'hint', text: '보이는 그림은 그대로고 눈에 안 띄는 자리에 원문만 얹습니다. '
-        + '사진은 담기지 않습니다 — 프로필 사진은 이름이 같으면 지금 설정 것을 그대로 씁니다. '
-        + '카카오톡·디스코드처럼 올린 사진을 다시 인코딩하는 곳을 거치면 사라지니, 파일 그대로 두세요.' }),
+      U.el('div', { class: 'hint', text: '켜 두면 저장하는 PNG 안에 이 글의 원문과 서식이 함께 담깁니다. '
+        + '그 PNG 를 편집 창에 끌어다 놓으면 글을 그대로 되살릴 수 있어, 고칠 때 다시 칠 필요가 없습니다. '
+        + '보이는 그림은 달라지지 않고 파일만 몇 KB 늘어납니다.' }),
+      U.el('div', { class: 'hint', text: '사진은 담기지 않습니다. 프로필 사진은 이름이 같은 프로필이 지금 설정에 있으면 그 사진을 그대로 씁니다. '
+        + '본문 사진과 배경 사진은 자리만 남으니 다시 넣으면 됩니다.' }),
+      U.el('div', { class: 'hint', text: '카카오톡·디스코드·트위터처럼 올린 사진을 다시 인코딩하는 곳을 거치면 담아 둔 원문이 사라집니다. '
+        + '파일 그대로 두거나 파일로 주고받은 것만 되살릴 수 있습니다.' }),
     ]),
   ]);
 }
@@ -1073,6 +1078,126 @@ export function pickImage(onChange, afterAdd) {
     addImageFile(file, onChange, afterAdd);
   };
   pickerEl.click();
+}
+
+/* ── 본문 사진 끌기 ─────────────────────────── */
+/* 위아래 가장자리를 잡으면 높이가, 가운데를 잡으면 잘라 낸 틀 안에서
+   보이는 자리가 바뀐다. 자를 수 있는 최대는 원래 높이 — 그보다 크게
+   늘리면 자르기를 아예 푼다. */
+
+const EDGE = 10;        // 가장자리로 치는 두께(px)
+const MIN_H = 40;
+
+/* 미리보기는 배율이 걸려 있을 수 있다. 화면에서 끈 거리를 판 위의 거리로 되돌린다. */
+function hostScale(host) {
+  const w = host.offsetWidth;
+  return w ? host.getBoundingClientRect().width / w : 1;
+}
+
+/* 자르지 않았을 때의 높이 — 지금 폭에 맞춰 그렸을 때의 세로 길이 */
+function fullHeight(node) {
+  if (!node.naturalWidth || !node.naturalHeight) return 0;
+  return node.offsetWidth * node.naturalHeight / node.naturalWidth;
+}
+
+function zoneOf(node, clientY) {
+  const r = node.getBoundingClientRect();
+  const edge = Math.min(EDGE, r.height / 3);
+  if (clientY - r.top <= edge) return 'top';
+  if (r.bottom - clientY <= edge) return 'bottom';
+  return 'move';
+}
+
+export function bindImageDrag(host, onChange) {
+  let drag = null;
+
+  const find = (id) => state.text.images.find(im => im.id === id);
+
+  /* 다시 그리면 한 박자 늦어 끌리는 게 안 보인다. 지금 사진을 바로 고친다. */
+  const paint = (im) => {
+    host.querySelectorAll(`.mk-img[data-img="${im.id}"]`).forEach((n) => {
+      if (im.height) {
+        n.style.height = im.height + 'px';
+        n.style.objectFit = 'cover';
+        n.style.objectPosition = `50% ${im.posY ?? 50}%`;
+      } else {
+        n.style.height = '';
+        n.style.objectFit = '';
+        n.style.objectPosition = '';
+      }
+    });
+  };
+
+  host.addEventListener('pointerdown', (e) => {
+    const node = e.target.closest?.('.mk-img[data-img]');
+    if (!node || !host.contains(node)) return;
+    const im = find(node.dataset.img);
+    if (!im) return;
+
+    const full = fullHeight(node);
+    if (!full) return;
+    const h0 = im.height || full;
+    const zone = zoneOf(node, e.clientY);
+    // 자르지 않은 사진은 옮길 자리가 없다
+    if (zone === 'move' && !im.height) return;
+
+    e.preventDefault();
+    try { host.setPointerCapture(e.pointerId); } catch { /* 못 잡아도 끌기는 된다 */ }
+    const over0 = Math.max(0, full - h0);
+    drag = {
+      id: e.pointerId, im, zone, full, h0, y: e.clientY,
+      p0: im.posY ?? 50,
+      top0: (im.posY ?? 50) / 100 * over0,
+      k: hostScale(host),
+    };
+    host.classList.add(zone === 'move' ? 'is-imgmove' : 'is-imgsize');
+  });
+
+  host.addEventListener('pointermove', (e) => {
+    if (!drag) {
+      // 어디를 잡으면 무슨 일이 나는지 마우스 모양으로 알려 준다
+      const node = e.target.closest?.('.mk-img[data-img]');
+      if (node) {
+        const im = find(node.dataset.img);
+        const z = zoneOf(node, e.clientY);
+        node.style.cursor = z === 'move' ? (im?.height ? 'grab' : 'default') : 'ns-resize';
+      }
+      return;
+    }
+    if (e.pointerId !== drag.id) return;
+
+    const { im, zone, full, h0, k } = drag;
+    const dy = (e.clientY - drag.y) / (k || 1);
+    const clampP = (v) => Math.max(0, Math.min(100, v));
+
+    if (zone === 'move') {
+      const over = Math.max(1, full - (im.height || full));
+      // 사진을 아래로 밀면 위쪽이 드러난다
+      im.posY = clampP(drag.p0 - dy / over * 100);
+    } else {
+      const h = Math.max(MIN_H, Math.min(full, zone === 'top' ? h0 - dy : h0 + dy));
+      if (h >= full - 1) {
+        im.height = undefined;
+        im.posY = 50;
+      } else {
+        im.height = Math.round(h);
+        const over = full - h;
+        // 잡지 않은 쪽 가장자리는 제자리에 두어, 끄는 쪽만 따라오게 한다
+        const top = zone === 'top' ? drag.top0 + h0 - h : drag.top0;
+        im.posY = clampP(top / over * 100);
+      }
+    }
+    paint(im);
+  });
+
+  const end = (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    drag = null;
+    host.classList.remove('is-imgmove', 'is-imgsize');
+    onChange();
+  };
+  host.addEventListener('pointerup', end);
+  host.addEventListener('pointercancel', end);
 }
 
 /* ── 이미지에서 불러오기 ────────────────────── */

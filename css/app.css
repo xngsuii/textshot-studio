@@ -495,7 +495,7 @@ input[type="checkbox"] { accent-color: var(--accent); }
 }
 .step-btn:hover { background: var(--bg-hover); color: var(--fg); border-color: var(--accent); }
 .step-btn:active { background: var(--accent-soft); }
-.step-input { width: 100%; min-width: 48px; text-align: center; }
+.step-input { width: 100%; min-width: 48px; text-align: center; font-size: 13.5px; }
 .step-input::-webkit-outer-spin-button,
 .step-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .step-unit { font-size: 11px; color: var(--fg-3); flex: none; min-width: 13px; }
@@ -539,10 +539,14 @@ input[type="checkbox"] { accent-color: var(--accent); }
 @media (prefers-reduced-motion: reduce) { .seg-inline button { transition: none; } }
 
 .pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+/* 자릿수가 달라도 끝이 맞도록 오른쪽으로 붙인다 */
+.pad-cell input[type="number"] { text-align: right; padding-right: 7px; }
 .pad-cell { display: flex; flex-direction: column; gap: 2px; }
 .pad-cell span { font-size: 10px; color: var(--fg-3); text-align: center; }
 
 .check { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--fg-2); cursor: pointer; }
+/* 묶음 제목 줄에 얹은 체크박스 — 제목의 대문자·넓은 자간을 따라가지 않게 */
+.grp-t .check { flex: none; text-transform: none; letter-spacing: 0; font-weight: 400; }
 
 .btn {
   height: 28px; padding: 0 12px; border-radius: var(--r-sm);
@@ -1051,3 +1055,10 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
   cursor: pointer;
 }
 .toast-act:hover { background: rgba(255, 255, 255, .3); }
+/* ─── 본문 사진 끌기 ────────────────────────── */
+/* 잡을 수 있다는 걸 보이게 — 마우스를 올리면 테두리가 뜬다 */
+#stageHost .mk-img[data-img]:hover { outline: 1px solid var(--accent); outline-offset: 2px; }
+.is-imgsize, .is-imgsize * { cursor: ns-resize !important; }
+.is-imgmove, .is-imgmove * { cursor: grabbing !important; }
+/* 끄는 동안 사진이 선택되어 파랗게 덮이지 않게 */
+.is-imgsize, .is-imgmove { user-select: none; }

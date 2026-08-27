@@ -81,24 +81,12 @@ export function buildTemplateSection(onApply, rerender) {
     },
   });
 
-  /* 파일 이름에 못 쓰는 글자를 걷어낸다 */
-  const safeName = (s) => String(s).replace(/[\\/:*?"<>|]/g, '').trim().slice(0, 40);
-
-  /* 내보낸 파일이 죄다 같은 이름이면 나중에 뭐가 뭔지 모른다.
-     고른 템플릿(없으면 딱 하나뿐인 템플릿)의 이름을 뒤에 붙인다. */
-  function exportName() {
-    const names = Object.keys(templates);
-    const tag = safeName(state.activeTemplate || (names.length === 1 ? names[0] : ''));
-    return tag ? `textshot-templates_${tag}.json` : 'textshot-templates.json';
-  }
-
   const exportBtn = el('button', {
     class: 'btn btn-ghost btn-sm', type: 'button', text: 'JSON 내보내기',
     onClick: () => {
       const blob = new Blob([JSON.stringify(templates, null, 2)], { type: 'application/json' });
-      const name = exportName();
-      downloadBlob(blob, name);
-      toast(`${name} 으로 내보냈습니다`);
+      downloadBlob(blob, 'textshot-templates.json');
+      toast('템플릿을 파일로 내보냈습니다');
     },
   });
 
