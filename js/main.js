@@ -13,7 +13,7 @@ import { toast } from './ui.js';
 /* index.html 의 app-version 과 짝을 이룬다. 브라우저가 둘 중 하나만 새로
    받으면 화면은 새것인데 동작은 옛것인 상태가 되어 원인 찾기가 어렵다.
    어긋나면 하단에 알려 준다. 고칠 때 두 값을 같이 올릴 것. */
-const APP_VERSION = '35';
+const APP_VERSION = '36';
 
 const $ = (id) => document.getElementById(id);
 
@@ -48,7 +48,7 @@ function setDims(w, h, count = 1) {
 
 function applyZoom() {
   const h = host();
-  if (state.zoom !== 'fit') { applyScale(state.zoom); showZoom(state.zoom); return; }
+  if (state.zoom !== 'fit') { applyScale(state.zoom); showZoom(state.zoom); paintZoomRange(state.zoom); return; }
 
   // 「맞춤」은 가로세로 모두 들어와야 한다. 너비만 맞추면 세로로 긴 글에서
   // 100% 와 다를 바가 없어진다. 모바일에서는 아래를 서랍이 덮으므로
@@ -65,23 +65,22 @@ function applyZoom() {
   const z = Math.min(1, availW / natW, availH / natH);
   applyScale(z);
   showZoom(z);
+  paintZoomRange(z);
 }
 
 /* ── 배율 ────────────────────────────────────
-   100% 나 50% 로 보면 화면 밖으로 넘쳐 스크롤로만 훑어야 한다.
-   − 를 눌러 지금 보이는 그대로 한 단계씩 줄인다.
+   미끄럼대로 조절한다. 왼쪽 끝(0)은 화면에 맞춤, 오른쪽 끝(100)이 100% 다.
    100% 위로는 올리지 않는다. 그 이상은 또렷해지지 않고 뿌옇게 커지기만 한다. */
-const ZOOM_STEPS = [0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.65, 0.8, 1];
-const ZOOM_MIN = ZOOM_STEPS[0];
+const ZOOM_MIN = 0.1;
 const ZOOM_MAX = 1;
 
-function stepZoom(dir) {
-  const cur = currentZoom();
-  const next = dir < 0
-    ? [...ZOOM_STEPS].reverse().find(z => z < cur - 0.001)
-    : ZOOM_STEPS.find(z => z > cur + 0.001);
-  if (next === undefined) return;
-  setZoom(next);
+/* 미끄럼대 — 0 은 맞춤, 100 은 100%. 그 사이는 그대로 퍼센트다. */
+function paintZoomRange(z) {
+  const el = $('zoomRange');
+  if (!el) return;
+  const v = state.zoom === 'fit' ? 0 : Math.round(z * 100);
+  el.value = String(v);
+  el.style.setProperty('--fill', `${v}%`);
 }
 
 function currentZoom() {
@@ -101,6 +100,7 @@ function setZoom(z) {
     b.classList.toggle('is-active', parseFloat(b.dataset.zoom) === clamped);
   });
   showZoom(clamped);
+  paintZoomRange(clamped);
 }
 
 async function renderNow() {
@@ -342,8 +342,17 @@ function boot() {
     if (state.zoom !== 'fit') showZoom(state.zoom);
   });
 
-  $('zoomOut').addEventListener('click', () => stepZoom(-1));
-  $('zoomIn').addEventListener('click', () => stepZoom(1));
+  $('zoomRange').addEventListener('input', (e) => {
+    const v = parseInt(e.target.value, 10);
+    if (v <= 0) {
+      state.zoom = 'fit';
+      document.querySelectorAll('#zoomSeg .seg-btn').forEach(b => b.classList.toggle('is-active', b.dataset.zoom === 'fit'));
+      applyZoom();
+      paintZoomRange(0);
+      return;
+    }
+    setZoom(v / 100);
+  });
 
   $('splitSeg').addEventListener('click', (e) => {
     const b = e.target.closest('.seg-btn');

@@ -1245,3 +1245,38 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
 
 /* 헤더 띠 높이를 끌 때 */
 .is-headsize, .is-headsize * { cursor: ns-resize !important; user-select: none; }
+/* ─── 배경색 칸 ─────────────────────────────── */
+/* 이름표가 위, 색이 가운데, hex 가 아래 */
+.bgcell-row { display: flex; gap: 8px; }
+.bgcell { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.bgcell-l { font-size: 11px; color: var(--fg-3); }
+/* input[type="color"] 쪽 규칙이 더 세서 이름을 함께 적어 이긴다 */
+input[type="color"].bgcell-sw, .bgcell-sw {
+  width: 100%; height: 30px; padding: 2px; flex: none;
+  border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+  background: var(--bg); cursor: pointer;
+}
+.bgcell-hex {
+  width: 100%; height: 24px; padding: 0 4px;
+  font-family: var(--mono); font-size: 11px; text-align: center;
+  color: var(--fg-2);
+}
+input.bgcell-hex { border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg); }
+span.bgcell-hex { display: grid; place-items: center; color: var(--fg-3); font-family: var(--ui); }
+span.bgcell-sw.is-clear { display: block; }
+
+/* ─── 제목을 눌러 접는 묶음 ─────────────────── */
+.fold-grp > summary { cursor: pointer; list-style: none; }
+.fold-grp > summary::-webkit-details-marker { display: none; }
+.fold-grp > summary > span:first-child::before { content: '▸ '; }
+.fold-grp[open] > summary > span:first-child::before { content: '▾ '; }
+.fold-grp > summary:hover { color: var(--fg-2); }
+/* 제목 줄에 얹은 토글 — 이름표 없이 스위치만 */
+.grp-t .tgl { padding: 0; gap: 0; }
+.grp-t .tgl .tgl-name { display: none; }
+
+/* 안쪽 판이 손짓을 가로채면 띠를 끌 수 없다 */
+.stage-header-face { pointer-events: none; }
+
+/* 미리보기 배율 미끄럼대 */
+.zoom-slider { flex: 0 0 104px; height: 26px; }

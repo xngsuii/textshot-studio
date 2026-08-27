@@ -75,7 +75,9 @@ export const DEFAULT_STYLE = {
   padTop: 84, padRight: 84, padBottom: 84, padLeft: 84,
   padLinked: false,
 
+  bgMode: 'solid',              // solid 단색 / grad 두 색 / clear 투명
   bg: '#FFFFFF',
+  bg2: '#E9EEF2',               // 두 색일 때 아래쪽 색
   bgImage: '',                  // data URL
   bgFit: 'cover',               // cover | contain | tile
   bgOpacity: 100,

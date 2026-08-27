@@ -107,7 +107,8 @@ function applyStyle(stage) {
     paddingRight: st.padRight + 'px',
     paddingBottom: st.padBottom + 'px',
     paddingLeft: st.padLeft + 'px',
-    backgroundColor: st.transparent ? 'transparent' : st.bg,
+    background: st.transparent ? 'transparent'
+      : (st.bgMode === 'grad' ? `linear-gradient(180deg, ${st.bg}, ${st.bg2 || st.bg})` : st.bg),
     color: st.fg,
     fontFamily: f.stack,
     fontSize: st.fontSize + 'px',
@@ -431,8 +432,9 @@ export function bindBgDrag(host, onChange) {
 
     /* 헤더 띠의 아래 가장자리를 잡으면 높이를 바꾼다. 그 안쪽을 잡으면
        아래처럼 보이는 자리를 옮긴다. 수치로 정하는 칸도 그대로 쓴다. */
-    if (t.classList?.contains('stage-header')) {
-      const box = t.getBoundingClientRect();
+    const head = t.closest?.('.stage-header');
+    if (head) {
+      const box = head.getBoundingClientRect();
       if (box.bottom - e.clientY <= 12) {
         e.preventDefault();
         try { host.setPointerCapture(e.pointerId); } catch { /* 못 잡아도 끌기는 된다 */ }
@@ -445,10 +447,10 @@ export function bindBgDrag(host, onChange) {
 
     // 글이나 말풍선이 아니라 빈 여백을 잡았을 때만 움직인다
     const ok = t.classList?.contains('stage') || t.classList?.contains('stage-in')
-      || t.classList?.contains('stage-bg') || t.classList?.contains('stage-header');
+      || t.classList?.contains('stage-bg') || !!head;
     if (!ok) return;
 
-    const band = t.closest('.stage')?.querySelector('.stage-header');
+    const band = head || t.closest('.stage')?.querySelector('.stage-header');
     const box = (band || t.closest('.stage'))?.getBoundingClientRect();
     if (!box) return;
 
@@ -841,7 +843,6 @@ function panelChat(container, onChange) {
         }),
       ]),
       U.el('div', { class: 'hint', text: '본문에서 「이름 | 내용」으로 쓰면 말풍선이 됩니다. 미리보기에서 말풍선을 누르면 다음 프로필로 넘어갑니다.' }),
-      storageRow(container, onChange),
     ], viewBtn),
     group('스킨', [
       skinPicker(st, () => { rebuild(); touch(); }),
@@ -930,7 +931,6 @@ function panelBody(container, onChange) {
         U.field('문단 간격', U.stepper(st.paraGap, { min: 0, max: 80, step: 1, unit: 'px', onChange: (v) => { st.paraGap = v; touch(); } })),
         U.field('장평', U.stepper(st.squeeze ?? 100, { min: 50, max: 150, step: 1, unit: '%', onChange: (v) => { st.squeeze = v; touch(); } })),
       ]),
-      U.el('div', { class: 'hint', text: '장평은 글자를 가로로 눌러 좁게(또는 넓게) 만듭니다. 좁힌 만큼 한 줄에 더 들어갑니다.' }),
     ]),
     group('흐름', [
       U.field('정렬', U.seg(st.align, [['left', '왼쪽'], ['center', '가운데'], ['justify', '양쪽']], (v) => { st.align = v; touch(); })),
@@ -980,8 +980,8 @@ function photoList(container, onChange) {
       U.el('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: '사진 넣기', onClick: () => pickImage(onChange, rebuild) }),
     ]),
     U.el('div', { class: 'hint', text: '자리를 옮기려면 편집기에서 [[img:…]] 줄을 원하는 곳으로 옮기세요.' }),
-    U.el('div', { class: 'hint', text: '미리보기에서 사진의 위·아래 가장자리를 끌면 높이를 줄여 잘라 낼 수 있고, '
-      + '자른 뒤 가운데를 끌면 그 안에서 보이는 자리가 바뀝니다. 원래 높이까지 도로 늘리면 자르기가 풀립니다.' }),
+    U.el('div', { class: 'hint', text: '미리보기 창에서 사진의 위·아래 가장자리를 드래그하면 높이를 줄입니다. '
+      + '사진 내부를 드래그하면 보이는 위치를 조정할 수 있습니다.' }),
   ]);
 }
 
@@ -1017,7 +1017,7 @@ function panelCanvas(container, onChange) {
       RATIOS[st.ratio] ? U.el('div', { class: 'tgl-row tgl-boxed' }, [
         U.toggle('자동 분할', st.autoSplit, (v) => { st.autoSplit = v; touch(); }),
       ]) : U.el('div', { class: 'field-split' }, [
-        U.field('단', U.seg(st.columns ? 'two' : 'one', [['one', '기본'], ['two', '책 내지']],
+        U.field('단', U.seg(st.columns ? 'two' : 'one', [['one', '기본(1단)'], ['two', '책 내지(2단)']],
           (v) => { st.columns = v === 'two'; rebuild(); touch(); })),
         st.columns
           ? U.field('단 간격', U.stepper(st.columnGap ?? 48, {
@@ -1035,16 +1035,19 @@ function panelCanvas(container, onChange) {
     ]),
     group('여백', [
       U.padGrid(st, ['padTop', 'padRight', 'padBottom', 'padLeft'], () => st.padLinked, touch),
-      U.el('div', { class: 'hint', text: '분할하면 각 장에 이 여백이 새로 들어갑니다.' }),
     ], U.check('네 방향 동일', st.padLinked, (v) => { st.padLinked = v; })),
     group('배경', [
-      U.el('div', { class: 'field' }, [
-        U.el('label', { text: '배경색' }),
-        U.el('div', { class: 'field-row' }, [
-          U.color(st.bg, (v) => { st.bg = v; touch(); }),
-          U.check('투명 (PNG 만)', st.transparent, (v) => { st.transparent = v; touch(); }),
-        ]),
-      ]),
+      U.field('배경색', U.seg(bgMode(st), [['solid', '단색'], ['grad', '2색'], ['clear', '투명']], (v) => {
+        st.bgMode = v;
+        st.transparent = v === 'clear';
+        rebuild(); touch();
+      })),
+      bgMode(st) === 'clear'
+        ? U.el('div', { class: 'bgcell-row' }, [bgCell('PNG 에서만 비칩니다', null, null)])
+        : U.el('div', { class: 'bgcell-row' }, bgMode(st) === 'grad'
+          ? [bgCell('위', st.bg, (v) => { st.bg = v; touch(); }),
+            bgCell('아래', st.bg2 || '#E9EEF2', (v) => { st.bg2 = v; touch(); })]
+          : [bgCell('배경', st.bg, (v) => { st.bg = v; touch(); })]),
       st.bgImage ? (() => {
         const t = U.el('img', { class: 'bg-thumb', alt: '' });
         t.src = st.bgImage;
@@ -1055,9 +1058,12 @@ function panelCanvas(container, onChange) {
         st.bgImage ? U.el('button', { class: 'btn btn-danger btn-sm', type: 'button', text: '이미지 빼기',
           onClick: () => { st.bgImage = ''; rebuild(); touch(); } }) : null,
         fileInput,
-        st.bgImage ? U.el('div', { class: 'tgl-row tgl-boxed push-right' }, [
-          U.toggle('헤더 이미지로 사용', st.bgAsHeader, (v) => { st.bgAsHeader = v; rebuild(); touch(); }),
-        ]) : null,
+        st.bgImage ? U.el('button', {
+          class: 'btn btn-ghost btn-sm push-right', type: 'button',
+          text: st.bgAsHeader ? '배경으로 사용' : '헤더로 사용',
+          title: st.bgAsHeader ? '본문 위 띠 대신 캔버스 배경으로 씁니다' : '캔버스 배경 대신 본문 위 띠로 씁니다',
+          onClick: () => { st.bgAsHeader = !st.bgAsHeader; rebuild(); touch(); },
+        }) : null,
       ]),
       st.bgImage && st.bgAsHeader
         ? U.field('헤더 높이', U.stepper(st.bgHeaderH ?? 220, { min: 40, max: 1200, step: 10, unit: 'px', onChange: (v) => { st.bgHeaderH = v; touch(); } }))
@@ -1070,23 +1076,32 @@ function panelCanvas(container, onChange) {
         U.field('흐림', U.slider(st.bgBlur ?? 0, { min: 0, max: 60, step: 1, unit: 'px', onChange: (v) => { st.bgBlur = v; touch(); } })),
       ]) : null,
       st.bgImage && (st.bgAsHeader || st.bgFit === 'cover') ? U.el('div', { class: 'field-row' }, [
-        U.el('div', { class: 'hint', text: '미리보기의 빈 여백을 끌면 사진에서 보이는 자리가 움직입니다.' }),
         U.el('button', {
-          class: 'btn btn-ghost btn-sm', type: 'button', text: '자리 가운데로',
+          class: 'btn btn-ghost btn-sm', type: 'button', text: '원래 위치로',
           onClick: () => { st.bgX = 50; st.bgY = 50; touch(); },
         }),
+        U.el('div', { class: 'hint', text: '미리보기 창에서 여백을 드래그하면 사진의 위치를 조정할 수 있습니다.' }),
       ]) : null,
     ]),
-    group('서명', [
-      // 꺼 두면 적어 둔 것이 있어도 그리지 않는다. 그때는 편집 칸을 접어 둔다.
-      st.signOn === false
-        ? U.el('details', { class: 'fold' }, [
-          U.el('summary', { text: '서명 내용 펼치기' }),
-          U.el('div', { class: 'fold-in' }, signFields(st, touch)),
-        ])
-        : U.el('div', { class: 'sign-fields' }, signFields(st, touch)),
-    ], U.check('사용', st.signOn !== false, (v) => { st.signOn = v; rebuild(); touch(); })),
+    signGroup(st, touch, rebuild),
   ]);
+}
+
+/* 서명 묶음 — 제목을 누르면 펼치고 접는다. 꺼 두면 기본으로 접혀 있고,
+   켜져 있어도 적은 것이 없으면 그리지 않는다. */
+function signGroup(st, touch, rebuild) {
+  const on = st.signOn !== false;
+  const sw = U.toggle('', on, (v) => { st.signOn = v; rebuild(); touch(); }, null,
+    on ? '서명을 그리지 않게 합니다' : '서명을 그리게 합니다');
+  // 토글을 눌렀다고 묶음이 접히면 안 된다
+  sw.addEventListener('click', (e) => e.stopPropagation());
+
+  const det = U.el('details', { class: 'grp fold-grp' }, [
+    U.el('summary', { class: 'grp-t' }, [U.el('span', { text: '서명' }), sw]),
+    ...signFields(st, touch),
+  ]);
+  det.open = on;
+  return det;
 }
 
 /* 서명 편집 칸 — 켠 상태에서는 그대로, 끈 상태에서는 접어 둔다 */
@@ -1116,6 +1131,34 @@ function signFields(st, touch) {
       U.field('색상', U.color(st.signColor || '#9AA0A6', (v) => { st.signColor = v; touch(); })),
       U.el('div', { class: 'hint', text: '「사용」을 꺼 두거나 이름·제작자를 둘 다 비워 두면 아무것도 그리지 않습니다. 분할하면 각 장에 함께 들어갑니다.' }),
   ];
+}
+
+/* 배경 방식 — 예전 저장물은 bgMode 가 없고 transparent 만 있었다 */
+function bgMode(st) {
+  if (st.transparent) return 'clear';
+  return st.bgMode === 'grad' ? 'grad' : 'solid';
+}
+
+/* 이름표를 위에, 색을 가운데, hex 를 아래에 놓은 칸 */
+function bgCell(label, value, onChange) {
+  if (!onChange) {
+    return U.el('div', { class: 'bgcell' }, [
+      U.el('span', { class: 'bgcell-l', text: '투명' }),
+      U.el('span', { class: 'bgcell-sw is-clear' }),
+      U.el('span', { class: 'bgcell-hex', text: label }),
+    ]);
+  }
+  const sw = U.el('input', { type: 'color', class: 'bgcell-sw', value,
+    onInput: (e) => { hex.value = e.target.value.toUpperCase(); onChange(e.target.value); } });
+  const hex = U.el('input', { type: 'text', class: 'bgcell-hex', value: value.toUpperCase(),
+    onChange: (e) => {
+      const v = e.target.value.trim();
+      if (/^#[0-9a-f]{6}$/i.test(v)) { sw.value = v; onChange(v); }
+      else e.target.value = sw.value.toUpperCase();
+    } });
+  return U.el('div', { class: 'bgcell' }, [
+    U.el('span', { class: 'bgcell-l', text: label }), sw, hex,
+  ]);
 }
 
 /* 색상 (색 슬롯 · 코드블럭 포함) */
@@ -1287,8 +1330,6 @@ function storagePanel(container, onChange) {
     },
   }));
   rows.push(U.el('div', { class: 'field-row' }, acts));
-  rows.push(U.el('div', { class: 'hint', text: '사진은 한 장씩만 담기고 본문과 템플릿이 같이 씁니다. '
-    + '같은 사진을 여러 곳에서 써도 자리는 한 장 몫입니다.' }));
 
   return group('저장 공간', rows);
 }
@@ -1381,31 +1422,6 @@ export async function compactPhotos(after) {
     after?.();
   });
   return true;
-}
-
-/* 담아 둔 양을 보여 주고, 사진이 클 때 줄일 거리를 준다.
-   브라우저 저장 공간은 원본(사이트)당 5MB 남짓이고 본문과 템플릿이 함께 쓴다. */
-function storageRow(container, onChange) {
-  const used = storedBytes();
-  const pic = photoStats();
-  const big = fatPhotos();
-  const line = U.el('span', {
-    class: `hint${used > 3.6 * 1024 * 1024 ? ' hint-warn' : ''}`,
-    text: `저장 ${kb(used)} / 5MB 남짓${pic.count ? ` · 사진 ${pic.count}장 ${kb(pic.bytes)}` : ''}`,
-    title: '사진은 한 장씩만 담기고 본문과 템플릿이 같이 씁니다. 자세한 정리는 템플릿 탭에 있습니다',
-  });
-
-  const btn = big.length ? U.el('button', {
-    class: 'btn btn-ghost btn-sm', type: 'button', text: `사진 ${big.length}장 다시 담기`,
-    title: '크기는 그대로 두고 webp 로 다시 담아 자리를 줄입니다',
-    onClick: () => compactPhotos(() => {
-      buildProfileBar(onChange);
-      buildSettings(container, onChange);
-      onChange();
-    }),
-  }) : null;
-
-  return U.el('div', { class: 'field-row' }, [line, btn]);
 }
 
 /* ── 미리보기에서 편집기로 줄 점프 ─────────── */

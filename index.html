@@ -16,9 +16,9 @@
 <!-- Pretendard 는 js/fonts.js 가 불러온다. dynamic-subset 판은 @font-face 가 300개 가까이라
      캡쳐할 때 그 폰트 조각을 전부 내려받느라 멈춘다. 통짜 variable 판 하나만 쓴다. -->
 <!-- ?v= 를 올리면 브라우저가 새로 받는다. js/main.js 의 APP_VERSION 과 같이 올릴 것 -->
-<link rel="stylesheet" href="css/tokens.css?v=35">
-<link rel="stylesheet" href="css/app.css?v=35">
-<meta name="app-version" content="35">
+<link rel="stylesheet" href="css/tokens.css?v=36">
+<link rel="stylesheet" href="css/app.css?v=36">
+<meta name="app-version" content="36">
 <script src="vendor/jszip.min.js" defer></script>
 </head>
 <body>
@@ -134,10 +134,8 @@
         <button class="seg-btn" data-zoom="1">100%</button>
         <button class="seg-btn" data-zoom="0.5">50%</button>
       </div>
-      <div class="seg">
-        <button class="seg-btn" id="zoomOut" title="한 단계 축소" aria-label="축소">−</button>
-        <button class="seg-btn" id="zoomIn" title="한 단계 확대 (100%까지)" aria-label="확대">＋</button>
-      </div>
+      <input type="range" class="slider zoom-slider" id="zoomRange"
+             min="0" max="100" step="1" value="0" title="0 은 맞춤, 100 은 100%">
       <div class="seg" id="splitSeg" hidden>
         <button class="seg-btn is-active" data-split="before">분할 전</button>
         <button class="seg-btn" data-split="after">분할 후</button>
@@ -169,6 +167,6 @@
 
 <div class="toast" id="toast" hidden></div>
 
-<script type="module" src="js/main.js?v=35"></script>
+<script type="module" src="js/main.js?v=36"></script>
 </body>
 </html>
