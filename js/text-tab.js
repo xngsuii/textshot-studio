@@ -26,14 +26,19 @@ const clone = (o) => JSON.parse(JSON.stringify(o));
    보여 줄 프로필이 없으면 빗금 친 칩으로 「안 건드림」을 나타낸다. */
 function skinChips(skin) {
   return U.el('span', { class: 'skin-chips' }, CHIPS.map((c) => {
-    const base = state.text.profiles.find(p => (p.side === 'right') === (c.side === 'right'));
-    const v = resolve(skin[c.side]?.[c.key], base?.[c.key]);
     const chip = U.el('span', { class: 'skin-chip', title: c.label });
+    const v = skinColor(skin, c.side, c.key);
     if (!v) chip.classList.add('is-none');
     else if (v === 'transparent') chip.classList.add('is-clear');
     else chip.style.background = v;
     return chip;
   }));
+}
+
+/* 그 스킨을 걸었을 때 그 자리에 실제로 쓰일 색. 스킨이 없으면 지금 프로필의 색. */
+function skinColor(skin, side, key) {
+  const base = state.text.profiles.find(p => (p.side === 'right') === (side === 'right'));
+  return skin ? resolve(skin[side]?.[key], base?.[key]) : (base?.[key] ?? null);
 }
 
 function skinCard(skin, on, onPick) {
@@ -42,16 +47,45 @@ function skinCard(skin, on, onPick) {
     title: skin?.note || null,
     onClick: () => onPick(skin ? skin.id : ''),
   }, [
-    skin ? skinChips(skin) : null,
     U.el('span', { class: 'skin-name', text: skin ? skin.label : '없음' }),
+    skin ? skinChips(skin) : null,
   ]);
+}
+
+/* 고른 스킨이 어떻게 생겼는지 — 말풍선을 아주 간략하게 줄여 그린다.
+   바탕은 지금 캔버스 색을 그대로 써서 말풍선이 묻히는지도 함께 보인다. */
+function skinPreview(skin) {
+  const st = state.text.style;
+  const r = Math.max(2, Math.min(10, Math.round((st.bubbleRadius ?? 16) * 0.45)));
+  const paint = (node, color) => { if (color && color !== 'transparent') node.style.background = color; };
+
+  const side = (which) => {
+    const bub = U.el('span', { class: 'sp-bub' }, [
+      U.el('span', { class: 'sp-line' }),
+      U.el('span', { class: 'sp-line is-short' }),
+    ]);
+    bub.style.borderRadius = r + 'px';
+    paint(bub, skinColor(skin, which, 'bubbleBg'));
+    paint(bub.children[0], skinColor(skin, which, 'textColor'));
+    paint(bub.children[1], skinColor(skin, which, 'quoteColor'));
+    const name = U.el('span', { class: 'sp-name' });
+    paint(name, skinColor(skin, which, 'nameColor'));
+    return U.el('span', { class: `sp-row sp-${which}` }, [name, bub]);
+  };
+
+  const box = U.el('div', { class: 'skin-prev' }, [side('left'), side('right')]);
+  box.style.background = st.transparent ? '#FFFFFF' : st.bg;
+  return box;
 }
 
 function skinPicker(st, after) {
   const pick = (id) => { st.skin = id; after(); };
-  return U.el('div', { class: 'skin-list' }, [
-    skinCard(null, !st.skin, pick),
-    ...SKINS.map(k => skinCard(k, st.skin === k.id, pick)),
+  return U.el('div', { class: 'skin-wrap' }, [
+    U.el('div', { class: 'skin-list' }, [
+      skinCard(null, !st.skin, pick),
+      ...SKINS.map(k => skinCard(k, st.skin === k.id, pick)),
+    ]),
+    skinPreview(skinById(st.skin)),
   ]);
 }
 
