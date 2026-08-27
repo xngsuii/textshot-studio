@@ -13,7 +13,7 @@ import { toast } from './ui.js';
 /* index.html 의 app-version 과 짝을 이룬다. 브라우저가 둘 중 하나만 새로
    받으면 화면은 새것인데 동작은 옛것인 상태가 되어 원인 찾기가 어렵다.
    어긋나면 하단에 알려 준다. 고칠 때 두 값을 같이 올릴 것. */
-const APP_VERSION = '36';
+const APP_VERSION = '37';
 
 const $ = (id) => document.getElementById(id);
 
@@ -46,13 +46,12 @@ function setDims(w, h, count = 1) {
   $('dims').textContent = count > 1 ? `${label} · ${count}장` : label;
 }
 
-function applyZoom() {
+/* 「맞춤」배율 — 가로세로 모두 들어와야 한다. 너비만 맞추면 세로로 긴 글에서
+   100% 와 다를 바가 없어진다. 모바일에서는 아래를 서랍이 덮으므로
+   안쪽 여백을 빼고 재야 실제로 보이는 만큼에 맞는다. */
+function fitScale() {
   const h = host();
-  if (state.zoom !== 'fit') { applyScale(state.zoom); showZoom(state.zoom); paintZoomRange(state.zoom); return; }
-
-  // 「맞춤」은 가로세로 모두 들어와야 한다. 너비만 맞추면 세로로 긴 글에서
-  // 100% 와 다를 바가 없어진다. 모바일에서는 아래를 서랍이 덮으므로
-  // 안쪽 여백을 빼고 재야 실제로 보이는 만큼에 맞는다.
+  const keep = zoomLevel;
   applyScale(1);                        // 원래 크기를 재기 위해 잠시 되돌린다
   const box = scroller();
   const cs = getComputedStyle(box);
@@ -63,6 +62,13 @@ function applyZoom() {
   const natW = h.offsetWidth || 1;
   const natH = h.offsetHeight || 1;
   const z = Math.min(1, availW / natW, availH / natH);
+  if (keep !== 1) applyScale(keep);
+  return Math.max(0.05, z);
+}
+
+function applyZoom() {
+  if (state.zoom !== 'fit') { applyScale(state.zoom); showZoom(state.zoom); paintZoomRange(state.zoom); return; }
+  const z = fitScale();
   applyScale(z);
   showZoom(z);
   paintZoomRange(z);
@@ -71,14 +77,25 @@ function applyZoom() {
 /* ── 배율 ────────────────────────────────────
    미끄럼대로 조절한다. 왼쪽 끝(0)은 화면에 맞춤, 오른쪽 끝(100)이 100% 다.
    100% 위로는 올리지 않는다. 그 이상은 또렷해지지 않고 뿌옇게 커지기만 한다. */
-const ZOOM_MIN = 0.1;
+const ZOOM_MIN = 0.05;
 const ZOOM_MAX = 1;
 
-/* 미끄럼대 — 0 은 맞춤, 100 은 100%. 그 사이는 그대로 퍼센트다. */
+/* 미끄럼대 — 왼쪽 끝(0)이 맞춤, 오른쪽 끝(100)이 100%.
+   그 사이는 맞춤 배율에서 100% 까지를 고르게 나눈다. 맞춤보다 작게는
+   줄지 않는다 — 그보다 작으면 글자가 뭉개져 볼 것이 없다. */
+function zoomOfSlider(v, fit) {
+  return Math.min(1, fit + (1 - fit) * (v / 100));
+}
+
+function sliderOfZoom(z, fit) {
+  if (1 - fit < 0.001) return 100;
+  return Math.round(Math.max(0, Math.min(1, (z - fit) / (1 - fit))) * 100);
+}
+
 function paintZoomRange(z) {
   const el = $('zoomRange');
   if (!el) return;
-  const v = state.zoom === 'fit' ? 0 : Math.round(z * 100);
+  const v = state.zoom === 'fit' ? 0 : sliderOfZoom(z, fitScale());
   el.value = String(v);
   el.style.setProperty('--fill', `${v}%`);
 }
@@ -348,10 +365,9 @@ function boot() {
       state.zoom = 'fit';
       document.querySelectorAll('#zoomSeg .seg-btn').forEach(b => b.classList.toggle('is-active', b.dataset.zoom === 'fit'));
       applyZoom();
-      paintZoomRange(0);
       return;
     }
-    setZoom(v / 100);
+    setZoom(zoomOfSlider(v, fitScale()));
   });
 
   $('splitSeg').addEventListener('click', (e) => {

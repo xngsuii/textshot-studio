@@ -1029,25 +1029,14 @@ function panelCanvas(container, onChange) {
         class: 'hint',
         text: RATIOS[st.ratio]
           ? '비율을 고르면 그 높이가 최소 높이가 됩니다. 자동 분할을 켜면 넘치는 만큼 다음 장으로 넘어갑니다. === 로 손수 나눈 자리도 그대로 지켜집니다.'
-          : '비율을 고르면 그 높이가 최소 높이가 됩니다. 글이 더 길면 잘리지 않고 아래로 늘어납니다. '
-            + '두 단 배치는 높이가 묶이지 않는 「자동」에서만 씁니다.',
+          : '비율을 고르면 그 높이가 최소 높이가 됩니다. 2단 배치는 「자동」에서만 선택 가능합니다.',
       }),
     ]),
     group('여백', [
       U.padGrid(st, ['padTop', 'padRight', 'padBottom', 'padLeft'], () => st.padLinked, touch),
     ], U.check('네 방향 동일', st.padLinked, (v) => { st.padLinked = v; })),
     group('배경', [
-      U.field('배경색', U.seg(bgMode(st), [['solid', '단색'], ['grad', '2색'], ['clear', '투명']], (v) => {
-        st.bgMode = v;
-        st.transparent = v === 'clear';
-        rebuild(); touch();
-      })),
-      bgMode(st) === 'clear'
-        ? U.el('div', { class: 'bgcell-row' }, [bgCell('PNG 에서만 비칩니다', null, null)])
-        : U.el('div', { class: 'bgcell-row' }, bgMode(st) === 'grad'
-          ? [bgCell('위', st.bg, (v) => { st.bg = v; touch(); }),
-            bgCell('아래', st.bg2 || '#E9EEF2', (v) => { st.bg2 = v; touch(); })]
-          : [bgCell('배경', st.bg, (v) => { st.bg = v; touch(); })]),
+      U.field('배경색', bgPicker(st, touch, rebuild)),
       st.bgImage ? (() => {
         const t = U.el('img', { class: 'bg-thumb', alt: '' });
         t.src = st.bgImage;
@@ -1075,7 +1064,7 @@ function panelCanvas(container, onChange) {
         U.field('불투명도', U.slider(st.bgOpacity, { min: 0, max: 100, step: 5, unit: '%', onChange: (v) => { st.bgOpacity = v; touch(); } })),
         U.field('흐림', U.slider(st.bgBlur ?? 0, { min: 0, max: 60, step: 1, unit: 'px', onChange: (v) => { st.bgBlur = v; touch(); } })),
       ]) : null,
-      st.bgImage && (st.bgAsHeader || st.bgFit === 'cover') ? U.el('div', { class: 'field-row' }, [
+      st.bgImage && (st.bgAsHeader || st.bgFit === 'cover') ? U.el('div', { class: 'field-row is-loose' }, [
         U.el('button', {
           class: 'btn btn-ghost btn-sm', type: 'button', text: '원래 위치로',
           onClick: () => { st.bgX = 50; st.bgY = 50; touch(); },
@@ -1139,25 +1128,53 @@ function bgMode(st) {
   return st.bgMode === 'grad' ? 'grad' : 'solid';
 }
 
-/* 이름표를 위에, 색을 가운데, hex 를 아래에 놓은 칸 */
-function bgCell(label, value, onChange) {
-  if (!onChange) {
-    return U.el('div', { class: 'bgcell' }, [
-      U.el('span', { class: 'bgcell-l', text: '투명' }),
-      U.el('span', { class: 'bgcell-sw is-clear' }),
-      U.el('span', { class: 'bgcell-hex', text: label }),
-    ]);
-  }
-  const sw = U.el('input', { type: 'color', class: 'bgcell-sw', value,
-    onInput: (e) => { hex.value = e.target.value.toUpperCase(); onChange(e.target.value); } });
-  const hex = U.el('input', { type: 'text', class: 'bgcell-hex', value: value.toUpperCase(),
-    onChange: (e) => {
-      const v = e.target.value.trim();
-      if (/^#[0-9a-f]{6}$/i.test(v)) { sw.value = v; onChange(v); }
-      else e.target.value = sw.value.toUpperCase();
-    } });
-  return U.el('div', { class: 'bgcell' }, [
-    U.el('span', { class: 'bgcell-l', text: label }), sw, hex,
+/* 배경색 고르기 — 고르는 칸 바로 아래에 그 방식이 쓰는 색이 붙는다.
+
+     단색   |  그라데이션  |  투명
+   [      ]   [   ][   ]   [▨▨▨]
+    hex        hex  hex
+
+   맨 앞 색은 단색과 그라데이션이 함께 쓴다. 어느 쪽이든 「배경색」이다. */
+function bgPicker(st, touch, rebuild) {
+  const mode = bgMode(st);
+
+  const swatch = (value, onChange) => {
+    const sw = U.el('input', {
+      type: 'color', class: 'bgcell-sw', value,
+      onInput: (e) => { hex.value = e.target.value.toUpperCase(); onChange(e.target.value); },
+    });
+    const hex = U.el('input', {
+      type: 'text', class: 'bgcell-hex', value: value.toUpperCase(),
+      onChange: (e) => {
+        const v = e.target.value.trim();
+        if (/^#[0-9a-f]{6}$/i.test(v)) { sw.value = v; onChange(v); }
+        else e.target.value = sw.value.toUpperCase();
+      },
+    });
+    return [sw, hex];
+  };
+
+  const [sw1, hex1] = swatch(st.bg, (v) => { st.bg = v; touch(); });
+  const [sw2, hex2] = swatch(st.bg, (v) => { st.bg = v; touch(); });
+  const [sw3, hex3] = swatch(st.bg2 || '#E9EEF2', (v) => { st.bg2 = v; touch(); });
+
+  return U.el('div', { class: `bgpick is-${mode}` }, [
+    U.seg(mode, [['solid', '단색'], ['grad', '그라데이션'], ['clear', '투명']], (v) => {
+      st.bgMode = v;
+      st.transparent = v === 'clear';
+      rebuild(); touch();
+    }),
+    U.el('div', { class: 'bgpick-row' }, [
+      U.el('div', { class: 'bgpick-cell' }, [sw1, hex1]),
+      U.el('div', { class: 'bgpick-cell' }, [
+        U.el('div', { class: 'bgpick-two' }, [sw2, sw3]),
+        U.el('div', { class: 'bgpick-two' }, [hex2, hex3]),
+      ]),
+      U.el('div', { class: 'bgpick-cell' }, [
+        U.el('span', { class: 'bgcell-sw is-clear' }),
+        U.el('span', { class: 'bgcell-hex' }),
+      ]),
+    ]),
   ]);
 }
 

@@ -479,6 +479,8 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .field-grid .field > label { font-size: 11px; color: var(--fg-3); }
 .field-grid .step-input { min-width: 0; }
 .field-row { display: flex; align-items: center; gap: 6px; }
+/* 단추와 설명 사이를 넉넉히 벌린다 */
+.field-row.is-loose { gap: 14px; }
 /* 한 줄에 둘 — 앞엣것이 넓게, 뒤엣것은 붙박이 너비. 이름표는 값 위에. */
 .field-split { display: flex; align-items: flex-end; gap: 10px; }
 .field-split > * { min-width: 0; }
@@ -1245,25 +1247,43 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
 
 /* 헤더 띠 높이를 끌 때 */
 .is-headsize, .is-headsize * { cursor: ns-resize !important; user-select: none; }
-/* ─── 배경색 칸 ─────────────────────────────── */
-/* 이름표가 위, 색이 가운데, hex 가 아래 */
-.bgcell-row { display: flex; gap: 8px; }
-.bgcell { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.bgcell-l { font-size: 11px; color: var(--fg-3); }
+/* ─── 배경색 고르기 ────────────────────────── */
+/* 고르는 칸 바로 아래에 그 방식이 쓰는 색이 붙는다. 세 칸 너비를 맞춘다. */
+.bgpick { display: flex; flex-direction: column; gap: 6px; }
+.bgpick-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.bgpick-cell { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.bgpick-two { display: flex; gap: 4px; }
+.bgpick-two > * { flex: 1 1 0; min-width: 0; }
+/* 색칸은 flex: none 이라 나란히 두면 서로 밀어낸다. 이 안에서만 풀어 준다. */
+.bgpick-two > input[type="color"].bgcell-sw { flex: 1 1 0; width: auto; min-width: 0; }
+
 /* input[type="color"] 쪽 규칙이 더 세서 이름을 함께 적어 이긴다 */
 input[type="color"].bgcell-sw, .bgcell-sw {
-  width: 100%; height: 30px; padding: 2px; flex: none;
+  width: 100%; height: 28px; padding: 2px; flex: none;
   border: 1px solid var(--line-strong); border-radius: var(--r-sm);
   background: var(--bg); cursor: pointer;
 }
 .bgcell-hex {
-  width: 100%; height: 24px; padding: 0 4px;
-  font-family: var(--mono); font-size: 11px; text-align: center;
+  width: 100%; height: 22px; padding: 0 2px;
+  font-family: var(--mono); font-size: 10.5px; text-align: center;
   color: var(--fg-2);
 }
 input.bgcell-hex { border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg); }
-span.bgcell-hex { display: grid; place-items: center; color: var(--fg-3); font-family: var(--ui); }
-span.bgcell-sw.is-clear { display: block; }
+span.bgcell-hex { display: block; }
+/* .bgcell-sw 의 background 줄임말이 뒤에 와서 체크무늬를 덮는다. 여기서 다시 깐다. */
+span.bgcell-sw.is-clear {
+  display: block; cursor: default;
+  background-color: #fff;
+  background-image:
+    linear-gradient(45deg, #b9bec4 25%, transparent 25%, transparent 75%, #b9bec4 75%),
+    linear-gradient(45deg, #b9bec4 25%, transparent 25%, transparent 75%, #b9bec4 75%);
+  background-size: 6px 6px;
+  background-position: 0 0, 3px 3px;
+}
+/* 고르지 않은 방식은 흐리게 — 눌러서 바로 고르라고 남겨는 둔다 */
+.bgpick:not(.is-solid) .bgpick-cell:nth-child(1),
+.bgpick:not(.is-grad) .bgpick-cell:nth-child(2),
+.bgpick:not(.is-clear) .bgpick-cell:nth-child(3) { opacity: .42; }
 
 /* ─── 제목을 눌러 접는 묶음 ─────────────────── */
 .fold-grp > summary { cursor: pointer; list-style: none; }
