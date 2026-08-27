@@ -145,7 +145,9 @@ function signLine(st) {
   if (!name && !org) return null;
 
   const sep = st.signSep === 'bar' ? '|' : '·';
-  const el = U.el('div', { class: 'stage-sign', text: [name, org].filter(Boolean).join(`  ${sep}  `) });
+  // 보통 빈칸은 여러 개를 써도 화면에서 하나로 줄어든다. 줄지 않는 빈칸으로 사이를 벌린다.
+  const gap = '  ';
+  const el = U.el('div', { class: 'stage-sign', text: [name, org].filter(Boolean).join(`${gap}${sep}${gap}`) });
   Object.assign(el.style, {
     marginTop: (st.signGap ?? 28) + 'px',
     fontSize: (st.signSize ?? 12) + 'px',
@@ -740,7 +742,7 @@ function panelFormat(container, onChange) {
   ];
   return U.el('div', { class: 'panel' }, [
     group('', [
-      U.el('div', { class: 'tgl-grid' }, items.map(([k, label, mark]) =>
+      U.el('div', { class: 'tgl-grid tgl-boxed' }, items.map(([k, label, mark]) =>
         U.toggle(label, fm[k], (v) => { fm[k] = v; onChange(); }, mark))),
     ]),
     U.el('div', { class: 'field-row' }, [
@@ -1027,12 +1029,8 @@ function panelOutput(container, onChange) {
       out.format === 'png' ? null
         : U.el('div', { class: 'hint hint-warn', text: `원문은 PNG 에만 심을 수 있습니다. 지금 포맷(${out.format.toUpperCase()})으로는 저장돼도 담기지 않습니다.` }),
       U.el('div', { class: 'hint', text: '켜 두면 저장하는 PNG 안에 이 글의 원문과 서식이 함께 담깁니다. '
-        + '그 PNG 를 편집 창에 끌어다 놓으면 글을 그대로 되살릴 수 있어, 고칠 때 다시 칠 필요가 없습니다. '
-        + '보이는 그림은 달라지지 않고 파일만 몇 KB 늘어납니다.' }),
-      U.el('div', { class: 'hint', text: '사진은 담기지 않습니다. 프로필 사진은 이름이 같은 프로필이 지금 설정에 있으면 그 사진을 그대로 씁니다. '
-        + '본문 사진과 배경 사진은 자리만 남으니 다시 넣으면 됩니다.' }),
-      U.el('div', { class: 'hint', text: '카카오톡·디스코드·트위터처럼 올린 사진을 다시 인코딩하는 곳을 거치면 담아 둔 원문이 사라집니다. '
-        + '파일 그대로 두거나 파일로 주고받은 것만 되살릴 수 있습니다.' }),
+        + 'PNG를 편집 창에 끌어다 놓으면 글을 그대로 되살릴 수 있습니다.' }),
+      U.el('div', { class: 'hint', text: '사진은 담기지 않습니다. 프로필 사진은 이름이 같은 프로필이 지금 설정에 있으면 그 사진을 그대로 씁니다.' }),
     ]),
   ]);
 }
