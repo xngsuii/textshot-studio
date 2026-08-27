@@ -189,6 +189,64 @@ export const DEFAULT_HTML = {
 /* ── 상태 ───────────────────────────────────── */
 const LS_DOC = 'textshot:doc:v1';
 const LS_TPL = 'textshot:templates:v1';
+const LS_PIC = 'textshot:photos:v1';
+
+/* ── 사진 곳간 ──────────────────────────────────
+   본문과 템플릿이 같은 사진을 따로따로 담으면 한 장이 두 벌, 세 벌이 된다.
+   프로필 일곱에 템플릿 하나만 있어도 사진이 열네 장 분량이 되어 브라우저
+   저장 한도(사이트당 5MB 남짓)를 금세 넘긴다.
+
+   그래서 사진은 이 곳간에 딱 한 벌만 두고, 프로필과 본문에는 「ph:열쇠」라는
+   쪽지만 남긴다. 같은 사진을 몇 군데서 쓰든 자리는 한 장 몫이다.
+
+   메모리에서는 예전처럼 그냥 data URL 이다. 담고 꺼낼 때만 바꿔치기하므로
+   그리는 쪽 코드는 이 일을 몰라도 된다. */
+let photos = {};
+
+/* data URL 로 열쇠를 만든다. 길이를 붙여 다른 사진이 같은 열쇠를 갖는 일을 막는다. */
+function photoKey(url) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < url.length; i++) {
+    h ^= url.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(36) + '-' + url.length.toString(36);
+}
+
+const packPic = (url) => {
+  if (typeof url !== 'string' || !url.startsWith('data:')) return url || '';
+  const k = photoKey(url);
+  photos[k] = url;
+  return 'ph:' + k;
+};
+
+const unpackPic = (v) => (
+  typeof v === 'string' && v.startsWith('ph:') ? (photos[v.slice(3)] || '') : (v || '')
+);
+
+const packProfiles = (list) => (list || []).map(p => ({ ...p, avatar: packPic(p.avatar) }));
+const packImages = (list) => (list || []).map(im => ({ ...im, data: packPic(im.data) }));
+
+/* 아무도 안 쓰는 사진은 버린다. 본문과 템플릿을 모두 훑고 남은 것만 남긴다. */
+function sweepPhotos() {
+  const used = new Set();
+  // 메모리에서는 data URL, 담긴 뒤에는 「ph:열쇠」다. 둘 다 알아본다.
+  const note = (v) => {
+    if (typeof v !== 'string' || !v) return;
+    if (v.startsWith('ph:')) used.add(v.slice(3));
+    else if (v.startsWith('data:')) used.add(photoKey(v));
+  };
+  for (const p of state.text.profiles) note(p.avatar);
+  for (const im of state.text.images) note(im.data);
+  for (const t of Object.values(templates)) {
+    for (const p of (t?.profiles || [])) note(p.avatar);
+  }
+  for (const k of Object.keys(photos)) if (!used.has(k)) delete photos[k];
+}
+
+function savePhotos() {
+  localStorage.setItem(LS_PIC, JSON.stringify(photos));
+}
 
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
 
@@ -228,6 +286,11 @@ export let templates = {};
 
 /* ── 저장/복원 ──────────────────────────────── */
 export function loadAll() {
+  // 사진 곳간을 먼저 연다. 본문과 템플릿의 쪽지를 풀려면 이게 있어야 한다.
+  try {
+    photos = JSON.parse(localStorage.getItem(LS_PIC) || '{}') || {};
+  } catch (e) { console.warn('사진 복원 실패', e); photos = {}; }
+
   try {
     const raw = localStorage.getItem(LS_DOC);
     if (raw) {
@@ -244,7 +307,9 @@ export function loadAll() {
         delete state.text.style.colorSlots;
         // A4·A5·B5 를 쓰던 설정은 자동으로 되돌린다
         if (!(state.text.style.ratio in RATIOS)) state.text.style.ratio = 'auto';
-        state.text.images = Array.isArray(d.text.images) ? d.text.images : [];
+        state.text.images = (Array.isArray(d.text.images) ? d.text.images : [])
+          .map(im => ({ ...im, data: unpackPic(im.data) }))
+          .filter(im => im.data);
         // 투명도를 프로필마다 두던 시절의 값을 전체 설정 하나로 모은다
         if (d.text.style && d.text.style.bubbleAlpha === undefined) {
           const olds = (d.text.profiles || [])
@@ -261,6 +326,7 @@ export function loadAll() {
             };
             // 투명 여부만 있던 시절의 값
             if (q.bubbleBg === 'transparent') { q.bubbleBg = '#EFF1F1'; q.bubbleAlpha = 0; }
+            q.avatar = unpackPic(q.avatar);
             return q;
           })
           : clone(DEFAULT_PROFILES);
@@ -276,7 +342,13 @@ export function loadAll() {
 
   try {
     const raw = localStorage.getItem(LS_TPL);
-    if (raw) templates = JSON.parse(raw) || {};
+    const saved = raw ? (JSON.parse(raw) || {}) : {};
+    templates = {};
+    for (const [name, t] of Object.entries(saved)) {
+      templates[name] = t && t.style
+        ? { ...t, profiles: (t.profiles || []).map(p => ({ ...p, avatar: unpackPic(p.avatar) })) }
+        : t;
+    }
   } catch (e) { console.warn('템플릿 복원 실패', e); }
 }
 
@@ -285,29 +357,59 @@ export function saveSoon(onDone) {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     try {
+      const text = {
+        ...state.text,
+        profiles: packProfiles(state.text.profiles),
+        images: packImages(state.text.images),
+      };
+      sweepPhotos();
+      savePhotos();
       localStorage.setItem(LS_DOC, JSON.stringify({
-        text: state.text, html: state.html,
+        text, html: state.html,
         output: state.output, activeTemplate: state.activeTemplate,
       }));
       onDone?.(null);
     } catch (e) {
-      // 사진을 넣으면 브라우저 저장 한도(대개 5MB)를 넘기기 쉽다
+      // 사진이 아주 많으면 그래도 한도를 넘길 수 있다
       console.warn('자동 저장 실패', e);
       onDone?.(e);
     }
   }, 400);
 }
 
-/* 템플릿에도 프로필 사진이 담기므로 저장 한도를 넘길 수 있다.
-   던지고 끝내면 누른 단추가 먹통이 되므로 참·거짓으로 알린다. */
+/* 템플릿의 프로필 사진도 곳간을 함께 쓴다. 본문과 같은 사진이면 자리를
+   더 먹지 않는다. 던지고 끝내면 누른 단추가 먹통이 되므로 참·거짓으로 알린다. */
 export function persistTemplates() {
   try {
-    localStorage.setItem(LS_TPL, JSON.stringify(templates));
+    const out = {};
+    for (const [name, t] of Object.entries(templates)) {
+      out[name] = t && t.style
+        ? { ...t, profiles: packProfiles(t.profiles) }
+        : t;
+    }
+    sweepPhotos();
+    savePhotos();
+    localStorage.setItem(LS_TPL, JSON.stringify(out));
     return true;
   } catch (e) {
     console.warn('템플릿 저장 실패', e);
     return false;
   }
+}
+
+/* 지금 담아 둔 양 — 글자 하나에 2바이트를 쓴다 */
+export function storedBytes() {
+  let n = 0;
+  for (const k of [LS_DOC, LS_TPL, LS_PIC]) n += (localStorage.getItem(k) || '').length * 2;
+  return n;
+}
+
+/* 곳간에 든 사진 수와 그 양 */
+export function photoStats() {
+  const keys = Object.keys(photos);
+  let bytes = 0;
+  for (const k of keys) bytes += photos[k].length * 2;
+  return { count: keys.length, bytes };
 }
 
 export function setTemplates(next) {

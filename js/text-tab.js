@@ -3,6 +3,7 @@
 import {
   state, saveSoon, FONTS, fontById, DEFAULT_FORMATS, DEFAULT_STYLE,
   DEFAULT_OUTPUT, RATIOS, RATIO_ORDER, RATIO_LABEL, MAX_SLOTS, newProfile, NAME_COLOR,
+  storedBytes, photoStats,
 } from './store.js';
 import {
   splitChunks, hasSplit, renderChunk, renderWithSplitMarks, stripMarkers,
@@ -1175,7 +1176,7 @@ export function pickImage(onChange, afterAdd) {
    원본을 그대로 담아 두면 브라우저 저장 공간(원본당 5MB 남짓)이 금세 찬다.
    그 5MB 는 본문과 템플릿이 함께 쓰므로, 템플릿에 사진이 한 벌 더 들어가면
    같은 사진을 두 번 담는 셈이 되어 한도를 넘긴다. 넉넉히 256px 로 줄여 담는다. */
-const AVA_MAX = 256;
+const AVA_MAX = 512;
 
 function shrinkPhoto(dataUrl, max = AVA_MAX) {
   // 움직이는 그림은 줄이면 한 장으로 굳어 버린다. 그대로 둔다.
@@ -1184,27 +1185,18 @@ function shrinkPhoto(dataUrl, max = AVA_MAX) {
     const im = new Image();
     im.onload = () => {
       const k = Math.min(1, max / Math.max(im.naturalWidth, im.naturalHeight));
-      if (k >= 1) { done(dataUrl); return; }
       const cv = document.createElement('canvas');
       cv.width = Math.max(1, Math.round(im.naturalWidth * k));
       cv.height = Math.max(1, Math.round(im.naturalHeight * k));
       cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height);
+      // 크기를 줄일 게 없어도 webp 로 다시 담으면 훨씬 가벼워진다
       const out = cv.toDataURL('image/webp', 0.92);
-      // webp 를 못 만드는 브라우저는 png 를 돌려준다. 그래도 크기는 줄어 있다.
+      // webp 를 못 만드는 브라우저는 png 를 돌려준다. 그때는 더 작은 쪽을 쓴다.
       done(out.length < dataUrl.length ? out : dataUrl);
     };
     im.onerror = () => done(dataUrl);
     im.src = dataUrl;
   });
-}
-
-/* 브라우저에 담아 둔 양 (localStorage 는 글자 하나에 2바이트를 쓴다) */
-function storedBytes() {
-  let n = 0;
-  for (const k of ['textshot:doc:v1', 'textshot:templates:v1']) {
-    n += (localStorage.getItem(k) || '').length * 2;
-  }
-  return n;
 }
 
 const kb = (n) => (n < 1024 * 1024 ? `${Math.round(n / 1024)}KB` : `${(n / 1024 / 1024).toFixed(1)}MB`);
@@ -1213,8 +1205,13 @@ const kb = (n) => (n < 1024 * 1024 ? `${Math.round(n / 1024)}KB` : `${(n / 1024 
    브라우저 저장 공간은 원본(사이트)당 5MB 남짓이고 본문과 템플릿이 함께 쓴다. */
 function storageRow(container, onChange) {
   const used = storedBytes();
-  const big = state.text.profiles.filter(p => p.avatar && p.avatar.length > 120000);
-  const line = U.el('span', { class: 'hint', text: `저장 ${kb(used)} / 5MB 남짓` });
+  const pic = photoStats();
+  const big = state.text.profiles.filter(p => p.avatar && p.avatar.length > 220000);
+  const line = U.el('span', {
+    class: 'hint',
+    text: `저장 ${kb(used)} / 5MB 남짓${pic.count ? ` · 사진 ${pic.count}장 ${kb(pic.bytes)}` : ''}`,
+    title: '사진은 한 장씩만 담기고 본문과 템플릿이 같이 씁니다',
+  });
 
   const btn = big.length ? U.el('button', {
     class: 'btn btn-ghost btn-sm', type: 'button', text: `사진 ${big.length}장 줄이기`,
