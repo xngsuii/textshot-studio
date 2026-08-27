@@ -680,7 +680,7 @@ const PANELS = {
 };
 
 /* 프로필 보기 — card: 색까지 펼친 카드 / list: 색을 접은 목록 */
-let profileView = 'card';
+let profileView = 'list';
 
 /* 말풍선 — 화자 프로필과 공통 모양 */
 function panelChat(container, onChange) {
@@ -1037,13 +1037,19 @@ function panelCanvas(container, onChange) {
     ], U.check('네 방향 동일', st.padLinked, (v) => { st.padLinked = v; })),
     group('배경', [
       U.field('배경색', bgPicker(st, touch, rebuild)),
-      st.bgImage ? (() => {
-        const t = U.el('img', { class: 'bg-thumb', alt: '' });
-        t.src = st.bgImage;
-        return t;
-      })() : null,
+      // 썸네일 칸이 곧 사진을 넣는 칸이다. 비어 있으면 눌러서 고른다.
+      st.bgImage
+        ? (() => {
+          const t = U.el('img', { class: 'bg-thumb', alt: '', title: '눌러서 다른 사진으로 바꿉니다' });
+          t.src = st.bgImage;
+          t.addEventListener('click', () => fileInput.click());
+          return t;
+        })()
+        : U.el('button', { class: 'bg-thumb is-empty', type: 'button', onClick: () => fileInput.click() }, [
+          U.el('span', { class: 'bg-thumb-plus', text: '+' }),
+          U.el('span', { text: '이미지 넣기' }),
+        ]),
       U.el('div', { class: 'field-row' }, [
-        U.el('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: st.bgImage ? '이미지 바꾸기' : '이미지 넣기', onClick: () => fileInput.click() }),
         st.bgImage ? U.el('button', { class: 'btn btn-danger btn-sm', type: 'button', text: '이미지 빼기',
           onClick: () => { st.bgImage = ''; rebuild(); touch(); } }) : null,
         fileInput,
@@ -1170,10 +1176,7 @@ function bgPicker(st, touch, rebuild) {
         U.el('div', { class: 'bgpick-two' }, [sw2, sw3]),
         U.el('div', { class: 'bgpick-two' }, [hex2, hex3]),
       ]),
-      U.el('div', { class: 'bgpick-cell' }, [
-        U.el('span', { class: 'bgcell-sw is-clear' }),
-        U.el('span', { class: 'bgcell-hex' }),
-      ]),
+      U.el('div', { class: 'bgpick-cell' }),
     ]),
   ]);
 }
