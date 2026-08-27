@@ -672,11 +672,12 @@ function panelChat(container, onChange) {
     ? U.el('div', { class: 'prof-list' }, ps.map(row))
     : U.el('div', { class: 'prof-grid' }, ps.map(card));
 
+  // 목록은 한 줄씩 쌓여 있으니 세로로만, 카드는 여러 열이라 양쪽 다
   U.dragSort(listEl, isList ? '.prof-row' : '.prof-card', (from, to) => {
     const [moved] = ps.splice(from, 1);
     ps.splice(to, 0, moved);
     buildProfileBar(onChange); rebuild(); touch();
-  });
+  }, { axis: isList ? 'y' : 'both' });
 
   return U.el('div', { class: 'panel' }, [
     // 네 칸에 나눠 담느라 이름표를 줄였다. 무슨 뜻인지는 툴팁에 적어 둔다.

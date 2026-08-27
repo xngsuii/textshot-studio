@@ -196,7 +196,9 @@ export function dragGrip(label = '끌어서 순서 바꾸기') {
   });
 }
 
-export function dragSort(container, itemSel, onDrop) {
+/* axis 로 움직일 방향을 묶을 수 있다.
+   'y' 세로만 (한 줄짜리 목록) / 'x' 가로만 / 'both' 둘 다 (칸이 여러 열일 때) */
+export function dragSort(container, itemSel, onDrop, { axis = 'both' } = {}) {
   let drag = null;
 
   const shift = () => {
@@ -233,13 +235,17 @@ export function dragSort(container, itemSel, onDrop) {
 
   container.addEventListener('pointermove', (e) => {
     if (!drag || e.pointerId !== drag.id) return;
-    drag.items[drag.from].style.transform =
-      `translate(${e.clientX - drag.x}px, ${e.clientY - drag.y}px)`;
-    // 처음 재 둔 자리를 기준으로 손끝이 어느 칸 위에 있는지 본다
+    // 묶어 둔 방향으로는 따라가지 않는다
+    const dx = axis === 'y' ? 0 : e.clientX - drag.x;
+    const dy = axis === 'x' ? 0 : e.clientY - drag.y;
+    drag.items[drag.from].style.transform = `translate(${dx}px, ${dy}px)`;
+    // 처음 재 둔 자리를 기준으로 손끝이 어느 칸 위에 있는지 본다.
+    // 묶어 둔 방향은 손끝이 옆으로 빗나가도 못 본 척한다.
     let to = drag.to;
     drag.rects.forEach((r, j) => {
-      if (e.clientX >= r.left && e.clientX <= r.right
-        && e.clientY >= r.top && e.clientY <= r.bottom) to = j;
+      const inX = axis === 'y' || (e.clientX >= r.left && e.clientX <= r.right);
+      const inY = axis === 'x' || (e.clientY >= r.top && e.clientY <= r.bottom);
+      if (inX && inY) to = j;
     });
     if (to !== drag.to) { drag.to = to; shift(); }
   });
