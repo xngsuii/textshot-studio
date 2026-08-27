@@ -487,30 +487,33 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus {
 }
 input[type="range"] { width: 100%; accent-color: var(--accent); }
 
-/* 굵은 막대 + 동그란 손잡이. 지나온 자리를 --fill 까지 칠한다. */
+/* 얇은 막대 + 속이 빈 동그란 손잡이. 지나온 자리를 --fill 까지 칠한다. */
 .slider-row { display: flex; align-items: center; gap: 8px; }
 .slider {
   -webkit-appearance: none; appearance: none;
   flex: 1 1 auto; min-width: 0; height: 18px;
-  background: none; accent-color: auto; cursor: pointer;
+  background: none; cursor: pointer;
 }
 .slider::-webkit-slider-runnable-track {
-  height: 8px; border-radius: 999px;
+  height: 4px; border-radius: 999px;
   background: linear-gradient(to right,
     var(--accent) 0 var(--fill, 50%), var(--line-strong) var(--fill, 50%) 100%);
 }
 .slider::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none;
-  width: 17px; height: 17px; margin-top: -4.5px;
-  border: 0; border-radius: 50%; background: var(--accent);
-  box-shadow: 0 1px 3px rgba(20, 30, 30, .28);
+  width: 15px; height: 15px; margin-top: -5.5px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 3px solid var(--accent);
+  box-shadow: 0 1px 3px rgba(20, 30, 30, .2);
 }
-.slider:hover::-webkit-slider-thumb { background: var(--accent-hi); }
-.slider::-moz-range-track { height: 8px; border-radius: 999px; background: var(--line-strong); }
-.slider::-moz-range-progress { height: 8px; border-radius: 999px; background: var(--accent); }
+.slider:hover::-webkit-slider-thumb, .slider:focus-visible::-webkit-slider-thumb { border-color: var(--accent-hi); }
+.slider::-moz-range-track { height: 4px; border-radius: 999px; background: var(--line-strong); }
+.slider::-moz-range-progress { height: 4px; border-radius: 999px; background: var(--accent); }
 .slider::-moz-range-thumb {
-  width: 17px; height: 17px; border: 0; border-radius: 50%;
-  background: var(--accent); box-shadow: 0 1px 3px rgba(20, 30, 30, .28);
+  width: 15px; height: 15px; border-radius: 50%;
+  background: var(--bg); border: 3px solid var(--accent);
+  box-shadow: 0 1px 3px rgba(20, 30, 30, .2);
 }
 .slider-val {
   flex: none; width: 36px; text-align: right;
@@ -1047,7 +1050,7 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
   background: var(--bg); border: 1px solid var(--line);
 }
 .tpl-row.is-active { border-color: var(--accent); background: var(--accent-soft); }
-.tpl-name { flex: 1; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tpl-name { flex: 1; font-size: 12.5px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tpl-act { font-size: 11px; color: var(--fg-3); padding: 2px 5px; border-radius: 3px; }
 .tpl-act:hover { background: var(--bg-hover); color: var(--fg); }
 .tpl-act.del:hover { background: var(--danger-soft); color: var(--danger); }
@@ -1198,3 +1201,17 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
 .tpl-pics { flex: none; font-size: 10.5px; color: var(--fg-3); padding: 0 4px; white-space: nowrap; }
 .btn.is-danger { color: var(--danger); border-color: var(--danger-soft); }
 .btn.is-danger:hover { background: var(--danger-soft); }
+/* ─── 두 단 배치 ────────────────────────────── */
+/* 여러 단으로 흘리려면 판이 블록이어야 한다. flex 의 gap 을 못 쓰므로
+   문단 사이는 margin 으로 벌린다. */
+.stage.is-cols .stage-in > * + * { margin-top: var(--para-gap, 0px); }
+.stage.is-cols .stage-in > .mk-chat + .mk-chat { margin-top: var(--b-gap, 8px); }
+/* 말풍선·사진·인용은 단 경계에서 잘리면 보기 흉하다 */
+.stage.is-cols .mk-chat,
+.stage.is-cols .mk-img,
+.stage.is-cols .mk-bq,
+.stage.is-cols .mk-code,
+.stage.is-cols .mk-h1,
+.stage.is-cols .mk-h2 { break-inside: avoid; }
+/* 단 안에서는 말풍선이 단 너비를 기준으로 잡혀야 한다 */
+.stage.is-cols .mk-chat { display: flex; }

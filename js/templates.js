@@ -66,6 +66,7 @@ export function buildTemplateSection(onApply, rerender) {
         el('button', {
           class: 'tpl-act', type: 'button', text: '덮어쓰기',
           onClick: () => {
+            if (!confirm(`지금 설정을 「${name}」 템플릿에 덮어씁니다.\n그 템플릿에 담겨 있던 스타일과 프로필은 사라집니다. 계속할까요?`)) return;
             const keep = templates[name];
             templates[name] = pack();
             if (!persistTemplates()) {

@@ -126,17 +126,26 @@ function applyStyle(stage) {
      아래 CSS 에서 되돌린다. */
   const inner = stage.querySelector('.stage-in') || stage;
   const k = (st.squeeze ?? 100) / 100;
-  Object.assign(inner.style, {
-    display: 'flex', flexDirection: 'column', gap: st.paraGap + 'px',
-  });
+  /* 책 내지처럼 두 단. 여러 단으로 흘리려면 판이 블록이어야 해서 flex 를 접는다.
+     비율을 정하면 높이가 묶여 뜻이 없으므로 자동일 때만 쓴다. */
+  const cols = !!st.columns && !RATIOS[st.ratio];
+  Object.assign(inner.style, cols
+    ? { display: 'block', flexDirection: '', gap: '',
+      columnCount: '2', columnGap: (st.columnGap ?? 32) + 'px' }
+    : { display: 'flex', flexDirection: 'column', gap: st.paraGap + 'px',
+      columnCount: '', columnGap: '' });
   stage.style.setProperty('--sq', String(k));
   stage.classList.toggle('is-squeezed', k !== 1);
 
-  // 비율을 정하면 남는 세로 공간이 생긴다. 글을 위에 붙이지 않고 가운데 둔다.
-  // (가로 정렬은 textAlign 그대로) 글이 더 길면 캔버스가 늘어나 영향이 없다.
+  /* 비율을 정하면 남는 세로 공간이 생긴다. 글을 위에 붙이지 않고 가운데 둔다.
+     다만 헤더 띠는 언제나 캔버스 맨 위여야 한다. 판 전체를 가운데 맞춤하면
+     띠까지 따라 내려가므로, 글 덩어리에만 위아래 auto 여백을 줘서
+     띠 아래 남는 자리 안에서 가운데로 가게 한다. */
   const r = RATIOS[st.ratio];
   stage.style.minHeight = r ? Math.round(st.width * r) + 'px' : '';
-  stage.style.justifyContent = r ? 'center' : '';
+  stage.style.justifyContent = 'flex-start';
+  inner.style.marginTop = r ? 'auto' : '';
+  inner.style.marginBottom = r ? 'auto' : '';
 
   const v = {
     '--c-action': st.actionColor,
@@ -159,6 +168,8 @@ function applyStyle(stage) {
   stage.style.setProperty('--ava-r', st.avatarShape === 'circle' ? '50%' : '.45em');
   stage.style.setProperty('--ava-size', (2.5 * (st.avatarSize ?? 100) / 100).toFixed(3) + 'em');
 
+  stage.classList.toggle('is-cols', cols);
+
   stage.style.setProperty('--para-gap', st.paraGap + 'px');
   stage.style.setProperty('--b-radius', st.bubbleRadius + 'px');
   stage.style.setProperty('--b-gap', st.bubbleGap + 'px');
@@ -169,7 +180,11 @@ function applyStyle(stage) {
   stage.style.setProperty('--b-pad-h', st.bubblePadH + 'px');
 
   const sign = signLine(st);
-  if (sign) stage.appendChild(sign);
+  if (sign) {
+    stage.appendChild(sign);
+    // 아래쪽 auto 여백은 맨 끝에 있는 것이 맡아야 한다
+    if (r) { inner.style.marginBottom = ''; sign.style.marginBottom = 'auto'; }
+  }
 
   if (st.bgImage) stage.prepend(st.bgAsHeader ? headerBand(st) : bgLayer(st));
 }
@@ -936,7 +951,11 @@ function panelCanvas(container, onChange) {
       if (!file) return;
       if (file.size > 3 * 1024 * 1024) U.toast('이미지가 3MB를 넘어 자동 저장에서 빠질 수 있습니다');
       const fr = new FileReader();
-      fr.onload = () => { st.bgImage = fr.result; st.bgX = 50; st.bgY = 50; rebuild(); touch(); };
+      fr.onload = async () => {
+        // 크기는 그대로 두고 webp 로 다시 담는다
+        st.bgImage = await shrinkPhoto(fr.result, BIG_MAX, 0.95);
+        st.bgX = 50; st.bgY = 50; rebuild(); touch();
+      };
       fr.readAsDataURL(file);
       e.target.value = '';
     },
@@ -948,12 +967,21 @@ function panelCanvas(container, onChange) {
       U.field('비율', U.seg(st.ratio, RATIO_ORDER.map(r => [r, RATIO_LABEL[r] || r]), (v) => { st.ratio = v; rebuild(); touch(); })),
       RATIOS[st.ratio] ? U.el('div', { class: 'tgl-row tgl-boxed' }, [
         U.toggle('자동 분할', st.autoSplit, (v) => { st.autoSplit = v; touch(); }),
-      ]) : null,
+      ]) : U.el('div', { class: 'tgl-row tgl-boxed' }, [
+        U.toggle('두 단 배치', st.columns, (v) => { st.columns = v; rebuild(); touch(); }, null,
+          '책 내지처럼 글을 두 단으로 나눠 흘립니다. 캔버스 너비는 그대로고 아래로 길어집니다'),
+      ]),
+      (!RATIOS[st.ratio] && st.columns)
+        ? U.field('단 간격', U.stepper(st.columnGap ?? 32, {
+          min: 8, max: 120, step: 4, unit: 'px', onChange: (v) => { st.columnGap = v; touch(); },
+        }))
+        : null,
       U.el('div', {
         class: 'hint',
         text: RATIOS[st.ratio]
           ? '비율을 고르면 그 높이가 최소 높이가 됩니다. 자동 분할을 켜면 넘치는 만큼 다음 장으로 넘어갑니다. === 로 손수 나눈 자리도 그대로 지켜집니다.'
-          : '비율을 고르면 그 높이가 최소 높이가 됩니다. 글이 더 길면 잘리지 않고 아래로 늘어납니다.',
+          : '비율을 고르면 그 높이가 최소 높이가 됩니다. 글이 더 길면 잘리지 않고 아래로 늘어납니다. '
+            + '두 단 배치는 높이가 묶이지 않는 「자동」에서만 씁니다.',
       }),
     ]),
     group('여백', [
@@ -1191,7 +1219,7 @@ function storagePanel(container, onChange) {
     class: 'btn btn-ghost btn-sm is-danger', type: 'button', text: '저장 공간 비우기',
     title: '이 브라우저에 담아 둔 글·설정·템플릿·사진을 전부 지웁니다',
     onClick: () => {
-      if (!confirm('이 브라우저에 담아 둔 글·설정·템플릿·사진을 전부 지웁니다.\n되돌릴 수 없습니다. 템플릿은 JSON 으로 먼저 내보내 두세요. 계속할까요?')) return;
+      if (!confirm('이 브라우저에 담아 둔 것을 전부 지웁니다.\n쓰던 글, 모든 설정, 템플릿, 프로필 사진이 다 사라지고 되돌릴 수 없습니다.\n\n먼저 「JSON 내보내기」로 템플릿을 백업하셨나요? 계속할까요?')) return;
       clearStored();
       location.reload();
     },
@@ -1210,9 +1238,11 @@ let pickerEl = null;
 export function addImageFile(file, onChange, afterAdd) {
   if (!file || !file.type.startsWith('image/')) return;
   const fr = new FileReader();
-  fr.onload = () => {
+  fr.onload = async () => {
     const id = Math.random().toString(36).slice(2, 9);
-    state.text.images.push({ id, data: fr.result, width: 100 });
+    // 크기는 그대로 두고 webp 로 다시 담는다. 눈에는 그대로고 자리는 확 준다.
+    const data = await shrinkPhoto(fr.result, BIG_MAX, 0.95);
+    state.text.images.push({ id, data, width: 100 });
 
     const ta = srcEl();
     const pos = ta.selectionStart;
@@ -1246,8 +1276,11 @@ export function pickImage(onChange, afterAdd) {
    그 5MB 는 본문과 템플릿이 함께 쓰므로, 템플릿에 사진이 한 벌 더 들어가면
    같은 사진을 두 번 담는 셈이 되어 한도를 넘긴다. 넉넉히 256px 로 줄여 담는다. */
 const AVA_MAX = 512;
+/* 본문·배경 사진은 크게 보이므로 줄이지 않는다. 캔버스 너비 4000px 를 3배로
+   찍어도 이 안이라, 다시 담기만 해도 자리가 확 준다. */
+const BIG_MAX = 2400;
 
-function shrinkPhoto(dataUrl, max = AVA_MAX) {
+function shrinkPhoto(dataUrl, max = AVA_MAX, q = 0.92) {
   // 움직이는 그림은 줄이면 한 장으로 굳어 버린다. 그대로 둔다.
   if (/^data:image\/gif/i.test(dataUrl)) return Promise.resolve(dataUrl);
   return new Promise((done) => {
@@ -1259,7 +1292,7 @@ function shrinkPhoto(dataUrl, max = AVA_MAX) {
       cv.height = Math.max(1, Math.round(im.naturalHeight * k));
       cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height);
       // 크기를 줄일 게 없어도 webp 로 다시 담으면 훨씬 가벼워진다
-      const out = cv.toDataURL('image/webp', 0.92);
+      const out = cv.toDataURL('image/webp', q);
       // webp 를 못 만드는 브라우저는 png 를 돌려준다. 그때는 더 작은 쪽을 쓴다.
       done(out.length < dataUrl.length ? out : dataUrl);
     };
