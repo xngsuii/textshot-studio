@@ -76,7 +76,8 @@ export function slider(value, { min, max, step = 1, unit = '', reset, onChange }
   input.addEventListener('input', paint);
   paint();
 
-  const btn = el('button', {
+  // reset 을 주지 않으면 되돌리기 단추를 붙이지 않는다
+  const btn = reset === undefined ? null : el('button', {
     class: 'slider-reset', type: 'button', text: '초기화', title: `기본값(${reset}${unit})으로`,
     onClick: () => { input.value = reset; paint(); onChange(reset); },
   });

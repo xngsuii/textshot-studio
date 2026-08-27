@@ -210,19 +210,26 @@ function bgLayer(st) {
    아래 간격은 위 여백과 같게 두어 글이 원래 자리에서 시작하는 것처럼 보인다. */
 function headerBand(st) {
   const blur = st.bgBlur ?? 0;
-  const band = U.el('div', { class: 'stage-header' });
-  Object.assign(band.style, {
-    height: (st.bgHeaderH ?? 220) + 'px',
-    marginTop: -st.padTop + 'px',
-    marginLeft: -st.padLeft + 'px',
-    marginRight: -st.padRight + 'px',
-    marginBottom: st.padTop + 'px',
+  /* 띠 자체를 흐리게 하면 본문과 맞닿은 경계선까지 뿌예진다.
+     사진은 안쪽 판에 깔고 흐린 만큼 밖으로 넓혀 둔 뒤, 띠가 잘라 내게 한다.
+     그러면 사진만 흐려지고 띠의 네 변은 또렷하게 남는다. */
+  const face = U.el('div', { class: 'stage-header-face' });
+  Object.assign(face.style, {
+    inset: blur ? `${-blur * 2}px` : '0',
     backgroundImage: `url("${st.bgImage}")`,
     backgroundSize: 'cover',
     backgroundRepeat: 'no-repeat',
     backgroundPosition: `${st.bgX ?? 50}% ${st.bgY ?? 50}%`,
     opacity: String((st.bgOpacity ?? 100) / 100),
     filter: blur ? `blur(${blur}px)` : '',
+  });
+  const band = U.el('div', { class: 'stage-header' }, [face]);
+  Object.assign(band.style, {
+    height: (st.bgHeaderH ?? 220) + 'px',
+    marginTop: -st.padTop + 'px',
+    marginLeft: -st.padLeft + 'px',
+    marginRight: -st.padRight + 'px',
+    marginBottom: st.padTop + 'px',
   });
   return band;
 }
@@ -488,7 +495,7 @@ export function bindBgDrag(host, onChange) {
     if (overY) st.bgY = clamp(drag.y0 - (e.clientY - drag.y) / overY * 100);
     // 다시 그리면 한 박자 늦어 끌리는 게 안 보인다. 지금 판을 바로 옮긴다.
     const pos = `${st.bgX}% ${st.bgY}%`;
-    host.querySelectorAll('.stage-bg, .stage-header')
+    host.querySelectorAll('.stage-bg, .stage-header-face')
       .forEach(n => { n.style.backgroundPosition = pos; });
   });
 
@@ -630,7 +637,13 @@ window.addEventListener('resize', moveInk);
 // 폰트가 늦게 오면 탭 폭이 바뀐다. 그때 한 번 더 맞춘다.
 document.fonts?.ready.then(moveInk).catch(() => {});
 
+let shownTab = null;
+
 export function buildSettings(container, onChange) {
+  // 설정을 만졌다고 보던 자리가 맨 위로 튀면 곤란하다. 탭을 갈아탈 때만 올린다.
+  const keep = shownTab === activeSetTab ? container.scrollTop : 0;
+  shownTab = activeSetTab;
+
   const tabsHost = document.getElementById('setTabs');
   let tabs = [...tabsHost.querySelectorAll('.set-tab')];
 
@@ -651,7 +664,7 @@ export function buildSettings(container, onChange) {
 
   container.textContent = '';
   container.appendChild(PANELS[activeSetTab](container, onChange));
-  container.scrollTop = 0;
+  container.scrollTop = keep;
 }
 
 const PANELS = {
@@ -941,7 +954,7 @@ function photoList(container, onChange) {
     (() => { const t = U.el('img', { class: 'photo-thumb', alt: '' }); t.src = im.data; return t; })(),
     U.el('div', { class: 'photo-w' }, [
       U.slider(im.width ?? 100, {
-        min: 10, max: 100, step: 5, unit: '%', reset: 100,
+        min: 10, max: 100, step: 5, unit: '%',
         onChange: (v) => { im.width = v; onChange(); },
       }),
     ]),
@@ -1053,8 +1066,8 @@ function panelCanvas(container, onChange) {
         ? U.field('맞춤', U.seg(st.bgFit, [['cover', '꽉 채움'], ['contain', '전체 보임'], ['tile', '반복']], (v) => { st.bgFit = v; touch(); }))
         : null,
       st.bgImage ? U.fieldGrid([
-        U.field('불투명도', U.slider(st.bgOpacity, { min: 0, max: 100, step: 5, unit: '%', reset: 100, onChange: (v) => { st.bgOpacity = v; touch(); } })),
-        U.field('흐림', U.slider(st.bgBlur ?? 0, { min: 0, max: 60, step: 1, unit: 'px', reset: 0, onChange: (v) => { st.bgBlur = v; touch(); } })),
+        U.field('불투명도', U.slider(st.bgOpacity, { min: 0, max: 100, step: 5, unit: '%', onChange: (v) => { st.bgOpacity = v; touch(); } })),
+        U.field('흐림', U.slider(st.bgBlur ?? 0, { min: 0, max: 60, step: 1, unit: 'px', onChange: (v) => { st.bgBlur = v; touch(); } })),
       ]) : null,
       st.bgImage && (st.bgAsHeader || st.bgFit === 'cover') ? U.el('div', { class: 'field-row' }, [
         U.el('div', { class: 'hint', text: '미리보기의 빈 여백을 끌면 사진에서 보이는 자리가 움직입니다.' }),
