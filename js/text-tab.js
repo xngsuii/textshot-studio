@@ -10,6 +10,7 @@ import {
   renameSpeaker, NAME_SEP,
 } from './markup.js';
 import { ensureFont, isAvailable } from './fonts.js';
+import { SKINS, skinById, skinStyle, skinProfiles } from './skins.js';
 import { buildTemplateSection } from './templates.js';
 import { extract as extractMeta } from './png-meta.js';
 import {
@@ -20,9 +21,23 @@ import * as U from './ui.js';
 const srcEl = () => document.getElementById('src');
 const clone = (o) => JSON.parse(JSON.stringify(o));
 
+/* 스킨이 켜져 있으면 설정에 보이는 색과 그림의 색이 다르다. 그걸 알린다. */
+function skinNotice() {
+  const skin = skinById(state.text.style.skin);
+  if (!skin) return null;
+  return U.el('div', { class: 'hint hint-skin',
+    text: `「${skin.label}」 스킨이 켜져 있어 지금 그림의 색은 스킨의 것입니다. `
+      + '아래 색은 스킨을 끄면 돌아옵니다.' });
+}
+
+/* 그림에 쓰는 값 — 스킨이 켜져 있으면 그 위에 얹은 것을 돌려준다.
+   설정에 저장된 값은 그대로 두므로 스킨을 끄면 원래 색이 돌아온다. */
+const drawStyle = () => skinStyle(state.text.style, state.text.style.skin);
+const drawProfiles = () => skinProfiles(state.text.profiles, state.text.style.skin);
+
 /* ── 스타일을 스테이지에 입힌다 ─────────────── */
 function applyStyle(stage) {
-  const st = state.text.style;
+  const st = drawStyle();
   const f = fontById(st.font);
   ensureFont(st.font);
 
@@ -165,11 +180,11 @@ function makeStage(html) {
 }
 
 function renderOpts() {
-  const st = state.text.style;
+  const st = drawStyle();
   return {
     formats: state.text.formats,
     images: state.text.images,
-    profiles: state.text.profiles,
+    profiles: drawProfiles(),
     chat: {
       hideQuotesInBubble: st.hideQuotesInBubble,
       parenBreak: st.parenBreakInBubble,
@@ -680,6 +695,13 @@ function panelChat(container, onChange) {
   }, { axis: isList ? 'y' : 'both' });
 
   return U.el('div', { class: 'panel' }, [
+    group('스킨', [
+      U.fieldWide(U.select(st.skin || '', [['', '없음 — 내 색 그대로'],
+        ...SKINS.map(k => [k.id, k.label])], (v) => { st.skin = v; rebuild(); touch(); })),
+      U.el('div', { class: 'hint', text: '정해진 겉모습을 잠깐 덮어씌웁니다. 골라 둔 색은 그대로 남아 있어 '
+        + '「없음」으로 돌리면 원래대로 돌아옵니다. 화자를 가르는 따옴표 색은 되도록 건드리지 않습니다.' }),
+      skinNotice(),
+    ]),
     // 네 칸에 나눠 담느라 이름표를 줄였다. 무슨 뜻인지는 툴팁에 적어 둔다.
     U.el('div', { class: 'tgl-row tgl-boxed cols-4' }, [
       U.toggle('이름 볼드', st.nameBold, (v) => { st.nameBold = v; touch(); }, null, '이름을 굵게'),
@@ -945,6 +967,7 @@ function panelColor(container, onChange) {
   const st = state.text.style;
   const touch = () => { state.activeTemplate = null; onChange(); };
   const rebuild = () => buildSettings(container, onChange);
+  const notice = skinNotice();
 
   const slotRows = (st.slots || []).map((slot, i) => U.el('div', { class: 'slot-row' }, [
     U.el('span', { class: 'slot-no', text: `${i + 1}` }),
@@ -964,6 +987,7 @@ function panelColor(container, onChange) {
   ]));
 
   return U.el('div', { class: 'panel' }, [
+    notice,
     group('본문', [
       U.colorGrid(2, [
         U.colorCell('글자', st.fg, (v) => { st.fg = v; touch(); }),

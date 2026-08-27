@@ -1099,3 +1099,13 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
   to { background: transparent; box-shadow: 0 0 0 4px transparent; }
 }
 @media (prefers-reduced-motion: reduce) { #stageHost [data-lf].is-jumped { animation: none; } }
+/* ─── 스킨 알림 ─────────────────────────────── */
+/* 설정에 보이는 색과 그림의 색이 다를 때 눈에 띄게 알린다 */
+.hint-skin {
+  padding: 7px 9px;
+  border: 1px solid var(--accent);
+  border-radius: var(--r);
+  background: var(--accent-soft);
+  color: var(--accent-hi);
+  font-weight: 600;
+}

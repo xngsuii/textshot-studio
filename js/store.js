@@ -55,6 +55,9 @@ export const RATIO_LABEL = { auto: '자동' };
 
 /* ── 기본 스타일 (= 기본 템플릿) ────────────── */
 export const DEFAULT_STYLE = {
+  // 스킨 — 정해진 겉모습을 그릴 때만 덮어씌운다. 빈 값이면 내 색 그대로.
+  skin: '',
+
   font: 'pretendard',
   fontSize: 15,
   lineHeight: 1.7,
