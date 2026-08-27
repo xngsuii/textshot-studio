@@ -1109,3 +1109,29 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
   color: var(--accent-hi);
   font-weight: 600;
 }
+/* ─── 스킨 고르기 ───────────────────────────── */
+.skin-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.skin-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  padding: 8px 9px;
+  border: 1px solid var(--line); border-radius: var(--r);
+  background: var(--bg-panel);
+  text-align: left;
+}
+.skin-card:hover { background: var(--bg-hover); border-color: var(--line-strong); }
+.skin-card.is-on { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+.skin-name { font-size: 12.5px; font-weight: 700; color: var(--fg); }
+.skin-card.is-on .skin-name { color: var(--accent-hi); }
+
+.skin-row { display: flex; align-items: center; gap: 3px; }
+.skin-side { width: 12px; font-size: 9.5px; color: var(--fg-3); flex: none; }
+.skin-chip {
+  width: 15px; height: 15px; flex: none;
+  border-radius: 3px; border: 1px solid var(--line-strong);
+}
+/* 안 건드리는 자리 — 빗금으로 「그대로 둠」을 나타낸다 */
+.skin-chip.is-none {
+  background:
+    linear-gradient(135deg, transparent 44%, var(--line-strong) 44%, var(--line-strong) 56%, transparent 56%),
+    var(--bg);
+}
