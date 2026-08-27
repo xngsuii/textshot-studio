@@ -244,8 +244,19 @@ function sweepPhotos() {
   for (const k of Object.keys(photos)) if (!used.has(k)) delete photos[k];
 }
 
-function savePhotos() {
-  localStorage.setItem(LS_PIC, JSON.stringify(photos));
+/* 여러 칸을 한꺼번에 담는다.
+
+   반드시 옛 것을 먼저 비우고 새 것을 쓴다. 저장 공간이 거의 찬 상태에서
+   새 것부터 쓰려 하면 자리가 모자라 실패하는데, 그러면 자리를 차지하고 있던
+   옛 것이 그대로 남아 영영 줄어들지 않는다. (사진을 본문 안에 통째로 담던
+   시절의 저장물이 딱 이 꼴이었다 — 6MB 를 물고 있어 1.9MB 짜리 새 저장물이
+   들어갈 자리가 없었다.)
+
+   글로 다 만들어 두고 지우기 시작하므로, 만들다 잘못돼도 지워지지 않는다. */
+function writeAll(pairs) {
+  const built = pairs.map(([k, make]) => [k, make()]);
+  for (const [k] of built) localStorage.removeItem(k);
+  for (const [k, v] of built) localStorage.setItem(k, v);
 }
 
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -363,11 +374,13 @@ export function saveSoon(onDone) {
         images: packImages(state.text.images),
       };
       sweepPhotos();
-      savePhotos();
-      localStorage.setItem(LS_DOC, JSON.stringify({
-        text, html: state.html,
-        output: state.output, activeTemplate: state.activeTemplate,
-      }));
+      writeAll([
+        [LS_PIC, () => JSON.stringify(photos)],
+        [LS_DOC, () => JSON.stringify({
+          text, html: state.html,
+          output: state.output, activeTemplate: state.activeTemplate,
+        })],
+      ]);
       onDone?.(null);
     } catch (e) {
       // 사진이 아주 많으면 그래도 한도를 넘길 수 있다
@@ -388,8 +401,10 @@ export function persistTemplates() {
         : t;
     }
     sweepPhotos();
-    savePhotos();
-    localStorage.setItem(LS_TPL, JSON.stringify(out));
+    writeAll([
+      [LS_PIC, () => JSON.stringify(photos)],
+      [LS_TPL, () => JSON.stringify(out)],
+    ]);
     return true;
   } catch (e) {
     console.warn('템플릿 저장 실패', e);

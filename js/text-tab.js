@@ -1201,12 +1201,30 @@ function shrinkPhoto(dataUrl, max = AVA_MAX) {
 
 const kb = (n) => (n < 1024 * 1024 ? `${Math.round(n / 1024)}KB` : `${(n / 1024 / 1024).toFixed(1)}MB`);
 
+/* 자리를 많이 먹는 프로필 사진을 webp 로 다시 담는다. 크기(픽셀)는 그대로다.
+   webp 는 png 보다 훨씬 촘촘해서, 500×500 사진 한 장이 468KB 에서 70KB 가 된다. */
+const FAT = 220000;
+const fatPhotos = () => state.text.profiles.filter(p => p.avatar && p.avatar.length > FAT);
+
+export async function compactPhotos(after) {
+  const big = fatPhotos();
+  if (!big.length) return false;
+  const before = storedBytes();
+  for (const p of big) p.avatar = await shrinkPhoto(p.avatar);
+  saveSoon((err) => {
+    if (err) { U.toast('저장 공간이 모자랍니다. 사진을 몇 장 빼 보세요', 5000); return; }
+    U.toast(`사진 ${big.length}장을 다시 담아 ${kb(before)} → ${kb(storedBytes())} 로 줄였습니다`, 5000);
+    after?.();
+  });
+  return true;
+}
+
 /* 담아 둔 양을 보여 주고, 사진이 클 때 줄일 거리를 준다.
    브라우저 저장 공간은 원본(사이트)당 5MB 남짓이고 본문과 템플릿이 함께 쓴다. */
 function storageRow(container, onChange) {
   const used = storedBytes();
   const pic = photoStats();
-  const big = state.text.profiles.filter(p => p.avatar && p.avatar.length > 220000);
+  const big = fatPhotos();
   const line = U.el('span', {
     class: 'hint',
     text: `저장 ${kb(used)} / 5MB 남짓${pic.count ? ` · 사진 ${pic.count}장 ${kb(pic.bytes)}` : ''}`,
@@ -1214,19 +1232,13 @@ function storageRow(container, onChange) {
   });
 
   const btn = big.length ? U.el('button', {
-    class: 'btn btn-ghost btn-sm', type: 'button', text: `사진 ${big.length}장 줄이기`,
-    title: '프로필 사진을 화면에 쓰는 크기로 줄여 저장 공간을 아낍니다',
-    onClick: async () => {
-      const before = storedBytes();
-      for (const p of big) p.avatar = await shrinkPhoto(p.avatar);
-      saveSoon(() => {
-        const after = storedBytes();
-        U.toast(`${kb(before)} → ${kb(after)} 로 줄였습니다`);
-        buildProfileBar(onChange);
-        buildSettings(container, onChange);
-      });
+    class: 'btn btn-ghost btn-sm', type: 'button', text: `사진 ${big.length}장 다시 담기`,
+    title: '크기는 그대로 두고 webp 로 다시 담아 자리를 줄입니다',
+    onClick: () => compactPhotos(() => {
+      buildProfileBar(onChange);
+      buildSettings(container, onChange);
       onChange();
-    },
+    }),
   }) : null;
 
   return U.el('div', { class: 'field-row' }, [line, btn]);

@@ -13,7 +13,7 @@ import { toast } from './ui.js';
 /* index.html 의 app-version 과 짝을 이룬다. 브라우저가 둘 중 하나만 새로
    받으면 화면은 새것인데 동작은 옛것인 상태가 되어 원인 찾기가 어렵다.
    어긋나면 하단에 알려 준다. 고칠 때 두 값을 같이 올릴 것. */
-const APP_VERSION = '30';
+const APP_VERSION = '31';
 
 const $ = (id) => document.getElementById(id);
 
@@ -296,6 +296,13 @@ function boot() {
   TextTab.bindDropImport(scheduleRender, () => TextTab.buildSettings($('textSettings'), scheduleRender));
   HtmlTab.bindEditor(scheduleRender);
   HtmlTab.buildSettings($('htmlSettings'), scheduleRender);
+
+  // 사진을 통째로 담아 두던 시절의 저장물은 한 번 다시 담아 자리를 줄인다
+  setTimeout(() => TextTab.compactPhotos(() => {
+    TextTab.buildProfileBar(scheduleRender);
+    TextTab.buildSettings($('textSettings'), scheduleRender);
+    scheduleRender();
+  }), 1200);
 
   document.querySelectorAll('.toggle-opt').forEach(t => t.addEventListener('click', () => setTab(t.dataset.tab)));
   // UI 폰트가 들어오면 글자 폭이 달라지므로 손잡이를 다시 맞춘다
