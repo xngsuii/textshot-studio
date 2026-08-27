@@ -103,6 +103,7 @@ export const DEFAULT_STYLE = {
   // 말풍선 공통 모양 (이름·사진 표시 여부는 프로필마다 따로)
   bubbleStyle: 'round',        // round 기본 / tail 꼬리 / corner 모서리만 뾰족
   avatarShape: 'square',       // square 라운드 사각 / circle 원형
+  avatarSize: 100,             // 프로필 사진 크기 % — 100 이면 글자 크기의 2.5배
   bubbleRadius: 16,
   bubbleAlpha: 100,            // 말풍선 투명도 — 프로필 구분 없이 모두에 걸린다
   bubbleGap: 8,                // 말풍선 덩어리 사이의 간격

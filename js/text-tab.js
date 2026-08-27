@@ -156,6 +156,7 @@ function applyStyle(stage) {
   stage.classList.remove('bub-round', 'bub-tail', 'bub-corner');
   stage.classList.add(`bub-${st.bubbleStyle || 'round'}`);
   stage.style.setProperty('--ava-r', st.avatarShape === 'circle' ? '50%' : '.45em');
+  stage.style.setProperty('--ava-size', (2.5 * (st.avatarSize ?? 100) / 100).toFixed(3) + 'em');
 
   stage.style.setProperty('--para-gap', st.paraGap + 'px');
   stage.style.setProperty('--b-radius', st.bubbleRadius + 'px');
@@ -632,7 +633,10 @@ function panelChat(container, onChange) {
         e.target.value = '';
         if (!file) return;
         const fr = new FileReader();
-        fr.onload = () => { p.avatar = fr.result; U.closePopup(); rebuild(); touch(); };
+        fr.onload = async () => {
+          p.avatar = await shrinkPhoto(fr.result);
+          U.closePopup(); rebuild(); touch();
+        };
         fr.readAsDataURL(file);
       },
     });
@@ -753,11 +757,6 @@ function panelChat(container, onChange) {
   }, { axis: isList ? 'y' : 'both' });
 
   return U.el('div', { class: 'panel' }, [
-    group('스킨', [
-      skinPicker(st, () => { rebuild(); touch(); }),
-      U.el('div', { class: 'hint', text: '스킨을 클릭하면 말풍선 색을 덮어씌웁니다.' }),
-      skinById(st.skin)?.note ? U.el('div', { class: 'hint', text: skinById(st.skin).note }) : null,
-    ]),
     // 네 칸에 나눠 담느라 이름표를 줄였다. 무슨 뜻인지는 툴팁에 적어 둔다.
     U.el('div', { class: 'tgl-row tgl-boxed cols-4' }, [
       U.toggle('이름 볼드', st.nameBold, (v) => { st.nameBold = v; touch(); }, null, '이름을 굵게'),
@@ -779,7 +778,13 @@ function panelChat(container, onChange) {
         }),
       ]),
       U.el('div', { class: 'hint', text: '본문에서 「이름 | 내용」으로 쓰면 말풍선이 됩니다. 미리보기에서 말풍선을 누르면 다음 프로필로 넘어갑니다.' }),
+      storageRow(container, onChange),
     ], viewBtn),
+    group('스킨', [
+      skinPicker(st, () => { rebuild(); touch(); }),
+      U.el('div', { class: 'hint', text: '스킨을 클릭하면 말풍선 색을 덮어씌웁니다.' }),
+      skinById(st.skin)?.note ? U.el('div', { class: 'hint', text: skinById(st.skin).note }) : null,
+    ]),
     group('모양', [
       U.field('말풍선', U.seg(st.bubbleStyle || 'round', [
         ['round', '기본'], ['tail', '꼬리'], ['corner', '모서리'],
@@ -788,6 +793,10 @@ function panelChat(container, onChange) {
         ['circle', U.shapeLabel('circle', '원형')],
         ['square', U.shapeLabel('square', '라운드 사각')],
       ], (v) => { st.avatarShape = v; touch(); })),
+      U.field('사진 크기', U.slider(st.avatarSize ?? 100, {
+        min: 60, max: 240, step: 5, unit: '%', reset: 100,
+        onChange: (v) => { st.avatarSize = v; touch(); },
+      })),
       U.fieldGrid([
         U.field('최대 폭', U.stepper(st.bubbleMaxWidth, { min: 30, max: 100, step: 2, unit: '%', onChange: (v) => { st.bubbleMaxWidth = v; touch(); } })),
         U.field('모서리', U.stepper(st.bubbleRadius, { min: 0, max: 40, step: 1, unit: 'px', onChange: (v) => { st.bubbleRadius = v; touch(); } })),
@@ -1159,6 +1168,71 @@ export function pickImage(onChange, afterAdd) {
     addImageFile(file, onChange, afterAdd);
   };
   pickerEl.click();
+}
+
+/* ── 프로필 사진 줄이기 ─────────────────────── */
+/* 프로필 사진은 화면에서 40px 남짓으로 그려지고, 3배로 저장해도 120px 이다.
+   원본을 그대로 담아 두면 브라우저 저장 공간(원본당 5MB 남짓)이 금세 찬다.
+   그 5MB 는 본문과 템플릿이 함께 쓰므로, 템플릿에 사진이 한 벌 더 들어가면
+   같은 사진을 두 번 담는 셈이 되어 한도를 넘긴다. 넉넉히 256px 로 줄여 담는다. */
+const AVA_MAX = 256;
+
+function shrinkPhoto(dataUrl, max = AVA_MAX) {
+  // 움직이는 그림은 줄이면 한 장으로 굳어 버린다. 그대로 둔다.
+  if (/^data:image\/gif/i.test(dataUrl)) return Promise.resolve(dataUrl);
+  return new Promise((done) => {
+    const im = new Image();
+    im.onload = () => {
+      const k = Math.min(1, max / Math.max(im.naturalWidth, im.naturalHeight));
+      if (k >= 1) { done(dataUrl); return; }
+      const cv = document.createElement('canvas');
+      cv.width = Math.max(1, Math.round(im.naturalWidth * k));
+      cv.height = Math.max(1, Math.round(im.naturalHeight * k));
+      cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height);
+      const out = cv.toDataURL('image/webp', 0.92);
+      // webp 를 못 만드는 브라우저는 png 를 돌려준다. 그래도 크기는 줄어 있다.
+      done(out.length < dataUrl.length ? out : dataUrl);
+    };
+    im.onerror = () => done(dataUrl);
+    im.src = dataUrl;
+  });
+}
+
+/* 브라우저에 담아 둔 양 (localStorage 는 글자 하나에 2바이트를 쓴다) */
+function storedBytes() {
+  let n = 0;
+  for (const k of ['textshot:doc:v1', 'textshot:templates:v1']) {
+    n += (localStorage.getItem(k) || '').length * 2;
+  }
+  return n;
+}
+
+const kb = (n) => (n < 1024 * 1024 ? `${Math.round(n / 1024)}KB` : `${(n / 1024 / 1024).toFixed(1)}MB`);
+
+/* 담아 둔 양을 보여 주고, 사진이 클 때 줄일 거리를 준다.
+   브라우저 저장 공간은 원본(사이트)당 5MB 남짓이고 본문과 템플릿이 함께 쓴다. */
+function storageRow(container, onChange) {
+  const used = storedBytes();
+  const big = state.text.profiles.filter(p => p.avatar && p.avatar.length > 120000);
+  const line = U.el('span', { class: 'hint', text: `저장 ${kb(used)} / 5MB 남짓` });
+
+  const btn = big.length ? U.el('button', {
+    class: 'btn btn-ghost btn-sm', type: 'button', text: `사진 ${big.length}장 줄이기`,
+    title: '프로필 사진을 화면에 쓰는 크기로 줄여 저장 공간을 아낍니다',
+    onClick: async () => {
+      const before = storedBytes();
+      for (const p of big) p.avatar = await shrinkPhoto(p.avatar);
+      saveSoon(() => {
+        const after = storedBytes();
+        U.toast(`${kb(before)} → ${kb(after)} 로 줄였습니다`);
+        buildProfileBar(onChange);
+        buildSettings(container, onChange);
+      });
+      onChange();
+    },
+  }) : null;
+
+  return U.el('div', { class: 'field-row' }, [line, btn]);
 }
 
 /* ── 미리보기에서 편집기로 줄 점프 ─────────── */

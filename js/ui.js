@@ -60,6 +60,29 @@ export function range(value, { min, max, step = 1, unit = '', onChange }) {
   return el('div', { class: 'range-row' }, [input, out]);
 }
 
+/* 굵은 막대에 동그란 손잡이. 옆에 기본값으로 되돌리는 단추가 붙는다.
+   지나온 자리는 --fill 로 칠한다 (파이어폭스는 ::-moz-range-progress 가 맡는다). */
+export function slider(value, { min, max, step = 1, unit = '', reset, onChange }) {
+  const out = el('span', { class: 'slider-val', text: `${value}${unit}` });
+  const input = el('input', {
+    type: 'range', class: 'slider', value, min, max, step,
+    onInput: (e) => { onChange(parseFloat(e.target.value)); },
+  });
+  const paint = () => {
+    const v = parseFloat(input.value);
+    out.textContent = `${v}${unit}`;
+    input.style.setProperty('--fill', `${((v - min) / (max - min)) * 100}%`);
+  };
+  input.addEventListener('input', paint);
+  paint();
+
+  const btn = el('button', {
+    class: 'slider-reset', type: 'button', text: '초기화', title: `기본값(${reset}${unit})으로`,
+    onClick: () => { input.value = reset; paint(); onChange(reset); },
+  });
+  return el('div', { class: 'slider-row' }, [input, out, btn]);
+}
+
 /* 숫자 입력 + 증감 버튼. 직접 타이핑도 되고 버튼은 step 만큼 움직인다. */
 export function stepper(value, { min, max, step = 1, decimals = 0, unit = '', onChange }) {
   const fmt = (v) => (decimals ? v.toFixed(decimals) : String(v));

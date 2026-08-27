@@ -486,6 +486,42 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus {
   outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft);
 }
 input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+/* 굵은 막대 + 동그란 손잡이. 지나온 자리를 --fill 까지 칠한다. */
+.slider-row { display: flex; align-items: center; gap: 8px; }
+.slider {
+  -webkit-appearance: none; appearance: none;
+  flex: 1 1 auto; min-width: 0; height: 18px;
+  background: none; accent-color: auto; cursor: pointer;
+}
+.slider::-webkit-slider-runnable-track {
+  height: 8px; border-radius: 999px;
+  background: linear-gradient(to right,
+    var(--accent) 0 var(--fill, 50%), var(--line-strong) var(--fill, 50%) 100%);
+}
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 17px; height: 17px; margin-top: -4.5px;
+  border: 0; border-radius: 50%; background: var(--accent);
+  box-shadow: 0 1px 3px rgba(20, 30, 30, .28);
+}
+.slider:hover::-webkit-slider-thumb { background: var(--accent-hi); }
+.slider::-moz-range-track { height: 8px; border-radius: 999px; background: var(--line-strong); }
+.slider::-moz-range-progress { height: 8px; border-radius: 999px; background: var(--accent); }
+.slider::-moz-range-thumb {
+  width: 17px; height: 17px; border: 0; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 1px 3px rgba(20, 30, 30, .28);
+}
+.slider-val {
+  flex: none; width: 36px; text-align: right;
+  font-size: 11.5px; color: var(--fg-3); font-variant-numeric: tabular-nums;
+}
+.slider-reset {
+  flex: none; height: 22px; padding: 0 8px;
+  border: 1px solid var(--line); border-radius: var(--r-sm);
+  background: var(--bg); color: var(--fg-3); font-size: 11px;
+}
+.slider-reset:hover { background: var(--bg-hover); color: var(--fg-2); border-color: var(--line-strong); }
 input[type="color"] {
   width: 30px; height: 28px; padding: 2px; flex: none;
   border: 1px solid var(--line-strong); border-radius: var(--r-sm);
@@ -699,7 +735,7 @@ input[type="checkbox"] { accent-color: var(--accent); }
 /* 프로필 사진 — 둥근 사각형. 크기는 글자에 맞춰 움직이고
    윗변이 이름줄과 나란히 놓인다. */
 .mk-ava {
-  width: 2.5em; height: 2.5em;
+  width: var(--ava-size, 2.5em); height: var(--ava-size, 2.5em);
   flex: none; border-radius: var(--ava-r, .45em); object-fit: cover;
   display: block;
 }
@@ -775,7 +811,7 @@ input[type="checkbox"] { accent-color: var(--accent); }
   transform: scaleX(var(--sq));
   transform-origin: left top;
 }
-.stage.is-squeezed .mk-ava { width: calc(2.5em / var(--sq)); }
+.stage.is-squeezed .mk-ava { width: calc(var(--ava-size, 2.5em) / var(--sq)); }
 .stage.is-squeezed .mk-img {
   width: calc(var(--imgw, 100%) * var(--sq));
   transform: scaleX(calc(1 / var(--sq)));
@@ -995,7 +1031,10 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
   /* 넉 칸은 좁은 화면에서 너무 좁아 「100」이 잘린다. 두 칸씩 두 줄로 편다. */
   .tgl-row.cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .tgl-row.cols-4 .tgl { font-size: 13px; padding: 7px 9px; gap: 6px; }
-  .tgl-pct .alpha-input { flex: none; width: 46px; height: 26px; font-size: 13px; }
+  /* 퍼센트칸이 토글보다 키가 커서 두 줄 높이가 어긋난다. 칸을 줄이고
+     네 칸 모두에 같은 최소 높이를 줘 두 줄을 나란히 맞춘다. */
+  .tgl-row.cols-4 .tgl { height: 38px; }
+  .tgl-pct .alpha-input { flex: none; width: 42px; height: 22px; font-size: 12px; }
 
   .toast { bottom: calc(var(--drawer-h, 96px) + 16px); }
 }
