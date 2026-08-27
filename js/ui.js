@@ -337,10 +337,44 @@ export function padGrid(obj, keys, getLinked, onChange) {
 }
 
 let toastTimer = null;
-export function toast(msg, ms = 2200) {
+/* action 을 주면 「되돌리기」 같은 단추가 하나 붙는다. 그때는 좀 더 오래 둔다. */
+export function toast(msg, ms = 2200, action = null) {
   const t = document.getElementById('toast');
   t.textContent = msg;
-  t.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { t.hidden = true; }, ms);
+  if (action) {
+    t.appendChild(el('button', {
+      class: 'toast-act', type: 'button', text: action.label,
+      onClick: () => { t.hidden = true; clearTimeout(toastTimer); action.onClick(); },
+    }));
+  }
+  t.hidden = false;
+  toastTimer = setTimeout(() => { t.hidden = true; }, action ? Math.max(ms, 6000) : ms);
+}
+/* 확인창. confirm() 은 고를 수 있는 게 둘뿐이라 「본문만/서식까지」를 못 담는다.
+   actions 의 각 항목이 버튼 하나가 되고, 누르면 창을 닫고 onClick 을 부른다. */
+export function modal({ title, body = [], actions = [] }) {
+  const card = el('div', { class: 'modal-card', role: 'dialog' }, [
+    title ? el('div', { class: 'modal-title', text: title }) : null,
+    el('div', { class: 'modal-body' }, body),
+    el('div', { class: 'modal-acts' }, actions.map(a => el('button', {
+      class: `btn btn-sm${a.primary ? ' btn-primary' : ' btn-ghost'}${a.danger ? ' is-danger' : ''}`,
+      type: 'button', text: a.label,
+      onClick: () => { close(); a.onClick?.(); },
+    }))),
+  ]);
+  const back = el('div', { class: 'modal-back' }, [card]);
+
+  function close() {
+    document.removeEventListener('keydown', onKey, true);
+    back.remove();
+  }
+  function onKey(e) {
+    if (e.key === 'Escape') { e.stopPropagation(); close(); }
+  }
+  back.addEventListener('pointerdown', (e) => { if (e.target === back) close(); });
+  document.addEventListener('keydown', onKey, true);
+  document.body.appendChild(back);
+  card.querySelector('.btn-primary, .btn')?.focus();
+  return close;
 }

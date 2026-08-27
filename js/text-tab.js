@@ -11,6 +11,10 @@ import {
 } from './markup.js';
 import { ensureFont, isAvailable } from './fonts.js';
 import { buildTemplateSection } from './templates.js';
+import { extract as extractMeta } from './png-meta.js';
+import {
+  isPayload, applyPayload, summarize, commonWarnings, textOnlyWarnings,
+} from './doc-io.js';
 import * as U from './ui.js';
 
 const srcEl = () => document.getElementById('src');
@@ -217,18 +221,32 @@ function splitToPages(html) {
   return pages.filter(p => p.length).map(p => p.join(''));
 }
 
-/* 한 장씩의 HTML. === 로 손수 나눈 자리는 그대로 두고,
-   자동 분할이 켜져 있으면 각 조각을 다시 장 단위로 끊는다. */
-function pageHtmls() {
-  const opts = renderOpts();
-  const offs = chunkOffsets(state.text.source);
-  const parts = splitChunks(state.text.source).map((c, i) => renderChunk(c, opts, offs[i]));
-  if (!autoSplitOn()) return parts;
-  return parts.flatMap(h => splitToPages(h));
+/* 그 장에 든 덩어리들의 줄 번호를 모아 원문에서 해당 대목을 오려 낸다.
+   자동 분할은 다 그려 놓고 높이를 재서 끊는 방식이라, 원문의 어디서 끊겼는지는
+   덩어리에 붙여 둔 data-lf/data-lt 를 보고서야 알 수 있다. */
+function sliceSource(html, source) {
+  const lf = [...html.matchAll(/data-lf=["']?(\d+)/g)].map(m => Number(m[1]));
+  const lt = [...html.matchAll(/data-lt=["']?(\d+)/g)].map(m => Number(m[1]));
+  if (!lf.length) return '';
+  return source.split(/\r?\n/).slice(Math.min(...lf), Math.max(...lt) + 1).join('\n');
 }
 
+/* 한 장씩. === 로 손수 나눈 자리는 그대로 두고, 자동 분할이 켜져 있으면
+   각 조각을 다시 장 단위로 끊는다. source 는 그 장에만 들어간 원문 —
+   이미지에 심을 때 장마다 제 몫만 담기게 하려고 같이 들고 다닌다. */
+function pageParts() {
+  const opts = renderOpts();
+  const src = state.text.source;
+  const offs = chunkOffsets(src);
+  const parts = splitChunks(src).map((c, i) => ({ html: renderChunk(c, opts, offs[i]), source: c }));
+  if (!autoSplitOn()) return parts;
+  return parts.flatMap(part => splitToPages(part.html)
+    .map(html => ({ html, source: sliceSource(html, src) })));
+}
+
+/* 저장용 — 그린 판과 그 판에 담긴 원문을 짝지어 돌려준다. */
 export function buildExportStages() {
-  return pageHtmls().map(makeStage);
+  return pageParts().map(part => ({ stage: makeStage(part.html), source: part.source }));
 }
 
 /* ── 미리보기 ───────────────────────────────── */
@@ -244,7 +262,7 @@ export function renderPreview(host) {
   host.textContent = '';
   const offs = chunkOffsets(src);
   let stages;
-  if (auto) stages = pageHtmls().map(makeStage);
+  if (auto) stages = pageParts().map(part => makeStage(part.html));
   else if (split && state.splitView === 'after') {
     stages = splitChunks(src).map((c, i) => makeStage(renderChunk(c, opts, offs[i])));
   } else {
@@ -994,6 +1012,23 @@ function panelOutput(container, onChange) {
       U.field('파일 이름', U.el('input', { type: 'text', value: out.filename, onInput: (e) => { out.filename = e.target.value; saveSoon(); } })),
       U.el('div', { class: 'hint', text: '저장 시 날짜·시각이 자동으로 붙습니다. 여러 장이면 뒤에 번호가 붙습니다.' }),
     ]),
+    group('원본 정보', [
+      U.el('div', { class: 'tgl-row tgl-boxed cols-1' }, [
+        U.toggle('PNG 에 원문 심기', out.embedSource, (v) => { out.embedSource = v; saveSoon(); }, null,
+          '나중에 그 이미지를 편집 창에 끌어다 놓으면 글을 되살릴 수 있습니다'),
+      ]),
+      U.el('div', { class: 'field-row' }, [
+        U.el('button', {
+          class: 'btn btn-ghost btn-sm', type: 'button', text: '이미지에서 불러오기',
+          onClick: () => pickImport(onChange),
+        }),
+      ]),
+      out.format === 'png' ? null
+        : U.el('div', { class: 'hint hint-warn', text: `원문은 PNG 에만 심을 수 있습니다. 지금 포맷(${out.format.toUpperCase()})으로는 저장돼도 담기지 않습니다.` }),
+      U.el('div', { class: 'hint', text: '보이는 그림은 그대로고 눈에 안 띄는 자리에 원문만 얹습니다. '
+        + '사진은 담기지 않습니다 — 프로필 사진은 이름이 같으면 지금 설정 것을 그대로 씁니다. '
+        + '카카오톡·디스코드처럼 올린 사진을 다시 인코딩하는 곳을 거치면 사라지니, 파일 그대로 두세요.' }),
+    ]),
   ]);
 }
 
@@ -1006,6 +1041,27 @@ function panelTemplate(container, onChange) {
 /* ── 사진 넣기 ──────────────────────────────── */
 let pickerEl = null;
 
+/* 사진 파일 하나를 커서 자리에 넣는다. 고르기와 끌어다 놓기가 같이 쓴다. */
+export function addImageFile(file, onChange, afterAdd) {
+  if (!file || !file.type.startsWith('image/')) return;
+  const fr = new FileReader();
+  fr.onload = () => {
+    const id = Math.random().toString(36).slice(2, 9);
+    state.text.images.push({ id, data: fr.result, width: 100 });
+
+    const ta = srcEl();
+    const pos = ta.selectionStart;
+    const before = ta.value.slice(0, pos);
+    const lead = before.length && !before.endsWith('\n') ? '\n' : '';
+    ta.setRangeText(`${lead}[[img:${id}]]\n`, pos, ta.selectionEnd, 'end');
+    state.text.source = ta.value;
+
+    afterAdd?.();
+    onChange();
+  };
+  fr.readAsDataURL(file);
+}
+
 export function pickImage(onChange, afterAdd) {
   if (!pickerEl) {
     pickerEl = U.el('input', { type: 'file', accept: 'image/*', style: 'display:none' });
@@ -1014,25 +1070,189 @@ export function pickImage(onChange, afterAdd) {
   pickerEl.onchange = () => {
     const file = pickerEl.files?.[0];
     pickerEl.value = '';
-    if (!file) return;
-    const fr = new FileReader();
-    fr.onload = () => {
-      const id = Math.random().toString(36).slice(2, 9);
-      state.text.images.push({ id, data: fr.result, width: 100 });
-
-      const ta = srcEl();
-      const pos = ta.selectionStart;
-      const before = ta.value.slice(0, pos);
-      const lead = before.length && !before.endsWith('\n') ? '\n' : '';
-      ta.setRangeText(`${lead}[[img:${id}]]\n`, pos, ta.selectionEnd, 'end');
-      state.text.source = ta.value;
-
-      afterAdd?.();
-      onChange();
-    };
-    fr.readAsDataURL(file);
+    addImageFile(file, onChange, afterAdd);
   };
   pickerEl.click();
+}
+
+/* ── 이미지에서 불러오기 ────────────────────── */
+
+/* 불러오면 설정이 통째로 바뀔 수 있어 화면을 처음부터 다시 짠다. */
+function repaintAll(onChange) {
+  srcEl().value = state.text.source;
+  buildSlotBar(onChange);
+  buildProfileBar(onChange);
+  buildSettings(document.getElementById('textSettings'), onChange);
+  onChange();
+}
+
+/* 되돌리기 한 번을 위해 지금 상태를 통째로 떠 둔다. */
+function snapshot() {
+  return clone({
+    source: state.text.source,
+    style: state.text.style,
+    formats: state.text.formats,
+    profiles: state.text.profiles,
+    template: state.activeTemplate,
+  });
+}
+
+function restore(snap, onChange) {
+  state.text.source = snap.source;
+  Object.assign(state.text.style, snap.style);
+  Object.assign(state.text.formats, snap.formats);
+  state.text.profiles = snap.profiles;
+  state.activeTemplate = snap.template;
+  repaintAll(onChange);
+  U.toast('불러오기 전으로 되돌렸습니다');
+}
+
+function line(text, cls) {
+  return U.el('div', { class: cls || 'imp-line', text });
+}
+
+/* 「본문만 / 서식까지」를 고르는 확인창 */
+function askImport(payload, onChange) {
+  const s = summarize(payload);
+  const head = [s.when && `저장 ${s.when}`, `${s.chars.toLocaleString()}자`,
+    s.count ? `프로필 ${s.count}` : null].filter(Boolean).join('  ·  ');
+
+  const body = [line(head, 'imp-head')];
+  for (const n of commonWarnings(payload)) body.push(line(n, 'imp-warn'));
+
+  const only = textOnlyWarnings(payload);
+  if (only.length) {
+    body.push(line('본문만 가져올 때', 'imp-sub'));
+    for (const n of only) body.push(line(n, 'imp-warn'));
+  }
+  body.push(line('지금 쓰고 있는 글은 덮어써집니다. 사진은 담기지 않아 그대로 남습니다.', 'imp-foot'));
+
+  const take = (mode) => {
+    const snap = snapshot();
+    applyPayload(payload, mode);
+    repaintAll(onChange);
+    U.toast(mode === 'all' ? '본문과 서식을 불러왔습니다' : '본문을 불러왔습니다', 6000,
+      { label: '되돌리기', onClick: () => restore(snap, onChange) });
+  };
+
+  U.modal({
+    title: '이미지에서 불러오기',
+    body,
+    actions: [
+      { label: '취소' },
+      { label: '본문만', onClick: () => take('text') },
+      { label: '본문 + 서식', primary: true, onClick: () => take('all') },
+    ],
+  });
+}
+
+/* PNG 에 심어 둔 정보가 있으면 확인창을 띄우고 true.
+   없으면 false — 부르는 쪽이 그냥 본문 사진으로 넣으면 된다. */
+async function tryImport(file, onChange) {
+  if (!file || file.type !== 'image/png') return false;
+  let payload = null;
+  try { payload = await extractMeta(file); } catch { payload = null; }
+  if (!isPayload(payload)) return false;
+  askImport(payload, onChange);
+  return true;
+}
+
+/* 설정의 「이미지에서 불러오기」 단추 */
+let importPicker = null;
+function pickImport(onChange) {
+  if (!importPicker) {
+    importPicker = U.el('input', { type: 'file', accept: 'image/png', style: 'display:none' });
+    document.body.appendChild(importPicker);
+  }
+  importPicker.onchange = async () => {
+    const file = importPicker.files?.[0];
+    importPicker.value = '';
+    if (!file) return;
+    if (!await tryImport(file, onChange)) {
+      U.toast('이 이미지에는 원본 정보가 없습니다');
+    }
+  };
+  importPicker.click();
+}
+
+/* ── 끌어다 놓기 ────────────────────────────── */
+
+/* 놓기 전에는 파일 내용을 못 읽는다. 브라우저가 막아 둔 자리라
+   알 수 있는 건 MIME 종류뿐이다. 그것만으로 미리 표시를 나눈다. */
+function dropKind(dt) {
+  const items = [...(dt?.items || [])].filter(it => it.kind === 'file');
+  const n = items.length || (dt?.files?.length ?? 0);
+  if (!n) return '';
+  if (n > 1) return 'many';
+  const t = items[0]?.type ?? '';
+  if (t === 'image/png') return 'load';
+  if (t === '' || t.startsWith('image/')) return 'photo';
+  return 'bad';
+}
+
+const DROP_TEXT = {
+  load:  ['불러오기 또는 사진 넣기', 'PNG — 원본 정보가 있으면 불러옵니다'],
+  photo: ['본문에 사진 넣기', ''],
+  many:  ['한 번에 한 장씩', '파일 하나만 놓아 주세요'],
+  bad:   ['이미지 파일만', ''],
+};
+
+export function bindDropImport(onChange, afterAdd) {
+  const ta = srcEl();
+  let wrap = ta.parentElement;
+  if (!wrap.classList.contains('src-wrap')) {
+    wrap = U.el('div', { class: 'src-wrap' });
+    ta.parentElement.insertBefore(wrap, ta);
+    wrap.appendChild(ta);
+  }
+  if (wrap.querySelector('.src-drop')) return;
+
+  const title = U.el('div', { class: 'src-drop-t' });
+  const note = U.el('div', { class: 'src-drop-n' });
+  const veil = U.el('div', { class: 'src-drop', hidden: true }, [
+    U.el('div', { class: 'src-drop-box' }, [U.el('span', { class: 'src-drop-i', text: '+' }), title, note]),
+  ]);
+  wrap.appendChild(veil);
+
+  // dragenter/leave 는 자식 위를 지날 때마다 튄다. 세어서 진짜 나갈 때만 끈다.
+  let depth = 0;
+  let kind = '';
+
+  const show = (k) => {
+    kind = k;
+    veil.className = `src-drop is-${k}`;
+    const [t, n] = DROP_TEXT[k] || ['', ''];
+    title.textContent = t;
+    note.textContent = n;
+    veil.hidden = false;
+  };
+  const hide = () => { depth = 0; kind = ''; veil.hidden = true; };
+
+  wrap.addEventListener('dragenter', (e) => {
+    const k = dropKind(e.dataTransfer);
+    if (!k) return;
+    e.preventDefault();
+    depth++;
+    show(k);
+  });
+  wrap.addEventListener('dragover', (e) => {
+    if (!kind) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = kind === 'many' || kind === 'bad' ? 'none' : 'copy';
+  });
+  wrap.addEventListener('dragleave', () => { if (--depth <= 0) hide(); });
+  wrap.addEventListener('drop', async (e) => {
+    if (!kind) return;
+    e.preventDefault();
+    const files = [...(e.dataTransfer?.files || [])];
+    hide();
+    if (files.length > 1) { U.toast('한 번에 한 장씩 놓아 주세요'); return; }
+    const file = files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { U.toast('이미지 파일만 놓을 수 있습니다'); return; }
+    if (await tryImport(file, onChange)) return;
+    addImageFile(file, onChange, afterAdd);
+  });
 }
 
 /* ── 설정 초기화 ────────────────────────────── */

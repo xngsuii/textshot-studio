@@ -220,6 +220,7 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .tgl-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 10px; }
 /* 몇 개를 한 줄로 늘어놓을 때 */
 .tgl-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.tgl-row.cols-1 { display: grid; grid-template-columns: minmax(0, 1fr); }
 .tgl-row.cols-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .tgl-row.cols-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 /* 네 칸은 좁으니 안쪽을 줄인다 */
@@ -904,10 +905,12 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
   /* 편집 / 설정 중 한쪽만 보여 준다 (기본은 편집) */
   .pane-editor:not(.mode-settings) .settings { display: none; }
   .pane-editor.mode-settings .fmt-bar,
+  .pane-editor.mode-settings .src-wrap,
   .pane-editor.mode-settings .src { display: none; }
   .pane-editor.is-peek .tabpane { visibility: hidden; }
 
   /* 입력칸 — 16px 미만이면 사파리가 화면을 확대해 버린다 */
+  .src-wrap { flex: 1 1 auto; min-height: 0; }
   .src {
     flex: 1 1 auto; height: auto; min-height: 0; max-height: none;
     resize: none; font-size: 16px; padding: 12px 14px;
@@ -980,3 +983,71 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
 .tpl-act:hover { background: var(--bg-hover); color: var(--fg); }
 .tpl-act.del:hover { background: var(--danger-soft); color: var(--danger); }
 .empty { font-size: 12px; color: var(--fg-3); padding: 6px 0; }
+/* ─── 확인창 ────────────────────────────────── */
+.modal-back {
+  position: fixed; inset: 0; z-index: 90;
+  display: grid; place-items: center;
+  padding: 20px;
+  background: rgba(20, 30, 30, .38);
+}
+.modal-card {
+  width: min(420px, 100%);
+  max-height: 80vh; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 18px 18px 14px;
+  border-radius: 10px;
+  background: var(--bg);
+  box-shadow: var(--shadow-2);
+}
+.modal-title { font-size: 14.5px; font-weight: 700; color: var(--fg); }
+.modal-body { display: flex; flex-direction: column; gap: 7px; }
+.modal-acts { display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
+
+.imp-line { font-size: 12.5px; color: var(--fg-2); line-height: 1.55; }
+.imp-head {
+  font-size: 12.5px; color: var(--fg); font-weight: 600;
+  padding: 8px 10px; border-radius: var(--r);
+  background: var(--bg-panel); border: 1px solid var(--line);
+}
+.imp-sub { font-size: 11.5px; font-weight: 700; color: var(--fg-3); margin-top: 2px; }
+.imp-warn {
+  font-size: 12px; line-height: 1.5; color: var(--danger);
+  padding-left: 10px; border-left: 2px solid var(--danger-soft);
+}
+.imp-foot { font-size: 11.5px; color: var(--fg-3); line-height: 1.5; }
+
+/* ─── 편집 창에 끌어다 놓기 ─────────────────── */
+.src-wrap { position: relative; display: flex; flex-direction: column; flex: 0 0 auto; }
+
+.src-drop {
+  position: absolute; inset: 0; z-index: 4;
+  display: grid; place-items: center;
+  pointer-events: none;
+  border: 2px dashed var(--line-strong);
+  background: rgba(255, 255, 255, .82);
+}
+.src-drop[hidden] { display: none; }
+.src-drop-box { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; padding: 0 16px; }
+.src-drop-i { font-size: 22px; line-height: 1; font-weight: 300; color: var(--fg-3); }
+.src-drop-t { font-size: 13px; font-weight: 700; color: var(--fg-2); }
+.src-drop-n { font-size: 11.5px; color: var(--fg-3); }
+.src-drop-n:empty { display: none; }
+
+/* PNG — 불러올 수 있는 후보라 청록으로 살아난다 */
+.src-drop.is-load { border-color: var(--accent); background: rgba(228, 240, 239, .88); }
+.src-drop.is-load .src-drop-i, .src-drop.is-load .src-drop-t { color: var(--accent); }
+.src-drop.is-load .src-drop-n { color: var(--accent-hi); }
+
+.src-drop.is-many, .src-drop.is-bad { border-color: var(--danger); background: rgba(247, 233, 233, .9); }
+.src-drop.is-many .src-drop-i, .src-drop.is-many .src-drop-t,
+.src-drop.is-bad .src-drop-i, .src-drop.is-bad .src-drop-t { color: var(--danger); }
+
+/* 되돌리기가 붙는 알림 */
+.toast-act {
+  margin-left: 10px; padding: 0 8px; height: 21px;
+  border: 0; border-radius: var(--r-sm);
+  background: rgba(255, 255, 255, .18); color: inherit;
+  font: inherit; font-size: 11.5px; font-weight: 700;
+  cursor: pointer;
+}
+.toast-act:hover { background: rgba(255, 255, 255, .3); }

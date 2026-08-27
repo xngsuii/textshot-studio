@@ -169,6 +169,7 @@ export const DEFAULT_OUTPUT = {
   format: 'png',
   quality: 0.92,
   filename: 'excerpt',
+  embedSource: true,     // PNG 안에 원문을 같이 심어 나중에 다시 불러올 수 있게
 };
 
 export const DEFAULT_HTML = {

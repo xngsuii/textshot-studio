@@ -5,6 +5,7 @@ import * as TextTab from './text-tab.js';
 import * as HtmlTab from './html-tab.js';
 import * as Capture from './capture.js';
 import { nodeToBlob, downloadMany, copyToClipboard, shareBlobs } from './capture.js';
+import { buildPayload } from './doc-io.js';
 import { ensureFont } from './fonts.js';
 import { initDrawer, initDrawerModes, isMobile } from './drawer.js';
 import { toast } from './ui.js';
@@ -12,7 +13,7 @@ import { toast } from './ui.js';
 /* index.html 의 app-version 과 짝을 이룬다. 브라우저가 둘 중 하나만 새로
    받으면 화면은 새것인데 동작은 옛것인 상태가 되어 원인 찾기가 어렵다.
    어긋나면 하단에 알려 준다. 고칠 때 두 값을 같이 올릴 것. */
-const APP_VERSION = '18';
+const APP_VERSION = '19';
 
 const $ = (id) => document.getElementById(id);
 
@@ -164,13 +165,20 @@ async function collectBlobs() {
     const background = (format !== 'png' && st.transparent) ? '#FFFFFF' : null;
     const box = offscreen();
     try {
-      const stages = TextTab.buildExportStages();
-      stages.forEach(s => box.appendChild(s));
+      const parts = TextTab.buildExportStages();
+      parts.forEach(p => box.appendChild(p.stage));
       const blobs = [];
       let s = scale;
-      for (const stage of stages) s = Math.min(s, Capture.fitScale(stage, scale));
+      for (const p of parts) s = Math.min(s, Capture.fitScale(p.stage, scale));
       if (s !== scale) toast(`이미지가 너무 커서 배율을 ${s}x 로 낮춰 저장합니다`);
-      for (const stage of stages) blobs.push(await nodeToBlob(stage, { scale: s, format, quality, background }));
+      // 원본 정보는 PNG 에만 심을 수 있다. 장마다 그 장의 글만 담는다.
+      const embed = state.output.embedSource && format === 'png';
+      for (const p of parts) {
+        blobs.push(await nodeToBlob(p.stage, {
+          scale: s, format, quality, background,
+          meta: embed ? buildPayload(p.source) : null,
+        }));
+      }
       return blobs;
     } finally { box.remove(); }
   }
@@ -283,6 +291,7 @@ function boot() {
   TextTab.buildSettings($('textSettings'), scheduleRender);
   TextTab.bindPreviewClicks(host(), scheduleRender);
   TextTab.bindBgDrag(host(), scheduleRender);
+  TextTab.bindDropImport(scheduleRender, () => TextTab.buildSettings($('textSettings'), scheduleRender));
   HtmlTab.bindEditor(scheduleRender);
   HtmlTab.buildSettings($('htmlSettings'), scheduleRender);
 

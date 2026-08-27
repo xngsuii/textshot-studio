@@ -140,7 +140,8 @@ export function renderChunk(chunk, opts = {}, lineOffset = 0) {
   const out = [];
   let i = 0;
 
-  while (i < lines.length) {
+  /* 한 덩어리를 만들고 돌아온다. 예전의 continue 자리가 return 이다. */
+  const step = () => {
     const raw = lines[i];
     const t = raw.trim();
 
@@ -188,7 +189,7 @@ export function renderChunk(chunk, opts = {}, lineOffset = 0) {
       const name = p.showName ? `<div class='mk-speaker'${nameSkin}>${esc(p.name)}</div>` : '';
       out.push(`<div class='mk-chat ${side}'>${ava}<div class='mk-chat-body'>${name}`
         + `<div class='mk-bubbles'>${bubbles.join('')}</div></div></div>`);
-      continue;
+      return;
     }
 
     const imgId = imgLine(t);
@@ -198,7 +199,7 @@ export function renderChunk(chunk, opts = {}, lineOffset = 0) {
         ? `<img class='mk-img' src="${im.data}" style='--imgw:${im.width ?? 100}%;border-radius:${im.radius ?? 4}px' alt=''>`
         : "<div class='mk-img-missing'>사진을 찾을 수 없습니다</div>");
       i++;
-      continue;
+      return;
     }
 
     if (f.code && isFence(t)) {
@@ -209,7 +210,7 @@ export function renderChunk(chunk, opts = {}, lineOffset = 0) {
       i++;
       const text = body.join('\n');
       out.push(!title && looksLikeHtml(text) ? codeViewer(text) : codeBox(title, text));
-      continue;
+      return;
     }
 
     if (f.blockquote && /^>[1-5]?\s?/.test(t)) {
@@ -223,29 +224,42 @@ export function renderChunk(chunk, opts = {}, lineOffset = 0) {
         i++;
       }
       out.push(`<blockquote class='mk-bq${slot ? ` mk-bq${slot}` : ''}'>${items.join('')}</blockquote>`);
-      continue;
+      return;
     }
 
-    if (t === '') { out.push("<div class='mk-blank'></div>"); i++; continue; }
-    if (f.divider && /^-{3,}$/.test(t)) { out.push("<hr class='mk-divider'>"); i++; continue; }
+    if (t === '') { out.push("<div class='mk-blank'></div>"); i++; return; }
+    if (f.divider && /^-{3,}$/.test(t)) { out.push("<hr class='mk-divider'>"); i++; return; }
 
     if (f.heading && /^##\s+/.test(t)) {
-      out.push(`<p class='mk-h2'>${inline(t.replace(/^##\s+/, ''), f)}</p>`); i++; continue;
+      out.push(`<p class='mk-h2'>${inline(t.replace(/^##\s+/, ''), f)}</p>`); i++; return;
     }
     if (f.heading && /^#\s+/.test(t)) {
-      out.push(`<p class='mk-h1'>${inline(t.replace(/^#\s+/, ''), f)}</p>`); i++; continue;
+      out.push(`<p class='mk-h1'>${inline(t.replace(/^#\s+/, ''), f)}</p>`); i++; return;
     }
 
     out.push(`<p class='mk-p'>${inline(raw, f)}</p>`);
     i++;
+  };
+
+  /* 덩어리마다 원문 몇 번째 줄에서 왔는지를 붙여 둔다.
+     자동 분할로 장을 나눈 뒤 「그 장의 원문」을 도로 오려 내려면 이게 있어야 한다. */
+  while (i < lines.length) {
+    const from = i;
+    const mark = out.length;
+    step();
+    if (i <= from) i = from + 1;          // 만에 하나 제자리걸음이면 밀어 준다
+    for (let k = mark; k < out.length; k++) {
+      out[k] = out[k].replace(/^<([a-z0-9]+)/i, `<$1 data-lf='${lineOffset + from}' data-lt='${lineOffset + i - 1}'`);
+    }
   }
 
   /* 말풍선과 말풍선 사이에만 놓인 빈 줄은 걷어낸다.
      원문에서는 읽기 좋으라고 한 줄 띄우는 일이 많은데, 그러면 말풍선 사이가
      빈 줄 높이에 묶여 「말풍선 간격」이 아무 일도 못 한다. 그 사이만큼은
      설정값이 맡도록 비켜 준다. (지문이 끼어 있으면 손대지 않는다) */
-  const isChat = (h) => h.startsWith("<div class='mk-chat ");
-  const isBlank = (h) => h === "<div class='mk-blank'></div>";
+  // 줄 번호가 앞에 끼어 있으니 시작 부분이 아니라 클래스로 알아본다
+  const isChat = (h) => h.includes("class='mk-chat ");
+  const isBlank = (h) => h.includes("class='mk-blank'");
   for (let a = 0; a < out.length; a++) {
     if (!isChat(out[a])) continue;
     let b = a + 1;

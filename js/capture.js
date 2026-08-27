@@ -2,6 +2,7 @@
    나중에 서버리스 렌더링으로 갈아끼울 수 있도록 이 파일만 교체하면 되게 둔다. */
 
 import { domToCanvas } from '../vendor/modern-screenshot.js';
+import { embed as embedMeta } from './png-meta.js';
 import { fontsReady } from './fonts.js';
 
 const MIME = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp' };
@@ -58,7 +59,9 @@ export function fitScale(node, scale) {
   return s;
 }
 
-export async function nodeToBlob(node, { scale = 2, format = 'png', quality = 0.92, background, trim = false } = {}) {
+/* meta 를 주면 PNG 안에 원문 한 벌을 같이 심는다. 나중에 그 이미지를 도로
+   끌어다 놓으면 글을 되살릴 수 있다. PNG 가 아니면 조용히 무시된다. */
+export async function nodeToBlob(node, { scale = 2, format = 'png', quality = 0.92, background, trim = false, meta = null } = {}) {
   await fontsReady();
   let canvas = await domToCanvas(node, {
     scale,
@@ -70,9 +73,11 @@ export async function nodeToBlob(node, { scale = 2, format = 'png', quality = 0.
   lastSize = { w: canvas.width, h: canvas.height };
 
   const type = MIME[format] || MIME.png;
-  return await new Promise((res, rej) => {
+  const blob = await new Promise((res, rej) => {
     canvas.toBlob(b => (b ? res(b) : rej(new Error('이미지 변환 실패'))), type, quality);
   });
+  if (!meta || format !== 'png') return blob;
+  try { return await embedMeta(blob, meta); } catch { return blob; }
 }
 
 export function stamp(d = new Date()) {
