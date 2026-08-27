@@ -1,9 +1,40 @@
-/* 템플릿 — 스타일 묶음을 이름으로 저장/덮어쓰기.
+/* 템플릿 — 스타일과 말풍선 프로필을 한 묶음으로 이름 붙여 저장/덮어쓰기.
    자동 서식 on/off 는 템플릿에 넣지 않는다 (전역 설정). */
 
 import { state, templates, persistTemplates, DEFAULT_STYLE } from './store.js';
 import { el, toast } from './ui.js';
 import { downloadBlob } from './capture.js';
+
+const clone = (o) => JSON.parse(JSON.stringify(o));
+
+/* 지금 설정 한 벌. 프로필은 사진까지 그대로 담는다. */
+function pack() {
+  return { style: clone(state.text.style), profiles: clone(state.text.profiles) };
+}
+
+/* 예전에는 스타일만 담았다. 그때 저장한 것은 style 키가 없으니 통째로 스타일로 본다. */
+function unpack(t) {
+  return t && t.style ? { style: t.style, profiles: t.profiles } : { style: t, profiles: null };
+}
+
+/* 본문에서 「이름 |」으로 실제 쓰이고 있는 화자 이름 */
+function speakersInUse() {
+  const lines = String(state.text.source).split(/\r?\n/);
+  return state.text.profiles
+    .map(p => p.name)
+    .filter(n => n && lines.some(l => l.trimStart().startsWith(n)
+      && /^\s*\|/.test(l.trimStart().slice(n.length))));
+}
+
+/* 프로필까지 바꾸면 본문의 이름표가 안 맞아 말풍선이 풀릴 수 있다. 미리 묻는다. */
+function okToSwapProfiles(name, next) {
+  if (!next || !next.length) return true;
+  const have = new Set(next.map(p => p.name));
+  const lost = speakersInUse().filter(n => !have.has(n));
+  if (!lost.length) return true;
+  return confirm(`「${name}」의 프로필에는 ${lost.map(n => `「${n}」`).join(' ')} 이(가) 없습니다.\n`
+    + '그 줄은 말풍선이 아니라 그냥 글로 나옵니다. 그래도 적용할까요?');
+}
 
 export function buildTemplateSection(onApply, rerender) {
   const list = el('div', { class: 'tpl-list' });
@@ -20,18 +51,26 @@ export function buildTemplateSection(onApply, rerender) {
         el('button', {
           class: 'tpl-name', type: 'button', text: name, title: '적용',
           onClick: () => {
-            Object.assign(state.text.style, JSON.parse(JSON.stringify(templates[name])));
+            const { style, profiles } = unpack(templates[name]);
+            if (!okToSwapProfiles(name, profiles)) return;
+            Object.assign(state.text.style, clone(style));
+            if (profiles && profiles.length) state.text.profiles = clone(profiles);
             state.activeTemplate = name;
             onApply();
             rerender();
-            toast(`「${name}」 적용`);
+            toast(profiles ? `「${name}」 적용 — 프로필까지` : `「${name}」 적용`);
           },
         }),
         el('button', {
           class: 'tpl-act', type: 'button', text: '덮어쓰기',
           onClick: () => {
-            templates[name] = JSON.parse(JSON.stringify(state.text.style));
-            persistTemplates();
+            const keep = templates[name];
+            templates[name] = pack();
+            if (!persistTemplates()) {
+              templates[name] = keep;
+              toast('저장 공간이 모자랍니다. 프로필 사진을 줄여 보세요');
+              return;
+            }
             state.activeTemplate = name;
             paint();
             toast(`「${name}」 덮어씀`);
@@ -61,12 +100,17 @@ export function buildTemplateSection(onApply, rerender) {
       const name = nameInput.value.trim();
       if (!name) { toast('이름을 입력하세요'); return; }
       if (templates[name] && !confirm(`「${name}」 이(가) 이미 있습니다. 덮어쓸까요?`)) return;
-      templates[name] = JSON.parse(JSON.stringify(state.text.style));
-      persistTemplates();
+      const keep = templates[name];
+      templates[name] = pack();
+      if (!persistTemplates()) {
+        if (keep) templates[name] = keep; else delete templates[name];
+        toast('저장 공간이 모자랍니다. 프로필 사진을 줄여 보세요');
+        return;
+      }
       state.activeTemplate = name;
       nameInput.value = '';
       paint();
-      toast(`「${name}」 저장`);
+      toast(`「${name}」 저장 — 프로필까지`);
     },
   });
 
@@ -122,6 +166,8 @@ export function buildTemplateSection(onApply, rerender) {
       list,
       el('div', { class: 'field-row' }, [nameInput, saveBtn]),
       el('div', { class: 'field-row' }, [resetBtn, exportBtn, importBtn, fileInput]),
+      el('div', { class: 'hint', text: '템플릿에는 스타일과 말풍선 프로필(이름·색·사진)이 함께 담깁니다. '
+        + '적용하면 지금 프로필을 그 템플릿의 것으로 갈아 끼웁니다.' }),
       el('div', { class: 'hint', text: '템플릿은 이 브라우저에만 저장됩니다. 데이터를 지우면 사라지니 JSON으로 백업해 두세요.' }),
     ]),
     refresh: paint,

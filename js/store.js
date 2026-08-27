@@ -294,8 +294,16 @@ export function saveSoon(onDone) {
   }, 400);
 }
 
+/* 템플릿에도 프로필 사진이 담기므로 저장 한도를 넘길 수 있다.
+   던지고 끝내면 누른 단추가 먹통이 되므로 참·거짓으로 알린다. */
 export function persistTemplates() {
-  localStorage.setItem(LS_TPL, JSON.stringify(templates));
+  try {
+    localStorage.setItem(LS_TPL, JSON.stringify(templates));
+    return true;
+  } catch (e) {
+    console.warn('템플릿 저장 실패', e);
+    return false;
+  }
 }
 
 export function setTemplates(next) {

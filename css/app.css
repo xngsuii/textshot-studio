@@ -1087,3 +1087,15 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
 .is-imgmove, .is-imgmove * { cursor: grabbing !important; }
 /* 끄는 동안 사진이 선택되어 파랗게 덮이지 않게 */
 .is-imgsize, .is-imgmove { user-select: none; }
+/* ─── 미리보기 → 편집기 줄 점프 ─────────────── */
+/* 누를 수 있다는 걸 알 수 있게, 그리고 어디로 갔는지 보이게 */
+/* 눌러서 그 줄로 갈 수 있다는 표시. 사진은 끌어 쓰는 것이라 빼고,
+   빈 줄은 갈 데가 없으니 뺀다. */
+#stageHost [data-lf]:not(.mk-blank) { cursor: pointer; }
+#stageHost .mk-img[data-img] { cursor: default; }
+#stageHost [data-lf].is-jumped { animation: jump-flash .7s ease-out; }
+@keyframes jump-flash {
+  from { background: var(--accent-soft); box-shadow: 0 0 0 4px var(--accent-soft); }
+  to { background: transparent; box-shadow: 0 0 0 4px transparent; }
+}
+@media (prefers-reduced-motion: reduce) { #stageHost [data-lf].is-jumped { animation: none; } }

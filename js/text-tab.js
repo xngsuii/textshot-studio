@@ -1038,7 +1038,11 @@ function panelOutput(container, onChange) {
 
 /* 템플릿 */
 function panelTemplate(container, onChange) {
-  const tpl = buildTemplateSection(() => buildSlotBar(onChange), () => buildSettings(container, onChange));
+  // 템플릿에는 프로필도 담겨 있다. 적용하면 편집기 위 프로필 줄도 다시 그려야 한다.
+  const tpl = buildTemplateSection(
+    () => { buildSlotBar(onChange); buildProfileBar(onChange); },
+    () => buildSettings(container, onChange),
+  );
   return U.el('div', { class: 'panel' }, [tpl.node]);
 }
 
@@ -1077,6 +1081,67 @@ export function pickImage(onChange, afterAdd) {
     addImageFile(file, onChange, afterAdd);
   };
   pickerEl.click();
+}
+
+/* ── 미리보기에서 편집기로 줄 점프 ─────────── */
+
+/* 줄바꿈이 있어 「줄 번호 × 줄 높이」로는 자리를 못 맞춘다.
+   같은 폭·같은 글꼴의 그림자를 세워 그 자리까지의 높이를 재 온다. */
+function caretTop(ta, pos) {
+  const cs = getComputedStyle(ta);
+  const ghost = U.el('div');
+  for (const k of ['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'letterSpacing',
+    'lineHeight', 'padding', 'borderWidth', 'borderStyle', 'textIndent', 'tabSize',
+    'wordBreak', 'overflowWrap', 'wordSpacing']) ghost.style[k] = cs[k];
+  Object.assign(ghost.style, {
+    position: 'fixed', left: '-99999px', top: '0', visibility: 'hidden',
+    width: ta.clientWidth + 'px', height: 'auto',
+    boxSizing: 'border-box', whiteSpace: 'pre-wrap',
+  });
+  ghost.textContent = ta.value.slice(0, pos);
+  const mark = U.el('span', { text: '\u200b' });
+  ghost.appendChild(mark);
+  document.body.appendChild(ghost);
+  const top = mark.offsetTop;
+  ghost.remove();
+  return top;
+}
+
+function jumpToLine(line) {
+  const ta = srcEl();
+  const lines = ta.value.split(/\r?\n/);
+  if (!(line >= 0) || line >= lines.length) return false;
+
+  // 모바일에서는 설정 쪽을 보고 있을 수 있다. 편집 쪽으로 돌려놓는다.
+  const pane = document.getElementById('editorPane');
+  if (pane?.classList.contains('mode-settings')) {
+    document.querySelector('.dm-btn[data-dmode="edit"]')?.click();
+  }
+
+  let pos = 0;
+  for (let i = 0; i < line; i++) pos += lines[i].length + 1;
+  ta.focus({ preventScroll: true });
+  ta.setSelectionRange(pos, pos + lines[line].length);
+  ta.scrollTop = Math.max(0, caretTop(ta, pos) - ta.clientHeight / 2);
+  return true;
+}
+
+/* 미리보기에서 문단을 누르면 편집기의 그 줄로 간다.
+   말풍선은 눌러서 화자를 바꾸는 자리라 건드리지 않고, 사진도 끌어 쓰는
+   것이라 뺀다. 말풍선 덩어리의 이름·사진 쪽을 누르면 그 덩어리로 간다. */
+export function bindPreviewJump(host) {
+  host.addEventListener('click', (e) => {
+    if (e.target.closest('.mk-bubble[data-ln]')) return;
+    if (e.target.closest('.mk-img[data-img]')) return;
+    const block = e.target.closest('[data-lf]');
+    if (!block || !host.contains(block)) return;
+    if (!jumpToLine(Number(block.dataset.lf))) return;
+    // 어디로 갔는지 보이게 잠깐 반짝인다
+    block.classList.remove('is-jumped');
+    void block.offsetWidth;
+    block.classList.add('is-jumped');
+    setTimeout(() => block.classList.remove('is-jumped'), 700);
+  });
 }
 
 /* ── 본문 사진 끌기 ─────────────────────────── */
