@@ -1,7 +1,7 @@
 /* 템플릿 — 스타일과 말풍선 프로필을 한 묶음으로 이름 붙여 저장/덮어쓰기.
    자동 서식 on/off 는 템플릿에 넣지 않는다 (전역 설정). */
 
-import { state, templates, persistTemplates, DEFAULT_STYLE } from './store.js';
+import { state, templates, persistTemplates, DEFAULT_STYLE, templatePhotoCount } from './store.js';
 import { el, toast } from './ui.js';
 import { downloadBlob } from './capture.js';
 
@@ -47,6 +47,7 @@ export function buildTemplateSection(onApply, rerender) {
       return;
     }
     for (const name of names) {
+      const pics = templatePhotoCount(templates[name]);
       const row = el('div', { class: `tpl-row${state.activeTemplate === name ? ' is-active' : ''}` }, [
         el('button', {
           class: 'tpl-name', type: 'button', text: name, title: '적용',
@@ -61,6 +62,7 @@ export function buildTemplateSection(onApply, rerender) {
             toast(profiles ? `「${name}」 적용 — 프로필까지` : `「${name}」 적용`);
           },
         }),
+        pics ? el('span', { class: 'tpl-pics', text: `사진 ${pics}`, title: '이 템플릿이 붙들고 있는 사진 수' }) : null,
         el('button', {
           class: 'tpl-act', type: 'button', text: '덮어쓰기',
           onClick: () => {

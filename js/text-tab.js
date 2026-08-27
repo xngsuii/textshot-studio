@@ -3,7 +3,7 @@
 import {
   state, saveSoon, FONTS, fontById, DEFAULT_FORMATS, DEFAULT_STYLE,
   DEFAULT_OUTPUT, RATIOS, RATIO_ORDER, RATIO_LABEL, MAX_SLOTS, newProfile, NAME_COLOR,
-  storedBytes, photoStats,
+  storedBytes, photoStats, photoUsage, dropTemplatePhotos, clearStored,
 } from './store.js';
 import {
   splitChunks, hasSplit, renderChunk, renderWithSplitMarks, stripMarkers,
@@ -1131,7 +1131,76 @@ function panelTemplate(container, onChange) {
     () => { buildSlotBar(onChange); buildProfileBar(onChange); },
     () => buildSettings(container, onChange),
   );
-  return U.el('div', { class: 'panel' }, [tpl.node]);
+  return U.el('div', { class: 'panel' }, [tpl.node, storagePanel(container, onChange)]);
+}
+
+/* 저장 공간 — 어디에 얼마나 쓰고 있는지 보여 주고 치울 거리를 준다.
+
+   템플릿에도 프로필 사진이 담기므로, 본문에서 프로필을 지워도 템플릿이
+   아직 그 사진을 쓰고 있으면 자리가 나지 않는다. 그게 보이지 않아
+   「지웠는데 왜 안 줄지」로 이어지므로 여기서 숨김없이 보여 준다. */
+function storagePanel(container, onChange) {
+  const used = storedBytes();
+  const pic = photoUsage();
+  const cap = 5 * 1024 * 1024;
+  const pct = Math.min(100, Math.round((used / cap) * 100));
+  const rebuild = () => buildSettings(container, onChange);
+
+  const bar = U.el('div', { class: 'use-bar' }, [
+    U.el('span', { class: `use-fill${pct > 72 ? ' is-warn' : ''}`, style: `width:${pct}%` }),
+  ]);
+
+  const rows = [
+    bar,
+    U.el('div', { class: 'hint', text: `쓰는 중 ${kb(used)} / 5MB 남짓 (${pct}%)` }),
+  ];
+
+  if (pic.count) {
+    rows.push(U.el('div', { class: 'hint', text: `사진 ${pic.count}장 · ${kb(pic.bytes)}` }));
+  }
+  if (pic.tplOnly) {
+    rows.push(U.el('div', { class: 'hint hint-warn',
+      text: `이 가운데 ${pic.tplOnly}장(${kb(pic.tplOnlyBytes)})은 템플릿만 붙들고 있습니다. `
+        + '본문에서 프로필을 지워도 이 자리는 나지 않습니다.' }));
+  }
+
+  const acts = [];
+  if (fatPhotos().length) {
+    acts.push(U.el('button', {
+      class: 'btn btn-ghost btn-sm', type: 'button', text: `사진 ${fatPhotos().length}장 다시 담기`,
+      title: '크기는 그대로 두고 webp 로 다시 담아 자리를 줄입니다',
+      onClick: () => compactPhotos(() => { buildProfileBar(onChange); rebuild(); onChange(); }),
+    }));
+  }
+  if (pic.tplOnly) {
+    acts.push(U.el('button', {
+      class: 'btn btn-ghost btn-sm', type: 'button', text: '템플릿에서 사진 빼기',
+      title: '템플릿의 이름·위치·색은 그대로 두고 사진만 뺍니다',
+      onClick: () => {
+        if (!confirm('모든 템플릿에서 프로필 사진을 뺍니다.\n이름·위치·색은 그대로 남고, 그 템플릿을 적용하면 사진은 지금 것을 씁니다. 계속할까요?')) return;
+        const before = storedBytes();
+        dropTemplatePhotos();
+        saveSoon(() => {
+          U.toast(`${kb(before)} → ${kb(storedBytes())} 로 줄였습니다`, 5000);
+          rebuild();
+        });
+      },
+    }));
+  }
+  acts.push(U.el('button', {
+    class: 'btn btn-ghost btn-sm is-danger', type: 'button', text: '저장 공간 비우기',
+    title: '이 브라우저에 담아 둔 글·설정·템플릿·사진을 전부 지웁니다',
+    onClick: () => {
+      if (!confirm('이 브라우저에 담아 둔 글·설정·템플릿·사진을 전부 지웁니다.\n되돌릴 수 없습니다. 템플릿은 JSON 으로 먼저 내보내 두세요. 계속할까요?')) return;
+      clearStored();
+      location.reload();
+    },
+  }));
+  rows.push(U.el('div', { class: 'field-row' }, acts));
+  rows.push(U.el('div', { class: 'hint', text: '사진은 한 장씩만 담기고 본문과 템플릿이 같이 씁니다. '
+    + '같은 사진을 여러 곳에서 써도 자리는 한 장 몫입니다.' }));
+
+  return group('저장 공간', rows);
 }
 
 /* ── 사진 넣기 ──────────────────────────────── */
@@ -1226,9 +1295,9 @@ function storageRow(container, onChange) {
   const pic = photoStats();
   const big = fatPhotos();
   const line = U.el('span', {
-    class: 'hint',
+    class: `hint${used > 3.6 * 1024 * 1024 ? ' hint-warn' : ''}`,
     text: `저장 ${kb(used)} / 5MB 남짓${pic.count ? ` · 사진 ${pic.count}장 ${kb(pic.bytes)}` : ''}`,
-    title: '사진은 한 장씩만 담기고 본문과 템플릿이 같이 씁니다',
+    title: '사진은 한 장씩만 담기고 본문과 템플릿이 같이 씁니다. 자세한 정리는 템플릿 탭에 있습니다',
   });
 
   const btn = big.length ? U.el('button', {

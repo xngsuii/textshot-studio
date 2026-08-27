@@ -427,6 +427,57 @@ export function photoStats() {
   return { count: keys.length, bytes };
 }
 
+const keyOfPic = (v) => {
+  if (typeof v !== 'string' || !v) return null;
+  if (v.startsWith('ph:')) return v.slice(3);
+  if (v.startsWith('data:')) return photoKey(v);
+  return null;
+};
+
+/* 사진이 어디에 매여 있는지.
+
+   템플릿에도 프로필 사진이 담기므로, 본문에서 프로필을 지워도 템플릿이
+   아직 그 사진을 쓰고 있으면 자리는 그대로다. 그걸 눈에 보이게 한다. */
+export function photoUsage() {
+  const inDoc = new Set();
+  const inTpl = new Set();
+  for (const p of state.text.profiles) { const k = keyOfPic(p.avatar); if (k) inDoc.add(k); }
+  for (const im of state.text.images) { const k = keyOfPic(im.data); if (k) inDoc.add(k); }
+  for (const t of Object.values(templates)) {
+    for (const p of (t?.profiles || [])) { const k = keyOfPic(p.avatar); if (k) inTpl.add(k); }
+  }
+  let tplOnly = 0;
+  let tplOnlyBytes = 0;
+  for (const k of inTpl) {
+    if (inDoc.has(k)) continue;
+    tplOnly++;
+    tplOnlyBytes += (photos[k] || '').length * 2;
+  }
+  return { ...photoStats(), tplOnly, tplOnlyBytes };
+}
+
+/* 템플릿 하나가 붙들고 있는 사진 수 */
+export function templatePhotoCount(t) {
+  return (t?.profiles || []).filter(p => keyOfPic(p.avatar)).length;
+}
+
+/* 템플릿이 붙들고 있는 사진을 놓아 준다. 이름·위치·색은 그대로 남는다.
+   그 템플릿을 적용하면 사진만 지금 프로필의 것을 쓴다. */
+export function dropTemplatePhotos() {
+  for (const t of Object.values(templates)) {
+    for (const p of (t?.profiles || [])) p.avatar = '';
+  }
+  return persistTemplates();
+}
+
+/* 담아 둔 것을 전부 비운다 */
+export function clearStored() {
+  for (const k of Object.keys(localStorage)) {
+    if (k.startsWith('textshot:')) localStorage.removeItem(k);
+  }
+  photos = {};
+}
+
 export function setTemplates(next) {
   templates = next;
   persistTemplates();

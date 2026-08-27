@@ -1188,3 +1188,13 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
 .sp-right .sp-bub { width: 38px; }
 .sp-line { height: 3px; border-radius: 2px; background: var(--fg-3); }
 .sp-line.is-short { width: 62%; }
+/* ─── 저장 공간 ─────────────────────────────── */
+.use-bar {
+  height: 8px; border-radius: 999px; overflow: hidden;
+  background: var(--bg-sunken); border: 1px solid var(--line);
+}
+.use-fill { display: block; height: 100%; background: var(--accent); transition: width .2s; }
+.use-fill.is-warn { background: var(--danger); }
+.tpl-pics { flex: none; font-size: 10.5px; color: var(--fg-3); padding: 0 4px; white-space: nowrap; }
+.btn.is-danger { color: var(--danger); border-color: var(--danger-soft); }
+.btn.is-danger:hover { background: var(--danger-soft); }
