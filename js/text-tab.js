@@ -131,7 +131,7 @@ function applyStyle(stage) {
   const cols = !!st.columns && !RATIOS[st.ratio];
   Object.assign(inner.style, cols
     ? { display: 'block', flexDirection: '', gap: '',
-      columnCount: '2', columnGap: (st.columnGap ?? 32) + 'px' }
+      columnCount: '2', columnGap: (st.columnGap ?? 48) + 'px' }
     : { display: 'flex', flexDirection: 'column', gap: st.paraGap + 'px',
       columnCount: '', columnGap: '' });
   stage.style.setProperty('--sq', String(k));
@@ -230,6 +230,7 @@ function headerBand(st) {
 /* 캔버스 아래 한 줄 — 이름과 소속. 둘 다 비어 있으면 아예 만들지 않는다.
    장평에 눌리면 안 되므로 stage-in 바깥에 둔다. */
 function signLine(st) {
+  if (st.signOn === false) return null;
   const name = (st.signName || '').trim();
   const org = (st.signOrg || '').trim();
   if (!name && !org) return null;
@@ -419,8 +420,23 @@ export function bindBgDrag(host, onChange) {
   host.addEventListener('pointerdown', (e) => {
     const st = draggableBg();
     if (!st) return;
-    // 글이나 말풍선이 아니라 빈 여백을 잡았을 때만 움직인다
     const t = e.target;
+
+    /* 헤더 띠의 아래 가장자리를 잡으면 높이를 바꾼다. 그 안쪽을 잡으면
+       아래처럼 보이는 자리를 옮긴다. 수치로 정하는 칸도 그대로 쓴다. */
+    if (t.classList?.contains('stage-header')) {
+      const box = t.getBoundingClientRect();
+      if (box.bottom - e.clientY <= 12) {
+        e.preventDefault();
+        try { host.setPointerCapture(e.pointerId); } catch { /* 못 잡아도 끌기는 된다 */ }
+        drag = { id: e.pointerId, mode: 'head', st, y: e.clientY,
+          h0: st.bgHeaderH ?? 220, k: hostScale(host) };
+        host.classList.add('is-headsize');
+        return;
+      }
+    }
+
+    // 글이나 말풍선이 아니라 빈 여백을 잡았을 때만 움직인다
     const ok = t.classList?.contains('stage') || t.classList?.contains('stage-in')
       || t.classList?.contains('stage-bg') || t.classList?.contains('stage-header');
     if (!ok) return;
@@ -446,7 +462,25 @@ export function bindBgDrag(host, onChange) {
   });
 
   host.addEventListener('pointermove', (e) => {
-    if (!drag || e.pointerId !== drag.id) return;
+    if (!drag) {
+      // 어디를 잡으면 높이가 바뀌는지 마우스 모양으로 알려 준다
+      const n = e.target.closest?.('.stage-header');
+      if (n) {
+        const box = n.getBoundingClientRect();
+        n.style.cursor = box.bottom - e.clientY <= 12 ? 'ns-resize' : 'grab';
+      }
+      return;
+    }
+    if (e.pointerId !== drag.id) return;
+
+    if (drag.mode === 'head') {
+      const dy = (e.clientY - drag.y) / (drag.k || 1);
+      drag.st.bgHeaderH = Math.max(40, Math.min(1600, Math.round(drag.h0 + dy)));
+      // 다시 그리면 한 박자 늦어 끌리는 게 안 보인다. 지금 띠를 바로 늘린다.
+      host.querySelectorAll('.stage-header').forEach(n => { n.style.height = drag.st.bgHeaderH + 'px'; });
+      return;
+    }
+
     const { st, overX, overY } = drag;
     const clamp = (v) => Math.max(0, Math.min(100, v));
     // 사진을 오른쪽으로 밀면 보이는 자리는 왼쪽으로 간다
@@ -461,7 +495,7 @@ export function bindBgDrag(host, onChange) {
   const end = (e) => {
     if (!drag || e.pointerId !== drag.id) return;
     drag = null;
-    host.classList.remove('is-bgdrag');
+    host.classList.remove('is-bgdrag', 'is-headsize');
     state.activeTemplate = null;
     onChange();
   };
@@ -906,12 +940,12 @@ function photoList(container, onChange) {
     U.el('span', { class: 'photo-no', text: String(i + 1) }),
     (() => { const t = U.el('img', { class: 'photo-thumb', alt: '' }); t.src = im.data; return t; })(),
     U.el('div', { class: 'photo-w' }, [
-      U.stepper(im.width ?? 100, {
-        min: 10, max: 100, step: 5, unit: '%',
+      U.slider(im.width ?? 100, {
+        min: 10, max: 100, step: 5, unit: '%', reset: 100,
         onChange: (v) => { im.width = v; onChange(); },
       }),
     ]),
-    U.el('div', { class: 'photo-w' }, [
+    U.el('div', { class: 'photo-r' }, [
       U.stepper(im.radius ?? 4, {
         min: 0, max: 80, step: 1, unit: 'px', onChange: (v) => { im.radius = v; onChange(); },
       }),
@@ -962,20 +996,22 @@ function panelCanvas(container, onChange) {
   });
 
   return U.el('div', { class: 'panel' }, [
-    group('크기', [
-      U.field('너비', U.stepper(st.width, { min: 200, max: 4000, step: 10, unit: 'px', onChange: (v) => { st.width = v; touch(); } })),
-      U.field('비율', U.seg(st.ratio, RATIO_ORDER.map(r => [r, RATIO_LABEL[r] || r]), (v) => { st.ratio = v; rebuild(); touch(); })),
+    group('크기 · 단', [
+      U.el('div', { class: 'field-split' }, [
+        U.field('비율', U.seg(st.ratio, RATIO_ORDER.map(r => [r, RATIO_LABEL[r] || r]), (v) => { st.ratio = v; rebuild(); touch(); })),
+        U.field('너비', U.stepper(st.width, { min: 200, max: 4000, step: 10, unit: 'px', onChange: (v) => { st.width = v; touch(); } })),
+      ]),
       RATIOS[st.ratio] ? U.el('div', { class: 'tgl-row tgl-boxed' }, [
         U.toggle('자동 분할', st.autoSplit, (v) => { st.autoSplit = v; touch(); }),
-      ]) : U.el('div', { class: 'tgl-row tgl-boxed' }, [
-        U.toggle('두 단 배치', st.columns, (v) => { st.columns = v; rebuild(); touch(); }, null,
-          '책 내지처럼 글을 두 단으로 나눠 흘립니다. 캔버스 너비는 그대로고 아래로 길어집니다'),
+      ]) : U.el('div', { class: 'field-split' }, [
+        U.field('단', U.seg(st.columns ? 'two' : 'one', [['one', '기본'], ['two', '책 내지']],
+          (v) => { st.columns = v === 'two'; rebuild(); touch(); })),
+        st.columns
+          ? U.field('단 간격', U.stepper(st.columnGap ?? 48, {
+            min: 8, max: 120, step: 4, unit: 'px', onChange: (v) => { st.columnGap = v; touch(); },
+          }))
+          : U.el('span'),
       ]),
-      (!RATIOS[st.ratio] && st.columns)
-        ? U.field('단 간격', U.stepper(st.columnGap ?? 32, {
-          min: 8, max: 120, step: 4, unit: 'px', onChange: (v) => { st.columnGap = v; touch(); },
-        }))
-        : null,
       U.el('div', {
         class: 'hint',
         text: RATIOS[st.ratio]
@@ -1017,8 +1053,8 @@ function panelCanvas(container, onChange) {
         ? U.field('맞춤', U.seg(st.bgFit, [['cover', '꽉 채움'], ['contain', '전체 보임'], ['tile', '반복']], (v) => { st.bgFit = v; touch(); }))
         : null,
       st.bgImage ? U.fieldGrid([
-        U.field('불투명도', U.stepper(st.bgOpacity, { min: 0, max: 100, step: 5, unit: '%', onChange: (v) => { st.bgOpacity = v; touch(); } })),
-        U.field('흐림', U.stepper(st.bgBlur ?? 0, { min: 0, max: 60, step: 1, unit: 'px', onChange: (v) => { st.bgBlur = v; touch(); } })),
+        U.field('불투명도', U.slider(st.bgOpacity, { min: 0, max: 100, step: 5, unit: '%', reset: 100, onChange: (v) => { st.bgOpacity = v; touch(); } })),
+        U.field('흐림', U.slider(st.bgBlur ?? 0, { min: 0, max: 60, step: 1, unit: 'px', reset: 0, onChange: (v) => { st.bgBlur = v; touch(); } })),
       ]) : null,
       st.bgImage && (st.bgAsHeader || st.bgFit === 'cover') ? U.el('div', { class: 'field-row' }, [
         U.el('div', { class: 'hint', text: '미리보기의 빈 여백을 끌면 사진에서 보이는 자리가 움직입니다.' }),
@@ -1029,6 +1065,20 @@ function panelCanvas(container, onChange) {
       ]) : null,
     ]),
     group('서명', [
+      // 꺼 두면 적어 둔 것이 있어도 그리지 않는다. 그때는 편집 칸을 접어 둔다.
+      st.signOn === false
+        ? U.el('details', { class: 'fold' }, [
+          U.el('summary', { text: '서명 내용 펼치기' }),
+          U.el('div', { class: 'fold-in' }, signFields(st, touch)),
+        ])
+        : U.el('div', { class: 'sign-fields' }, signFields(st, touch)),
+    ], U.check('사용', st.signOn !== false, (v) => { st.signOn = v; rebuild(); touch(); })),
+  ]);
+}
+
+/* 서명 편집 칸 — 켠 상태에서는 그대로, 끈 상태에서는 접어 둔다 */
+function signFields(st, touch) {
+  return [
       U.el('div', { class: 'field-row' }, [
         U.el('input', { type: 'text', value: st.signName, placeholder: '이름',
           onInput: (e) => { st.signName = e.target.value; touch(); } }),
@@ -1051,9 +1101,8 @@ function panelCanvas(container, onChange) {
         U.field('본문과 간격', U.stepper(st.signGap ?? 28, { min: 0, max: 200, step: 2, unit: 'px', onChange: (v) => { st.signGap = v; touch(); } })),
       ]),
       U.field('색상', U.color(st.signColor || '#9AA0A6', (v) => { st.signColor = v; touch(); })),
-      U.el('div', { class: 'hint', text: '둘 다 비워 두면 아무것도 그리지 않습니다. 분할하면 각 장에 함께 들어갑니다.' }),
-    ]),
-  ]);
+      U.el('div', { class: 'hint', text: '「사용」을 꺼 두거나 이름·제작자를 둘 다 비워 두면 아무것도 그리지 않습니다. 분할하면 각 장에 함께 들어갑니다.' }),
+  ];
 }
 
 /* 색상 (색 슬롯 · 코드블럭 포함) */

@@ -285,7 +285,7 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 /* 본문 사진 목록 */
 .photo-list { display: flex; flex-direction: column; gap: 5px; }
 .photo-row {
-  display: grid; grid-template-columns: 14px 40px minmax(0, 1fr) minmax(0, 1fr) 22px;
+  display: grid; grid-template-columns: 14px 40px minmax(0, 1fr) 94px 22px;
   align-items: center; gap: 7px;
   padding: 5px 6px;
   border: 1px solid var(--line); border-radius: var(--r-sm);
@@ -299,7 +299,14 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
   width: 40px; height: 30px; object-fit: cover;
   border-radius: 3px; background: var(--bg-sunken);
 }
-.photo-w .stepper { width: 100%; }
+.photo-w .stepper, .photo-r .stepper { width: 100%; }
+/* 좁은 줄에 들어가므로 슬라이더 옆 것들을 줄인다 */
+.photo-w .slider-row { gap: 5px; }
+.photo-w .slider-val { width: 30px; font-size: 11px; }
+.photo-w .slider-reset { padding: 0 5px; font-size: 10.5px; }
+.photo-r .step-input { min-width: 0; }
+.photo-r .step-btn { width: 21px; }
+.photo-r .step-unit { min-width: 0; font-size: 10px; }
 .photo-x {
   width: 22px; height: 22px; border-radius: var(--r-sm);
   color: var(--fg-3); font-size: 15px; line-height: 1;
@@ -473,6 +480,14 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .field-grid .field > label { font-size: 11px; color: var(--fg-3); }
 .field-grid .step-input { min-width: 0; }
 .field-row { display: flex; align-items: center; gap: 6px; }
+/* 한 줄에 둘 — 앞엣것이 넓게, 뒤엣것은 붙박이 너비. 이름표는 값 위에. */
+.field-split { display: flex; align-items: flex-end; gap: 10px; }
+.field-split > * { min-width: 0; }
+.field-split > :first-child { flex: 1 1 auto; }
+.field-split > :last-child { flex: 0 0 126px; }
+.field-split .field { grid-template-columns: minmax(0, 1fr); gap: 3px; }
+.field-split .field > label { font-size: 11px; color: var(--fg-3); }
+.field-split .seg-inline button { padding: 0 6px; }
 .field-row > input[type="text"] { min-width: 0; }
 
 input[type="text"], input[type="number"], select {
@@ -1215,3 +1230,17 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
 .stage.is-cols .mk-h2 { break-inside: avoid; }
 /* 단 안에서는 말풍선이 단 너비를 기준으로 잡혀야 한다 */
 .stage.is-cols .mk-chat { display: flex; }
+/* ─── 접는 칸 ───────────────────────────────── */
+.fold > summary {
+  font-size: 12px; color: var(--fg-3); cursor: pointer;
+  padding: 4px 0; list-style: none;
+}
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary::before { content: '▸ '; }
+.fold[open] > summary::before { content: '▾ '; }
+.fold > summary:hover { color: var(--fg-2); }
+.fold-in, .sign-fields { display: flex; flex-direction: column; gap: 10px; }
+.fold-in { padding-top: 8px; }
+
+/* 헤더 띠 높이를 끌 때 */
+.is-headsize, .is-headsize * { cursor: ns-resize !important; user-select: none; }

@@ -71,7 +71,7 @@ export const DEFAULT_STYLE = {
   ratio: 'auto',
   autoSplit: false,             // 비율을 정했을 때 넘치는 만큼 다음 장으로 넘긴다
   columns: false,               // 책 내지처럼 두 단으로 나눠 흘린다 (비율이 자동일 때만)
-  columnGap: 32,
+  columnGap: 48,
   padTop: 84, padRight: 84, padBottom: 84, padLeft: 84,
   padLinked: false,
 
@@ -120,6 +120,7 @@ export const DEFAULT_STYLE = {
   transparent: false,
 
   // 캔버스 아래에 남기는 한 줄 — 이름과 소속
+  signOn: true,                // 꺼 두면 적어 두었어도 그리지 않는다
   signName: '',
   signOrg: '',
   signSep: 'dot',              // dot 가운데점 / bar 세로줄
