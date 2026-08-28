@@ -1249,7 +1249,7 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
 .fold > summary::before { content: '▸ '; }
 .fold[open] > summary::before { content: '▾ '; }
 .fold > summary:hover { color: var(--fg-2); }
-.fold-in, .sign-fields { display: flex; flex-direction: column; gap: 10px; }
+.fold-in, .sign-fields, .fold-body { display: flex; flex-direction: column; gap: 9px; }
 .fold-in { padding-top: 8px; }
 
 /* 헤더 띠 높이를 끌 때 */

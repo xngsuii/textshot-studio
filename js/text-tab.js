@@ -1091,9 +1091,12 @@ function signGroup(st, touch, rebuild) {
   // 토글을 눌렀다고 묶음이 접히면 안 된다
   sw.addEventListener('click', (e) => e.stopPropagation());
 
+  /* details 는 요약 아래의 것들을 익명 상자 하나로 묶는다. 그대로 두면
+     묶음의 flex gap 이 그 상자 하나에만 걸려 안쪽 칸들이 다닥다닥 붙는다.
+     감싸는 칸을 하나 두어 그 안에서 다시 벌린다. */
   const det = U.el('details', { class: 'grp fold-grp' }, [
     U.el('summary', { class: 'grp-t' }, [U.el('span', { text: '서명' }), sw]),
-    ...signFields(st, touch),
+    U.el('div', { class: 'fold-body' }, signFields(st, touch)),
   ]);
   det.open = on;
   return det;
