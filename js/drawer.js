@@ -21,9 +21,16 @@ function viewport() {
   return { h: v ? v.height : window.innerHeight, top: v ? v.offsetTop : 0 };
 }
 
+/* 다 올렸을 때는 맨 위 이름줄만 남긴다 — 그 아래 미리보기 줄까지 덮는다. */
+function fullHeight(h) {
+  const bar = document.querySelector('.topbar');
+  const barH = bar ? Math.round(bar.getBoundingClientRect().height) : 44;
+  return Math.max(MIN_H, h - barH);
+}
+
 function snapHeights() {
   const { h } = viewport();
-  return { peek: PEEK, half: Math.round(h * 0.45), full: Math.round(h * 0.88) };
+  return { peek: PEEK, half: Math.round(h * 0.45), full: fullHeight(h) };
 }
 
 function place(height) {

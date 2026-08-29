@@ -22,6 +22,11 @@ import * as U from './ui.js';
 const srcEl = () => document.getElementById('src');
 const clone = (o) => JSON.parse(JSON.stringify(o));
 
+/* 책 내지(2단)로 바꿀 때 맞춰 주는 캔버스 너비 */
+const BOOK_WIDTH = 1400;
+/* 예전 기본 단 간격. 손대지 않은 채 남아 있으면 지금 기본값으로 올린다. */
+const OLD_COL_GAP = 48;
+
 /* 스킨 고르는 칸. 알아볼 만한 색 셋만 칩으로 보여 준다.
    「그대로 둠」인 자리는 지금 프로필의 색을 보여 주고,
    보여 줄 프로필이 없으면 빗금 친 칩으로 「안 건드림」을 나타낸다. */
@@ -132,7 +137,7 @@ function applyStyle(stage) {
   const cols = !!st.columns && !RATIOS[st.ratio];
   Object.assign(inner.style, cols
     ? { display: 'block', flexDirection: '', gap: '',
-      columnCount: '2', columnGap: (st.columnGap ?? 48) + 'px' }
+      columnCount: '2', columnGap: (st.columnGap ?? 64) + 'px' }
     : { display: 'flex', flexDirection: 'column', gap: st.paraGap + 'px',
       columnCount: '', columnGap: '' });
   stage.style.setProperty('--sq', String(k));
@@ -1018,9 +1023,17 @@ function panelCanvas(container, onChange) {
         U.toggle('자동 분할', st.autoSplit, (v) => { st.autoSplit = v; touch(); }),
       ]) : U.el('div', { class: 'field-split' }, [
         U.field('단', U.seg(st.columns ? 'two' : 'one', [['one', '기본(1단)'], ['two', '책 내지(2단)']],
-          (v) => { st.columns = v === 'two'; rebuild(); touch(); })),
+          (v) => {
+            st.columns = v === 'two';
+            // 두 단은 좁은 캔버스에서 글줄이 너무 짧아진다. 책 내지 폭까지 넓혀 준다.
+            if (st.columns) {
+              if (st.width < BOOK_WIDTH) st.width = BOOK_WIDTH;
+              if (st.columnGap === OLD_COL_GAP) st.columnGap = DEFAULT_STYLE.columnGap;
+            }
+            rebuild(); touch();
+          })),
         st.columns
-          ? U.field('단 간격', U.stepper(st.columnGap ?? 48, {
+          ? U.field('단 간격', U.stepper(st.columnGap ?? 64, {
             min: 8, max: 120, step: 4, unit: 'px', plain: true, onChange: (v) => { st.columnGap = v; touch(); },
           }))
           : U.el('span'),

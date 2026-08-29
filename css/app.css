@@ -993,22 +993,14 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
   }
   .src-code { font-size: 15px; }
 
-  /* 도구막대 — 두 줄. 자주 쓰는 서식·색·프로필이 첫째 줄, 제목부터가
-     둘째 줄. 각 줄은 따로 옆으로 흐른다. 한 줄로 몰면 뒤쪽 버튼까지
-     스크롤하기가 번거롭다. */
+  /* 도구막대 — PC 와 같이 서식·프로필·제목 세 줄. 각 줄은 따로 옆으로
+     흐른다. 한 줄로 몰면 뒤쪽 버튼까지 스크롤하기가 번거롭다. */
   .fmt-bar { padding: 6px 10px; gap: 5px; }
-  .fmt-line {
-    display: flex; align-items: center; gap: 0;
+  .fmt-row {
+    flex: none; flex-wrap: nowrap;
     overflow-x: auto; scrollbar-width: none; touch-action: pan-x;
   }
-  .fmt-line::-webkit-scrollbar { display: none; }
-  .fmt-row-block { overflow-x: auto; scrollbar-width: none; touch-action: pan-x; }
-  .fmt-row-block::-webkit-scrollbar { display: none; }
-  .fmt-row { flex: none; flex-wrap: nowrap; }
-  .fmt-line .fmt-row + .fmt-row {
-    margin-left: 6px; padding-left: 8px;
-    border-left: 1px solid var(--line);
-  }
+  .fmt-row::-webkit-scrollbar { display: none; }
   .fmt-btn, .fmt-tag, .fmt-group, .clear-pair { flex: none; }
   .fmt-spacer { display: none; }
   .fmt-btn { height: 32px; padding: 0 10px; font-size: 13px; }
