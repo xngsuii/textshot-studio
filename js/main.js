@@ -13,7 +13,7 @@ import { toast } from './ui.js';
 /* index.html 의 app-version 과 짝을 이룬다. 브라우저가 둘 중 하나만 새로
    받으면 화면은 새것인데 동작은 옛것인 상태가 되어 원인 찾기가 어렵다.
    어긋나면 하단에 알려 준다. 고칠 때 두 값을 같이 올릴 것. */
-const APP_VERSION = '39';
+const APP_VERSION = '40';
 
 const $ = (id) => document.getElementById(id);
 
@@ -92,10 +92,10 @@ function sliderOfZoom(z, fit) {
   return Math.round(Math.max(0, Math.min(1, (z - fit) / (1 - fit))) * 100);
 }
 
-function paintZoomRange(z) {
+function paintZoomRange(z, fit) {
   const el = $('zoomRange');
   if (!el) return;
-  const v = state.zoom === 'fit' ? 0 : sliderOfZoom(z, fitScale());
+  const v = state.zoom === 'fit' ? 0 : sliderOfZoom(z, fit ?? fitScale());
   el.value = String(v);
   el.style.setProperty('--fill', `${v}%`);
 }
@@ -109,7 +109,7 @@ function showZoom(z) {
   el.textContent = state.zoom === 'fit' ? '' : `${Math.round(z * 100)}%`;
 }
 
-function setZoom(z) {
+function setZoom(z, fit) {
   const clamped = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
   state.zoom = clamped;
   applyScale(clamped);
@@ -117,7 +117,49 @@ function setZoom(z) {
     b.classList.toggle('is-active', parseFloat(b.dataset.zoom) === clamped);
   });
   showZoom(clamped);
-  paintZoomRange(clamped);
+  paintZoomRange(clamped, fit);
+}
+
+/* 맞춤으로 되돌린다 — 미끄럼대 왼쪽 끝과 같은 자리다. */
+function setFit() {
+  state.zoom = 'fit';
+  document.querySelectorAll('#zoomSeg .seg-btn')
+    .forEach(b => b.classList.toggle('is-active', b.dataset.zoom === 'fit'));
+  applyZoom();
+}
+
+/* 두 손가락으로 오므리고 펴서 배율을 바꾼다. 그냥 두면 브라우저 제 줌이
+   끼어들어 화면 전체가 커져 버리므로, 이 손짓은 여기서 가로챈다.
+   맞춤 배율에서 100% 까지 — 미끄럼대와 같은 범위 안에서만 움직인다. */
+function bindPinchZoom() {
+  const box = scroller();
+  const gap = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+  let base = 0;   // 손을 댄 순간의 두 손가락 사이
+  let from = 1;   // 그때의 배율
+  let fit = 1;    // 그때의 맞춤 배율 — 손짓 도중에는 다시 재지 않는다
+
+  box.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 2) { base = 0; return; }
+    base = gap(e.touches);
+    from = currentZoom();
+    fit = fitScale();
+  }, { passive: true });
+
+  box.addEventListener('touchmove', (e) => {
+    if (!base || e.touches.length !== 2) return;
+    e.preventDefault();
+    const z = Math.min(ZOOM_MAX, Math.max(fit, from * (gap(e.touches) / base)));
+    if (z <= fit + 0.002) { if (state.zoom !== 'fit') setFit(); } else setZoom(z, fit);
+  }, { passive: false });
+
+  const done = (e) => { if (e.touches.length < 2) base = 0; };
+  box.addEventListener('touchend', done, { passive: true });
+  box.addEventListener('touchcancel', done, { passive: true });
+
+  /* 사파리는 touch-action 을 무시하고 제 줌을 밀어붙인다. 그 손짓만 막는다. */
+  for (const t of ['gesturestart', 'gesturechange', 'gestureend']) {
+    box.addEventListener(t, (e) => e.preventDefault());
+  }
 }
 
 async function renderNow() {
@@ -310,6 +352,7 @@ function boot() {
   TextTab.bindBgDrag(host(), scheduleRender);
   TextTab.bindImageDrag(host(), scheduleRender);
   TextTab.bindPreviewJump(host());
+  bindPinchZoom();
   TextTab.bindDropImport(scheduleRender, () => TextTab.buildSettings($('textSettings'), scheduleRender));
   HtmlTab.bindEditor(scheduleRender);
   HtmlTab.buildSettings($('htmlSettings'), scheduleRender);
@@ -361,12 +404,7 @@ function boot() {
 
   $('zoomRange').addEventListener('input', (e) => {
     const v = parseInt(e.target.value, 10);
-    if (v <= 0) {
-      state.zoom = 'fit';
-      document.querySelectorAll('#zoomSeg .seg-btn').forEach(b => b.classList.toggle('is-active', b.dataset.zoom === 'fit'));
-      applyZoom();
-      return;
-    }
+    if (v <= 0) { setFit(); return; }
     setZoom(zoomOfSlider(v, fitScale()));
   });
 
