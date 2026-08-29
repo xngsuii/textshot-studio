@@ -1012,7 +1012,7 @@ function panelCanvas(container, onChange) {
     group('크기 · 단', [
       U.el('div', { class: 'field-split' }, [
         U.field('비율', U.seg(st.ratio, RATIO_ORDER.map(r => [r, RATIO_LABEL[r] || r]), (v) => { st.ratio = v; rebuild(); touch(); })),
-        U.field('너비', U.stepper(st.width, { min: 200, max: 4000, step: 10, unit: 'px', onChange: (v) => { st.width = v; touch(); } })),
+        U.field('너비', U.stepper(st.width, { min: 200, max: 4000, step: 10, unit: 'px', plain: true, onChange: (v) => { st.width = v; touch(); } })),
       ]),
       RATIOS[st.ratio] ? U.el('div', { class: 'tgl-row tgl-boxed' }, [
         U.toggle('자동 분할', st.autoSplit, (v) => { st.autoSplit = v; touch(); }),
@@ -1021,7 +1021,7 @@ function panelCanvas(container, onChange) {
           (v) => { st.columns = v === 'two'; rebuild(); touch(); })),
         st.columns
           ? U.field('단 간격', U.stepper(st.columnGap ?? 48, {
-            min: 8, max: 120, step: 4, unit: 'px', onChange: (v) => { st.columnGap = v; touch(); },
+            min: 8, max: 120, step: 4, unit: 'px', plain: true, onChange: (v) => { st.columnGap = v; touch(); },
           }))
           : U.el('span'),
       ]),

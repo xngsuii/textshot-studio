@@ -84,8 +84,9 @@ export function slider(value, { min, max, step = 1, unit = '', reset, onChange }
   return el('div', { class: 'slider-row' }, [input, out, btn]);
 }
 
-/* 숫자 입력 + 증감 버튼. 직접 타이핑도 되고 버튼은 step 만큼 움직인다. */
-export function stepper(value, { min, max, step = 1, decimals = 0, unit = '', onChange }) {
+/* 숫자 입력 + 증감 버튼. 직접 타이핑도 되고 버튼은 step 만큼 움직인다.
+   plain 을 주면 좁은 화면에서 −/+ 를 감추고 숫자 칸에 자리를 내준다. */
+export function stepper(value, { min, max, step = 1, decimals = 0, unit = '', plain = false, onChange }) {
   const fmt = (v) => (decimals ? v.toFixed(decimals) : String(v));
   let cur = value;
 
@@ -105,7 +106,7 @@ export function stepper(value, { min, max, step = 1, decimals = 0, unit = '', on
     cur = v; input.value = fmt(v); onChange(v);
   };
 
-  return el('div', { class: 'stepper' }, [
+  return el('div', { class: plain ? 'stepper stepper-plain' : 'stepper' }, [
     el('button', { type: 'button', class: 'step-btn', text: '−', title: `− ${step}`, onClick: () => bump(-step) }),
     input,
     el('button', { type: 'button', class: 'step-btn', text: '+', title: `+ ${step}`, onClick: () => bump(step) }),

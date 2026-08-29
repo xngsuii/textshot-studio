@@ -16,9 +16,9 @@
 <!-- Pretendard 는 js/fonts.js 가 불러온다. dynamic-subset 판은 @font-face 가 300개 가까이라
      캡쳐할 때 그 폰트 조각을 전부 내려받느라 멈춘다. 통짜 variable 판 하나만 쓴다. -->
 <!-- ?v= 를 올리면 브라우저가 새로 받는다. js/main.js 의 APP_VERSION 과 같이 올릴 것 -->
-<link rel="stylesheet" href="css/tokens.css?v=40">
-<link rel="stylesheet" href="css/app.css?v=40">
-<meta name="app-version" content="40">
+<link rel="stylesheet" href="css/tokens.css?v=41">
+<link rel="stylesheet" href="css/app.css?v=41">
+<meta name="app-version" content="41">
 <script src="vendor/jszip.min.js" defer></script>
 </head>
 <body>
@@ -82,12 +82,11 @@
             <button class="fmt-btn" data-line="---" title="구분선">— 구분선</button>
             <button class="fmt-btn fmt-split" data-line="===" title="분할선">✂ 분할선</button>
           </div>
-          <div class="fmt-spacer"></div>
-          <span class="fmt-tag">지우기</span>
-          <div class="clear-pair">
-            <button class="fmt-btn" id="stripText" title="선택한 곳(없으면 전체)의 서식 마커를 걷어냅니다">서식</button>
-            <button class="fmt-btn is-danger" id="clearText" title="서식 설정은 두고 내용만 지웁니다">내용</button>
+          <div class="fmt-group clear-pair">
+            <button class="fmt-btn" id="stripText" title="선택한 곳(없으면 전체)의 서식 마커를 걷어냅니다">서식 삭제</button>
+            <button class="fmt-btn is-danger" id="clearText" title="서식 설정은 두고 내용만 지웁니다">내용 삭제</button>
           </div>
+          <div class="fmt-spacer"></div>
         </div>
       </div>
 
@@ -107,11 +106,10 @@
     <div class="tabpane" data-pane="html">
       <div class="fmt-bar">
         <div class="fmt-row">
-          <div class="fmt-spacer"></div>
-          <span class="fmt-tag">지우기</span>
-          <div class="clear-pair">
-            <button class="fmt-btn is-danger" id="clearHtml">내용</button>
+          <div class="fmt-group clear-pair">
+            <button class="fmt-btn is-danger" id="clearHtml">내용 삭제</button>
           </div>
+          <div class="fmt-spacer"></div>
         </div>
       </div>
       <textarea id="htmlSrc" class="src src-code" spellcheck="false" placeholder="&lt;style&gt;
@@ -167,6 +165,6 @@
 
 <div class="toast" id="toast" hidden></div>
 
-<script type="module" src="js/main.js?v=40"></script>
+<script type="module" src="js/main.js?v=41"></script>
 </body>
 </html>
