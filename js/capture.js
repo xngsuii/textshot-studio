@@ -2,8 +2,8 @@
    나중에 서버리스 렌더링으로 갈아끼울 수 있도록 이 파일만 교체하면 되게 둔다. */
 
 import { domToCanvas } from '../vendor/modern-screenshot.js';
-import { embed as embedMeta } from './png-meta.js';
-import { fontsReady } from './fonts.js';
+import { embed as embedMeta } from './png-meta.js?v=50';
+import { fontsReady } from './fonts.js?v=50';
 
 const MIME = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp' };
 

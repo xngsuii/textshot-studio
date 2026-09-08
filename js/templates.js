@@ -1,9 +1,11 @@
 /* 템플릿 — 스타일과 말풍선 프로필을 한 묶음으로 이름 붙여 저장/덮어쓰기.
    자동 서식 on/off 는 템플릿에 넣지 않는다 (전역 설정). */
 
-import { state, templates, persistTemplates, DEFAULT_STYLE, templatePhotoCount } from './store.js';
-import { el, toast } from './ui.js';
-import { downloadBlob } from './capture.js';
+import {
+  state, templates, persistTemplates, DEFAULT_STYLE, templatePhotoCount, normalizeColumns,
+} from './store.js?v=50';
+import { el, toast } from './ui.js?v=50';
+import { downloadBlob } from './capture.js?v=50';
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
 
@@ -55,6 +57,7 @@ export function buildTemplateSection(onApply, rerender) {
             const { style, profiles } = unpack(templates[name]);
             if (!okToSwapProfiles(name, profiles)) return;
             Object.assign(state.text.style, clone(style));
+            normalizeColumns(state.text.style);
             if (profiles && profiles.length) state.text.profiles = clone(profiles);
             state.activeTemplate = name;
             onApply();

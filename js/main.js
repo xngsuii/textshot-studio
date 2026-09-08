@@ -1,19 +1,19 @@
 /* 부팅 · 탭 전환 · 미리보기 갱신 · 저장 */
 
-import { state, loadAll, saveSoon, fontById } from './store.js';
-import * as TextTab from './text-tab.js';
-import * as HtmlTab from './html-tab.js';
-import * as Capture from './capture.js';
-import { nodeToBlob, downloadMany, copyToClipboard, shareBlobs } from './capture.js';
-import { buildPayload } from './doc-io.js';
-import { ensureFont } from './fonts.js';
-import { initDrawer, initDrawerModes, isMobile } from './drawer.js';
-import { toast } from './ui.js';
+import { state, loadAll, saveSoon, fontById } from './store.js?v=50';
+import * as TextTab from './text-tab.js?v=50';
+import * as HtmlTab from './html-tab.js?v=50';
+import * as Capture from './capture.js?v=50';
+import { nodeToBlob, downloadMany, copyToClipboard, shareBlobs } from './capture.js?v=50';
+import { buildPayload } from './doc-io.js?v=50';
+import { ensureFont } from './fonts.js?v=50';
+import { initDrawer, initDrawerModes, isMobile } from './drawer.js?v=50';
+import { toast } from './ui.js?v=50';
 
 /* index.html 의 app-version 과 짝을 이룬다. 브라우저가 둘 중 하나만 새로
    받으면 화면은 새것인데 동작은 옛것인 상태가 되어 원인 찾기가 어렵다.
    어긋나면 하단에 알려 준다. 고칠 때 두 값을 같이 올릴 것. */
-const APP_VERSION = '43';
+const APP_VERSION = '50';
 
 const $ = (id) => document.getElementById(id);
 
@@ -225,7 +225,8 @@ async function collectBlobs() {
     const box = offscreen();
     try {
       const parts = TextTab.buildExportStages();
-      parts.forEach(p => box.appendChild(p.stage));
+      // 각주는 자리를 재야 앉으므로 판을 붙인 뒤에 부른다
+      parts.forEach((p) => { box.appendChild(p.stage); TextTab.layoutFootnotes(p.stage); });
       const blobs = [];
       let s = scale;
       for (const p of parts) s = Math.min(s, Capture.fitScale(p.stage, scale));
@@ -280,7 +281,7 @@ async function doSave() {
     // 폰에서는 공유 시트가 먼저다. 사진첩 저장도 거기서 고른다.
     let msg;
     if (isMobile() && await shareBlobs(blobs, state.output.filename, ext)) {
-      msg = blobs.length > 1 ? `${blobs.length}장 공유` : '공유 시트를 열었습니다';
+      msg = blobs.length > 1 ? `${blobs.length}장 저장했습니다` : '저장했습니다';
     } else {
       msg = await downloadMany(blobs, state.output.filename, ext);
     }
@@ -456,4 +457,15 @@ function boot() {
   setTab(state.tab);
 }
 
-boot();
+/* 시작하다 넘어지면 화면이 통째로 비어 무엇이 잘못됐는지 알 길이 없다.
+   막대에 적어 두고, 자세한 것은 콘솔로 넘긴다. */
+try {
+  boot();
+} catch (e) {
+  console.error(e);
+  const el = document.getElementById('statusMsg');
+  if (el) {
+    el.textContent = `시작하지 못했습니다: ${e.message} — 새로고침(Ctrl+Shift+R)해 보세요`;
+    el.className = 'status-msg is-warn';
+  }
+}

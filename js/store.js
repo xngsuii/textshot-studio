@@ -62,7 +62,7 @@ export const DEFAULT_STYLE = {
   fontSize: 15,
   lineHeight: 1.7,
   letterSpacing: 0,
-  align: 'left',
+  align: 'left',                // left | center | right | justify
   paraGap: 5,
   squeeze: 100,                 // 장평 % — 100 이면 글자를 그대로 둔다
   breakMode: 'word',            // word: 단어 단위 / char: 글자 단위
@@ -70,7 +70,7 @@ export const DEFAULT_STYLE = {
   width: 800,
   ratio: 'auto',
   autoSplit: false,             // 비율을 정했을 때 넘치는 만큼 다음 장으로 넘긴다
-  columns: false,               // 책 내지처럼 두 단으로 나눠 흘린다 (비율이 자동일 때만)
+  columns: 1,                   // 1 한 단 / 2 책 내지 / 4 잡지 (비율이 자동일 때만)
   columnGap: 64,
   padTop: 84, padRight: 84, padBottom: 84, padLeft: 84,
   padLinked: false,
@@ -87,10 +87,17 @@ export const DEFAULT_STYLE = {
   bgHeaderH: 220,
 
   fg: '#1A1A1A',
+  fnColor: '#8A8F98',           // 각주 글씨
   actionColor: '#8A8F98',
   quoteColor: '#1F5D8C',
   parenColor: '#B0B4B8',
   dividerColor: '#D8D8D8',
+  dividerStyle: 'line',         // line 직선 / fade 양끝 흐림 / dots 점
+
+  /* 제목·부제목만 따로. 빈 값이면 본문을 그대로 따라간다.
+     크기는 본문 글자 크기의 몇 배인지로 둔다 — 본문을 키우면 같이 커진다. */
+  h1Font: '', h1Size: 1.6, h1Align: '', h1Bold: true,
+  h2Font: '', h2Size: 1.22, h2Align: '', h2Bold: false,
   headingColor: '#111417',
   bqColor: '#14746F',
   hlColor: '#FFE9A3',
@@ -105,6 +112,8 @@ export const DEFAULT_STYLE = {
   ],
 
   // 말풍선 공통 모양 (이름·사진 표시 여부는 프로필마다 따로)
+  bqBar: 3,                    // 인용구 왼쪽 막대 두께 px
+
   bubbleStyle: 'round',        // round 기본 / tail 꼬리 / corner 모서리만 뾰족
   avatarShape: 'square',       // square 라운드 사각 / circle 원형
   avatarSize: 100,             // 프로필 사진 크기 % — 100 이면 글자 크기의 2.5배
@@ -133,6 +142,15 @@ export const DEFAULT_STYLE = {
 };
 
 export const MAX_SLOTS = 5;
+
+/* 단 수 — 예전에는 참/거짓 하나로 두 단 여부만 두었다. */
+export const COLUMN_CHOICES = [1, 2, 4];
+export function normalizeColumns(st) {
+  if (!st) return;
+  if (typeof st.columns === 'boolean') st.columns = st.columns ? 2 : 1;
+  const n = Number(st.columns);
+  st.columns = COLUMN_CHOICES.includes(n) ? n : 1;
+}
 
 /* 이름표 기본색. 예전에는 본문색을 62% 로 흐리게 깔았는데 그 결과와 비슷한 회색이다. */
 export const NAME_COLOR = '#717171';
@@ -288,6 +306,7 @@ export const state = {
     formats: clone(DEFAULT_FORMATS),
     style: clone(DEFAULT_STYLE),
     images: [],          // { id, data, width }  본문에 [[img:id]] 로 자리를 잡는다
+    notes: [],           // { id, text }         본문에 [[fn:id]] 로 자리를 잡는다
     profiles: clone(DEFAULT_PROFILES),
   },
   html: {
@@ -319,10 +338,14 @@ export function loadAll() {
         }
         Object.assign(state.text.formats, d.text.formats || {});
         Object.assign(state.text.style, d.text.style || {});
+        normalizeColumns(state.text.style);
         state.text.style.slots = normalizeSlots(state.text.style.slots ?? d.text.style?.colorSlots);
         delete state.text.style.colorSlots;
         // A4·A5·B5 를 쓰던 설정은 자동으로 되돌린다
         if (!(state.text.style.ratio in RATIOS)) state.text.style.ratio = 'auto';
+        state.text.notes = (Array.isArray(d.text.notes) ? d.text.notes : [])
+          .filter(n => n && typeof n.id === 'string')
+          .map(n => ({ id: n.id, text: String(n.text ?? '') }));
         state.text.images = (Array.isArray(d.text.images) ? d.text.images : [])
           .map(im => ({ ...im, data: unpackPic(im.data) }))
           .filter(im => im.data);

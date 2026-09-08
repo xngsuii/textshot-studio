@@ -48,6 +48,8 @@ function inline(raw, f, o = {}) {
   let s = esc(raw);
 
   s = s.replace(/\{c([1-5])\s+([^{}]*)\}/g, (_m, n, inner) => `<span class='mk-c${n}'>${inner}</span>`);
+  // 각주 표. 번호는 장마다 다시 매기므로 여기서는 자리만 잡아 둔다.
+  s = s.replace(FN_RE, (_m, id) => `<sup class='mk-fn-mark' data-fn='${id}'></sup>`);
 
   if (f.highlight) s = s.replace(/==([^=]+)==/g, "<mark class='mk-hl'>$1</mark>");
   // 말풍선 안에서는 따옴표 기호를 감출 수 있다. 색은 그대로 입힌다.
@@ -135,6 +137,15 @@ function imgTag(im) {
   return `<img class='mk-img' data-img='${attr(im.id)}' src="${im.data}" style='${css.join(';')}' alt=''>`;
 }
 const imgLine = (t) => (t.match(/^\[\[img:([a-z0-9]+)\]\]$/) || [])[1];
+
+/* 각주 표 — 글 안 아무 자리에나 들어간다 */
+export const FN_RE = /\[\[fn:([a-z0-9]+)\]\]/g;
+export function noteOrder(source) {
+  return [...String(source).matchAll(FN_RE)].map(m => m[1]);
+}
+export function removeNoteMarker(source, id) {
+  return String(source).replace(new RegExp(`\[\[fn:${id}\]\]`, 'g'), '');
+}
 
 /* opts: { formats, images, profiles, chat }
    lineOffset 은 원문에서 이 조각이 시작하는 줄 번호. 미리보기에서 말풍선을
@@ -236,7 +247,7 @@ export function renderChunk(chunk, opts = {}, lineOffset = 0) {
     }
 
     if (t === '') { out.push("<div class='mk-blank'></div>"); i++; return; }
-    if (f.divider && /^-{3,}$/.test(t)) { out.push("<hr class='mk-divider'>"); i++; return; }
+    if (f.divider && /^-{3,}$/.test(t)) { out.push("<div class='mk-divider' role='separator'></div>"); i++; return; }
 
     if (f.heading && /^##\s+/.test(t)) {
       out.push(`<p class='mk-h2'>${inline(t.replace(/^##\s+/, ''), f)}</p>`); i++; return;
@@ -353,6 +364,7 @@ export function stripMarkers(text) {
     .map((line) => line
       .replace(/^\s*#{1,2}\s+/, '')
       .replace(/^\s*>[1-5]?\s?/, '')
+      .replace(/\[\[fn:[a-z0-9]+\]\]/g, '')
       .replace(/\{c[1-5]\s+([^{}]*)\}/g, '$1')
       .replace(/==([^=]+)==/g, '$1')
       .replace(/\*\*([^*]+)\*\*/g, '$1')

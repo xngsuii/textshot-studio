@@ -4,7 +4,7 @@
    source:'local' → assets/fonts/ 의 woff2 로 @font-face 주입.
                     파일이 없으면 조용히 실패하므로 availability 로 확인한다.
 */
-import { FONTS, fontById } from './store.js';
+import { FONTS, fontById } from './store.js?v=50';
 
 const loaded = new Set();
 

@@ -1,5 +1,8 @@
 /* ─── reset ─────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
+/* hidden 은 어떤 display 보다 세야 한다. .seg 처럼 display 를 정한 것이
+   있으면 브라우저 기본값이 밀려서 숨긴 것이 그대로 보인다. */
+[hidden] { display: none !important; }
 html, body { height: 100%; }
 /* 글자를 골랐을 때 — 브라우저 기본 파랑 대신 이 사이트의 청록 */
 ::selection { background: rgba(20, 116, 111, .24); color: var(--fg); }
@@ -299,6 +302,25 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 }
 
 /* 본문 사진 목록 */
+/* 각주 목록 */
+.fn-list { display: flex; flex-direction: column; gap: 5px; }
+.fn-row {
+  display: flex; align-items: center; gap: 7px;
+  padding: 5px 6px;
+  border: 1px solid var(--line); border-radius: var(--r-sm);
+  background: var(--bg);
+}
+.fn-pg {
+  flex: none; font-size: 10px; font-weight: 700; color: var(--fg-3);
+  padding: 2px 5px; border-radius: 999px; background: var(--bg-sunken);
+}
+.fn-no {
+  flex: none; min-width: 14px; text-align: center;
+  font-size: 11px; font-weight: 700; color: var(--accent);
+  font-family: var(--mono);
+}
+.fn-text { flex: 1 1 auto; min-width: 0; height: 26px; font-size: 12.5px; }
+
 .photo-list { display: flex; flex-direction: column; gap: 5px; }
 .photo-row {
   display: grid; grid-template-columns: 14px 40px minmax(0, 1fr) 94px 22px;
@@ -505,6 +527,29 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .field-split .field { grid-template-columns: minmax(0, 1fr); gap: 3px; }
 .field-split .field > label { font-size: 11px; color: var(--fg-3); }
 .field-split .seg-inline button { padding: 0 6px; }
+/* 구분선 고르개 — 글자 대신 그 모양을 작게 그려 보여 준다.
+   색은 currentColor 라 고른 칸(검은 바탕)에서도 그대로 보인다. */
+.divp { display: block; width: 34px; height: 14px; margin: 0 auto; position: relative; color: var(--fg-2); }
+.seg-inline button.is-active .divp { color: inherit; }
+.divp::after { content: ''; position: absolute; top: 50%; left: 0; right: 0; border-top: 1px solid currentColor; }
+.divp-fade::after {
+  border: 0; height: 1px; top: calc(50% - .5px);
+  background: linear-gradient(90deg, transparent, currentColor 25%, currentColor 75%, transparent);
+}
+.divp-dots::after {
+  border: 0; height: 4px; top: calc(50% - 2px);
+  background-image: radial-gradient(circle at center, currentColor 1.5px, transparent 1.7px);
+  background-size: 5.6px 4px; background-repeat: repeat-x;
+}
+.divp-bar::after {
+  border: 0; height: 3px; top: calc(50% - 1.5px);
+  left: 50%; right: auto; width: 14px; transform: translateX(-50%);
+  border-radius: 1.5px; background: currentColor;
+}
+.divp-slash::after { display: none; }
+.divp-slash svg { position: absolute; inset: 0; margin: auto; width: 9px; height: 14px; display: block; }
+/* 세 칸짜리 고르개 — 좁은 자리에 들어가게 더 줄인다 */
+.seg-tight .seg-inline button { padding: 0 3px; font-size: 11px; letter-spacing: -.02em; }
 .field-row > input[type="text"] { min-width: 0; }
 
 input[type="text"], input[type="number"], select {
@@ -732,20 +777,60 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .mk-action { color: var(--c-action, #8A8F98); }
 .mk-quote  { color: var(--c-quote, #1F5D8C); }
 .mk-paren  { color: var(--c-paren, #B0B4B8); }
-.mk-divider {
-  border: 0; border-top: 1px solid var(--c-divider, #D8D8D8);
-  margin: .4em 0; width: 100%;
+/* 구분선 — 한 발췌에 한 가지 모양만 쓴다. 스테이지에 걸린 div-* 가 고른다. */
+.mk-divider { border: 0; margin: .4em 0; width: 100%; height: 0; }
+.stage.div-line .mk-divider { border-top: 1px solid var(--c-divider, #D8D8D8); }
+/* 양끝이 스르르 사라지는 선 */
+.stage.div-fade .mk-divider {
+  height: 1px; margin: .9em 0;
+  background: linear-gradient(90deg,
+    transparent, var(--c-divider, #D8D8D8) 22%, var(--c-divider, #D8D8D8) 78%, transparent);
 }
+/* 점 여섯 — 칸 하나가 1em 이고 여섯 칸만 그린다. 글자 크기를 따라 커진다. */
+.stage.div-dots .mk-divider {
+  height: .5em; width: 6em; margin: .9em auto;
+  background-image: radial-gradient(circle at center,
+    var(--c-divider, #D8D8D8) .17em, transparent calc(.17em + 1px));
+  background-size: 1em .5em;
+  background-repeat: repeat-x;
+}
+/* 가운데 짧은 막대 — 선보다 굵고 조금 진하게 */
+.stage.div-bar .mk-divider {
+  height: .22em; width: 2.4em; margin: 1em auto;
+  border-radius: .11em;
+  background: var(--c-divider, #D8D8D8);
+  background: color-mix(in srgb, var(--c-divider, #D8D8D8), #000 30%);
+}
+/* 빗금 하나 — 가운데에 ╱. 대각선은 그러데이션으로 그리면 가장자리가
+   자글거려서 그림(SVG)으로 긋는다. 색은 currentColor 를 따라간다. */
+.stage.div-slash .mk-divider {
+  height: 1.3em; width: .85em; margin: .7em auto;
+  color: var(--c-divider, #D8D8D8);
+  color: color-mix(in srgb, var(--c-divider, #D8D8D8), #000 30%);
+}
+.mk-divider svg { display: block; width: 100%; height: 100%; overflow: visible; }
 
-/* 제목 */
-.mk-h1 { margin: 0; font-size: 1.6em; font-weight: 700; line-height: 1.35; color: var(--c-heading, inherit); }
-/* 부제목은 크기로만 구분한다. 굵기는 본문을 그대로 따라간다. */
-.mk-h2 { margin: 0; font-size: 1.22em; font-weight: inherit; line-height: 1.4; color: var(--c-heading, inherit); }
+/* 제목 — 폰트·크기·정렬·굵기를 본문과 따로 정할 수 있다.
+   빈 값이면 inherit 가 들어가 본문을 그대로 따라간다. */
+.mk-h1 {
+  margin: 0; line-height: 1.35; color: var(--c-heading, inherit);
+  font-family: var(--h1-font, inherit);
+  font-size: var(--h1-size, 1.6em);
+  font-weight: var(--h1-weight, 700);
+  text-align: var(--h1-align, inherit);
+}
+.mk-h2 {
+  margin: 0; line-height: 1.4; color: var(--c-heading, inherit);
+  font-family: var(--h2-font, inherit);
+  font-size: var(--h2-size, 1.22em);
+  font-weight: var(--h2-weight, inherit);
+  text-align: var(--h2-align, inherit);
+}
 
 /* 인용구 — > 뒤에 번호를 붙이면 그 색 슬롯을 쓴다 */
 .mk-bq {
   margin: 0;
-  border-left: 4px solid var(--c-bq, #14746F);
+  border-left: var(--bq-bar, 3px) solid var(--c-bq, #14746F);
   padding: .1em 0 .1em .9em;
   color: var(--c-bq, #14746F);
   display: flex; flex-direction: column; gap: .25em;
@@ -755,6 +840,23 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .mk-bq3 { border-left-color: var(--c-slot3); color: var(--c-slot3); }
 .mk-bq4 { border-left-color: var(--c-slot4); color: var(--c-slot4); }
 .mk-bq5 { border-left-color: var(--c-slot5); color: var(--c-slot5); }
+
+/* 각주 — 본문에는 작은 번호만, 설명은 그 장(여러 단이면 그 단) 바닥에 */
+.mk-fn-mark {
+  font-size: .62em; line-height: 0; vertical-align: super;
+  padding: 0 .12em; color: var(--c-fn, #8A8F98); font-weight: 600;
+}
+.mk-fns {
+  display: flex; flex-direction: column; gap: .3em;
+  margin-top: 1.5em; padding-top: .55em;
+  border-top: 1px solid var(--c-divider, #D8D8D8);
+  font-size: .72em; line-height: 1.55; text-align: left;
+  color: var(--c-fn, #8A8F98);
+}
+.mk-fns.is-col { position: absolute; bottom: 0; margin-top: 0; }
+.mk-fn { display: flex; gap: .45em; align-items: baseline; }
+.mk-fn-no { flex: none; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mk-fn-t { min-width: 0; }
 
 /* 형광펜 */
 .mk-hl {
@@ -843,7 +945,9 @@ input[type="checkbox"] { accent-color: var(--accent); }
 /* ─── 장평 ──────────────────────────────────
    안쪽 판을 1/배율 만큼 넓게 깔고 가로로 누른다. 글은 넓은 폭에서
    줄을 나눈 뒤 눌리므로 좁힌 만큼 한 줄에 더 들어간다.
-   눌리면 안 되는 것(사진·프로필 사진·코드 뷰어)은 여기서 되돌린다. */
+   눌리면 안 되는 것(사진·프로필 사진)은 여기서 되돌린다. 그려서 보여 주는
+   코드블럭은 되돌리지 않는다 — 되돌리면 그 안 글자만 1/배율 로 보여
+   본문과 거꾸로 어긋난다(97 로 두면 103 처럼 보인다). */
 .stage-in { min-width: 0; }
 .stage.is-squeezed .stage-in {
   width: calc(100% / var(--sq));
@@ -853,11 +957,6 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .stage.is-squeezed .mk-ava { width: calc(var(--ava-size, 2.5em) / var(--sq)); }
 .stage.is-squeezed .mk-img {
   width: calc(var(--imgw, 100%) * var(--sq));
-  transform: scaleX(calc(1 / var(--sq)));
-  transform-origin: left top;
-}
-.stage.is-squeezed .mk-view {
-  width: calc(100% * var(--sq));
   transform: scaleX(calc(1 / var(--sq)));
   transform-origin: left top;
 }
@@ -1118,6 +1217,10 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
 .modal-acts { display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
 
 .imp-line { font-size: 12.5px; color: var(--fg-2); line-height: 1.55; }
+
+/* 탭 맨 아래의 되돌리기 단추 — 칸 너비를 다 쓴다 */
+.panel-foot { display: flex; margin-top: 4px; }
+.panel-foot .btn { flex: 1 1 auto; width: 100%; height: 34px; }
 .imp-head {
   font-size: 12.5px; color: var(--fg); font-weight: 600;
   padding: 8px 10px; border-radius: var(--r);
@@ -1255,6 +1358,8 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
 .stage.is-cols .mk-code,
 .stage.is-cols .mk-h1,
 .stage.is-cols .mk-h2 { break-inside: avoid; }
+/* 각주를 단마다 바닥에 앉히려면 판이 자리의 기준이 돼야 한다 */
+.stage.is-cols .stage-in { position: relative; }
 /* 단 안에서는 말풍선이 단 너비를 기준으로 잡혀야 한다 */
 .stage.is-cols .mk-chat { display: flex; }
 /* ─── 접는 칸 ───────────────────────────────── */
@@ -1314,6 +1419,21 @@ span.bgcell-hex { display: block; }
 .fold-grp > summary > span:first-child::before { content: '▸ '; }
 .fold-grp[open] > summary > span:first-child::before { content: '▾ '; }
 .fold-grp > summary:hover { color: var(--fg-2); }
+/* 접었을 때는 요약 한 줄뿐인데도 flex 의 gap 이 아래에 한 칸 더 남는다.
+   접힌 동안은 그 틈을 지워 위아래 여백을 같게 맞춘다. */
+.fold-grp:not([open]) { gap: 0; }
+/* 묶음 안에 다시 든 접는 칸 — 한 칸 들여 두어 딸린 것임을 보인다 */
+.fold-sub {
+  padding: 8px 9px;
+  border: 1px solid var(--line); border-radius: var(--r-sm);
+  background: var(--bg);
+}
+.fold-sub[open] { padding-bottom: 10px; }
+.fold-sub > summary {
+  text-transform: none; letter-spacing: .02em; font-size: 11.5px; color: var(--fg-2);
+  padding-bottom: 0; border-bottom: 0;
+}
+.fold-sub[open] > summary { padding-bottom: 8px; }
 /* 제목 줄에 얹은 토글 — 이름표 없이 스위치만 */
 .grp-t .tgl { padding: 0; gap: 0; }
 .grp-t .tgl .tgl-name { display: none; }

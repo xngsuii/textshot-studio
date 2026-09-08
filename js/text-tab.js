@@ -4,28 +4,133 @@ import {
   state, saveSoon, FONTS, fontById, DEFAULT_FORMATS, DEFAULT_STYLE,
   DEFAULT_OUTPUT, RATIOS, RATIO_ORDER, RATIO_LABEL, MAX_SLOTS, newProfile, NAME_COLOR,
   storedBytes, photoStats, photoUsage, dropTemplatePhotos, clearStored,
-} from './store.js';
+} from './store.js?v=50';
 import {
   splitChunks, hasSplit, renderChunk, renderWithSplitMarks, stripMarkers,
   imageOrder, removeImageMarker, chunkOffsets, setSpeakerAt, speakerNameAt,
-  renameSpeaker, NAME_SEP,
-} from './markup.js';
-import { ensureFont, isAvailable } from './fonts.js';
-import { SKINS, skinById, skinProfiles, resolve, CHIPS } from './skins.js';
-import { buildTemplateSection } from './templates.js';
-import { extract as extractMeta } from './png-meta.js';
+  renameSpeaker, NAME_SEP, noteOrder, removeNoteMarker,
+} from './markup.js?v=50';
+import { ensureFont, isAvailable } from './fonts.js?v=50';
+import { SKINS, skinById, skinProfiles, skinStyle, resolve, CHIPS } from './skins.js?v=50';
+import { buildTemplateSection } from './templates.js?v=50';
+import { extract as extractMeta } from './png-meta.js?v=50';
 import {
   isPayload, applyPayload, summarize, commonWarnings, textOnlyWarnings,
-} from './doc-io.js';
-import * as U from './ui.js';
+} from './doc-io.js?v=50';
+import * as U from './ui.js?v=50';
 
 const srcEl = () => document.getElementById('src');
 const clone = (o) => JSON.parse(JSON.stringify(o));
 
-/* 책 내지(2단)로 바꿀 때 맞춰 주는 캔버스 너비 */
-const BOOK_WIDTH = 1400;
-/* 예전 기본 단 간격. 손대지 않은 채 남아 있으면 지금 기본값으로 올린다. */
-const OLD_COL_GAP = 48;
+/* 탭마다 되돌릴 설정. 여기 없는 것(써 둔 글·사진·프로필·서명 글자)은
+   설정이 아니라 내용이므로 건드리지 않는다. */
+const TAB_RESET = {
+  body: {
+    label: '본문·간격',
+    keys: ['font', 'fontSize', 'lineHeight', 'letterSpacing', 'align', 'paraGap', 'squeeze',
+      'breakMode', 'dividerStyle', 'bqBar',
+      'h1Font', 'h1Size', 'h1Align', 'h1Bold', 'h2Font', 'h2Size', 'h2Align', 'h2Bold'],
+    note: '넣어 둔 본문 사진은 그대로 둡니다.',
+  },
+  canvas: {
+    label: '캔버스',
+    keys: ['width', 'ratio', 'autoSplit', 'columns', 'columnGap',
+      'padTop', 'padRight', 'padBottom', 'padLeft', 'padLinked',
+      'bgMode', 'bg', 'bg2', 'bgImage', 'bgFit', 'bgOpacity', 'bgX', 'bgY', 'bgBlur',
+      'bgAsHeader', 'bgHeaderH', 'transparent',
+      'signOn', 'signSep', 'signAlign', 'signSize', 'signGap', 'signColor'],
+    note: '깔아 둔 배경 사진도 빠집니다. 서명에 적어 둔 이름은 그대로 둡니다.',
+  },
+  color: {
+    label: '색상',
+    keys: ['fg', 'actionColor', 'quoteColor', 'parenColor', 'dividerColor', 'fnColor', 'headingColor',
+      'bqColor', 'hlColor', 'codeBg', 'codeFg', 'codeTitleColor', 'slots'],
+    note: '색 슬롯의 이름과 색도 기본값으로 돌아갑니다.',
+  },
+  chat: {
+    label: '말풍선',
+    keys: ['skin', 'bubbleStyle', 'avatarShape', 'avatarSize', 'bubbleRadius', 'bubbleAlpha',
+      'bubbleGap', 'nameGap', 'nameBold', 'bubbleMaxWidth', 'bubblePadV', 'bubblePadH',
+      'hideQuotesInBubble', 'parenBreakInBubble'],
+    note: '프로필의 이름·색·사진은 그대로 둡니다.',
+  },
+};
+
+/* 탭 맨 아래에 두는 되돌리기 단추 */
+function tabReset(kind, container, onChange) {
+  const { label, keys, note } = TAB_RESET[kind];
+  return U.el('div', { class: 'panel-foot' }, [
+    U.el('button', {
+      class: 'btn btn-ghost', type: 'button', text: '현재 탭 설정 초기화',
+      onClick: () => U.modal({
+        title: `${label} 탭 초기화`,
+        body: [
+          U.el('div', { class: 'imp-line', text: `${label} 탭의 설정만 기본값으로 되돌립니다. 다른 탭은 그대로입니다.` }),
+          U.el('div', { class: 'imp-foot', text: note }),
+        ],
+        actions: [
+          { label: '취소' },
+          {
+            label: '되돌리기', danger: true,
+            onClick: () => {
+              const st = state.text.style;
+              for (const k of keys) st[k] = clone(DEFAULT_STYLE[k]);
+              state.activeTemplate = null;
+              if (kind === 'color') buildSlotBar(onChange);
+              buildSettings(container, onChange);
+              onChange();
+              U.toast(`${label} 탭을 기본값으로 되돌렸습니다`);
+            },
+          },
+        ],
+      }),
+    }),
+  ]);
+}
+
+/* 빗금 구분선 — 대각선은 그림으로 그어야 가장자리가 매끈하다. */
+const SLASH_SVG = "<svg viewBox='0 0 12 20' preserveAspectRatio='none' aria-hidden='true'>"
+  + "<line x1='2.4' y1='17.6' x2='9.6' y2='2.4' stroke='currentColor' stroke-width='1.5' stroke-linecap='round'/></svg>";
+
+function slashSvg() {
+  const box = U.el('span');
+  box.innerHTML = SLASH_SVG;
+  return box.firstChild;
+}
+
+/* 고르는 칸에 넣을 작은 모양 미리보기 */
+function dividerPreview(v, label) {
+  const p = U.el('span', { class: `divp divp-${v}`, title: label });
+  if (v === 'slash') p.appendChild(slashSvg());
+  return p;
+}
+
+/* 구분선 모양 — 값과 이름표(칸에는 모양만 그리고 이름은 툴팁으로 둔다) */
+const DIVIDERS = [
+  ['line', '직선'], ['fade', '흐림'], ['dots', '점'], ['bar', '막대'], ['slash', '빗금'],
+];
+
+/* 여러 단으로 바꿀 때 맞춰 주는 캔버스 너비와 단 간격 */
+const COL_PRESET = { 2: { width: 1400, gap: 64 }, 4: { width: 1400, gap: 32 } };
+/* 한 단으로 돌아갈 때 쓸 너비. 여러 단으로 넘어가기 직전 값을 들고 있는다. */
+let widthBefore1Col = null;
+
+/* 단 수를 바꾸면 너비와 단 간격도 그 배치에 맞게 옮겨 준다.
+   좁은 캔버스에 네 단을 넣으면 글줄이 두어 글자로 쪼개져 읽을 수 없다. */
+function setColumns(st, n) {
+  const was = Number(st.columns) || 1;
+  if (was === n) return;
+  if (was === 1) widthBefore1Col = st.width;
+  st.columns = n;
+  if (n === 1) {
+    st.width = widthBefore1Col ?? DEFAULT_STYLE.width;
+    widthBefore1Col = null;
+    return;
+  }
+  const p = COL_PRESET[n];
+  if (st.width < p.width) st.width = p.width;
+  st.columnGap = p.gap;
+}
 
 /* 스킨 고르는 칸. 알아볼 만한 색 셋만 칩으로 보여 준다.
    「그대로 둠」인 자리는 지금 프로필의 색을 보여 주고,
@@ -98,10 +203,12 @@ function skinPicker(st, after) {
 /* 그릴 때만 스킨의 말풍선 색을 얹는다. 설정에 저장된 색은 그대로 두므로
    스킨을 끄면 원래 색이 돌아온다. 스타일(배경·지문·모양)은 손대지 않는다. */
 const drawProfiles = () => skinProfiles(state.text.profiles, state.text.style.skin);
+/* 그릴 때 쓰는 설정 — 스킨이 몇 가지 모양값을 잠깐 덮는다. 저장된 값은 그대로다. */
+const drawStyle = () => skinStyle(state.text.style, state.text.style.skin);
 
 /* ── 스타일을 스테이지에 입힌다 ─────────────── */
 function applyStyle(stage) {
-  const st = state.text.style;
+  const st = drawStyle();
   const f = fontById(st.font);
   ensureFont(st.font);
 
@@ -132,12 +239,13 @@ function applyStyle(stage) {
      아래 CSS 에서 되돌린다. */
   const inner = stage.querySelector('.stage-in') || stage;
   const k = (st.squeeze ?? 100) / 100;
-  /* 책 내지처럼 두 단. 여러 단으로 흘리려면 판이 블록이어야 해서 flex 를 접는다.
-     비율을 정하면 높이가 묶여 뜻이 없으므로 자동일 때만 쓴다. */
-  const cols = !!st.columns && !RATIOS[st.ratio];
+  /* 책 내지처럼 두 단, 잡지처럼 네 단. 여러 단으로 흘리려면 판이 블록이어야
+     해서 flex 를 접는다. 비율을 정하면 높이가 묶여 뜻이 없으므로 자동일 때만. */
+  const colN = RATIOS[st.ratio] ? 1 : Number(st.columns) || 1;
+  const cols = colN > 1;
   Object.assign(inner.style, cols
     ? { display: 'block', flexDirection: '', gap: '',
-      columnCount: '2', columnGap: (st.columnGap ?? 64) + 'px' }
+      columnCount: String(colN), columnGap: (st.columnGap ?? 64) + 'px' }
     : { display: 'flex', flexDirection: 'column', gap: st.paraGap + 'px',
       columnCount: '', columnGap: '' });
   stage.style.setProperty('--sq', String(k));
@@ -158,6 +266,7 @@ function applyStyle(stage) {
     '--c-quote': st.quoteColor,
     '--c-paren': st.parenColor,
     '--c-divider': st.dividerColor,
+    '--c-fn': st.fnColor,
     '--c-heading': st.headingColor,
     '--c-bq': st.bqColor,
     '--c-hl': st.hlColor,
@@ -175,6 +284,26 @@ function applyStyle(stage) {
   stage.style.setProperty('--ava-size', (2.5 * (st.avatarSize ?? 100) / 100).toFixed(3) + 'em');
 
   stage.classList.toggle('is-cols', cols);
+
+  DIVIDERS.forEach(([v]) => stage.classList.remove(`div-${v}`));
+  const divStyle = st.dividerStyle || 'line';
+  stage.classList.add(`div-${divStyle}`);
+  stage.querySelectorAll('.mk-divider').forEach((d) => {
+    d.innerHTML = divStyle === 'slash' ? SLASH_SVG : '';
+  });
+  stage.style.setProperty('--bq-bar', (st.bqBar ?? 3) + 'px');
+
+  /* 제목·부제목은 본문과 따로 논다. 「본문과 같이」면 본문 값을 그대로 적는다 —
+     var() 안에 inherit 를 넣으면 셈할 때 못 쓰는 값이 되어 무시된다.
+     폰트는 파일을 미리 불러 둬야 그림에도 박힌다. */
+  for (const h of ['h1', 'h2']) {
+    const fid = st[`${h}Font`];
+    if (fid) ensureFont(fid);
+    stage.style.setProperty(`--${h}-font`, fontById(fid || st.font).stack);
+    stage.style.setProperty(`--${h}-size`, `${st[`${h}Size`] ?? (h === 'h1' ? 1.6 : 1.22)}em`);
+    stage.style.setProperty(`--${h}-align`, st[`${h}Align`] || st.align || 'left');
+    stage.style.setProperty(`--${h}-weight`, st[`${h}Bold`] ? '700' : '400');
+  }
 
   stage.style.setProperty('--para-gap', st.paraGap + 'px');
   stage.style.setProperty('--b-radius', st.bubbleRadius + 'px');
@@ -355,6 +484,82 @@ export function buildExportStages() {
   return pageParts().map(part => ({ stage: makeStage(part.html), source: part.source }));
 }
 
+/* ── 각주 ────────────────────────────────────
+
+   본문에는 [[fn:id]] 표만 들어가고 설명은 state.text.notes 가 들고 있다.
+   번호는 장마다 1부터 다시 매긴다 — 한 장만 떼어 봐도 앞뒤가 맞아야 하니까.
+   그래서 번호는 원문이 아니라 다 그린 판을 보고 매긴다. */
+const noteText = (id) => state.text.notes.find(n => n.id === id)?.text || '';
+
+/* 판 안의 표에 번호를 매기고 그 차례대로 각주를 돌려준다.
+   같은 각주를 두 번 불러도 번호는 하나다. */
+function numberNotes(stage) {
+  const seen = new Map();
+  const list = [];
+  stage.querySelectorAll('.mk-fn-mark').forEach((m) => {
+    const id = m.dataset.fn;
+    let n = seen.get(id);
+    if (!n) { n = seen.size + 1; seen.set(id, n); list.push({ id, n, mark: m }); }
+    m.textContent = String(n);
+  });
+  return list;
+}
+
+function noteBlock(items) {
+  return U.el('div', { class: 'mk-fns' }, items.map(it => U.el('div', { class: 'mk-fn' }, [
+    U.el('span', { class: 'mk-fn-no', text: String(it.n) }),
+    U.el('span', { class: 'mk-fn-t', text: noteText(it.id) }),
+  ])));
+}
+
+/* 각주를 판에 앉힌다. 판이 화면(또는 숨은 자리)에 붙은 뒤라야 자리를 잴 수 있다.
+
+   한 단이면 글 바로 뒤에 이어 붙인다 — 비율을 정해 글이 가운데로 가도 글을
+   따라 내려간다. 여러 단이면 표가 놓인 그 단의 바닥에 붙여야 하므로, 단마다
+   따로 묶어 절대 자리로 앉히고 그 높이만큼 판 아래에 자리를 비워 둔다.
+   여러 단은 높이가 글에 따라 정해지므로, 아래 여백을 더해도 단이 다시
+   나뉘지 않는다. 그래서 한 번만 재면 된다. */
+export function layoutFootnotes(stage) {
+  const inner = stage.querySelector('.stage-in');
+  if (!inner) return;
+  stage.querySelectorAll('.mk-fns').forEach(n => n.remove());
+  inner.style.paddingBottom = '';
+
+  const items = numberNotes(stage).filter(it => noteText(it.id).trim());
+  if (!items.length) return;
+
+  const cs = getComputedStyle(inner);
+  const cols = Number(cs.columnCount) || 1;
+  if (cols < 2) { inner.appendChild(noteBlock(items)); return; }
+
+  /* 자리는 눌리기 전(레이아웃) 값으로 잡아야 한다. 장평을 주면 판이
+     scaleX 로 눌리고, 미리보기는 배율까지 걸려서 화면에서 잰 값이 실제
+     칸 자리보다 작다. 그대로 쓰면 뒤쪽 단일수록 왼쪽으로 밀린다.
+     화면에서 잰 값은 지금 걸린 배율로 나눠 되돌린 뒤 쓴다. */
+  const box = inner.getBoundingClientRect();
+  const k = (box.width / (inner.offsetWidth || 1)) || 1;
+  const gap = parseFloat(cs.columnGap) || 0;
+  const colW = (inner.clientWidth - gap * (cols - 1)) / cols;
+  const groups = Array.from({ length: cols }, () => []);
+  for (const it of items) {
+    const x = (it.mark.getBoundingClientRect().left - box.left) / k;
+    const i = Math.floor((x + gap / 2) / (colW + gap));
+    groups[Math.max(0, Math.min(cols - 1, i))].push(it);
+  }
+
+  let need = 0;
+  groups.forEach((g, i) => {
+    if (!g.length) return;
+    const b = noteBlock(g);
+    b.classList.add('is-col');
+    b.style.left = `${i * (colW + gap)}px`;
+    b.style.width = `${colW}px`;
+    inner.appendChild(b);
+    need = Math.max(need, b.offsetHeight);
+  });
+  if (need) inner.style.paddingBottom = `${need}px`;
+}
+
 /* ── 미리보기 ───────────────────────────────── */
 export function renderPreview(host) {
   const src = state.text.source;
@@ -380,6 +585,8 @@ export function renderPreview(host) {
     if (stages.length > 1) wrap.appendChild(U.el('div', { class: 'stage-label', text: `${i + 1} / ${stages.length}` }));
     host.appendChild(wrap);
   });
+  // 각주는 자리를 재야 하므로 판이 붙은 뒤에 앉힌다
+  stages.forEach(layoutFootnotes);
 
   return stages;
 }
@@ -575,7 +782,7 @@ function applySpeaker(name, onChange) {
     return allMine ? indent + body : `${indent}${name} ${NAME_SEP} ${body}`;
   }).join('\n');
 
-  ta.setRangeText(next, start, end, 'select');
+  replaceRange(ta, start, end, next, 'select');
   state.text.source = ta.value;
   ta.focus();
   onChange();
@@ -878,6 +1085,7 @@ function panelChat(container, onChange) {
       ])),
       U.el('div', { class: 'hint', text: '「꼬리」와 「모서리」는 한 사람이 이어 말할 때 첫 말풍선에만 붙습니다. 「말풍선 간격」은 말풍선끼리, 「이름 간격」은 이름과 말풍선 사이입니다.' }),
     ]),
+    tabReset('chat', container, onChange),
   ]);
 }
 
@@ -938,12 +1146,107 @@ function panelBody(container, onChange) {
       ]),
     ]),
     group('흐름', [
-      U.field('정렬', U.seg(st.align, [['left', '왼쪽'], ['center', '가운데'], ['justify', '양쪽']], (v) => { st.align = v; touch(); })),
+      U.field('정렬', U.seg(st.align,
+        [['left', '왼쪽'], ['center', '가운데'], ['right', '오른쪽'], ['justify', '양쪽']],
+        (v) => { st.align = v; touch(); })),
       U.field('줄바꿈', U.seg(st.breakMode, [['word', '단어 단위'], ['char', '글자 단위']], (v) => { st.breakMode = v; touch(); })),
       U.el('div', { class: 'hint', text: '단어 단위는 낱말이 잘리지 않게 넘깁니다. 좁은 폭에서 오른쪽이 들쭉날쭉하면 글자 단위로 바꿔 보세요.' }),
     ]),
+    group('스타일', [
+      U.field('구분선', U.seg(st.dividerStyle || 'line',
+        DIVIDERS.map(([v, label]) => [v, dividerPreview(v, label)]),
+        (v) => { st.dividerStyle = v; touch(); })),
+      U.field('인용 막대', U.slider(st.bqBar ?? 3, {
+        min: 0, max: 12, step: 1, unit: 'px', onChange: (v) => { st.bqBar = v; touch(); },
+      })),
+      U.el('div', { class: 'hint', text: '구분선 --- 의 모양과 인용구 > 왼쪽 막대의 두께입니다. 색은 색상 탭에서 고릅니다.' }),
+      headGroup('h1', '제목', st, touch),
+      headGroup('h2', '부제목', st, touch),
+    ]),
+    group('각주', [noteList(container, onChange)]),
     group('본문 사진', [photoList(container, onChange)]),
+    tabReset('body', container, onChange),
   ]);
+}
+
+/* 제목·부제목만 따로 손보는 접는 칸. 본문 설정은 건드리지 않고,
+   # 과 ## 이 달린 줄에만 걸린다. 여러 단일 때 정렬은 그 줄이 놓인
+   단 안에서 걸린다 — 단이 곧 글줄의 폭이니 저절로 그렇게 된다. */
+function headGroup(key, label, st, touch) {
+  const size = st[`${key}Size`] ?? (key === 'h1' ? 1.6 : 1.22);
+  const fields = [
+    U.fieldGrid([
+      U.field('폰트', U.select(st[`${key}Font`] || '',
+        [['', '본문과 같이'], ...FONTS.map(f => [f.id, f.label])],
+        (v) => { st[`${key}Font`] = v; touch(); })),
+      U.field('크기', U.stepper(size, {
+        min: 0.6, max: 5, step: 0.05, decimals: 2, unit: '배',
+        onChange: (v) => { st[`${key}Size`] = v; touch(); },
+      })),
+    ]),
+    U.field('정렬', U.seg(st[`${key}Align`] || '',
+      [['', '본문과 같이'], ['left', '왼쪽'], ['center', '가운데'], ['right', '오른쪽']],
+      (v) => { st[`${key}Align`] = v; touch(); })),
+    U.el('div', { class: 'tgl-row tgl-boxed' }, [
+      U.toggle('굵게', !!st[`${key}Bold`], (v) => { st[`${key}Bold`] = v; touch(); }),
+    ]),
+  ];
+  return U.el('details', { class: 'grp fold-grp fold-sub' }, [
+    U.el('summary', { class: 'grp-t' }, [U.el('span', { text: label })]),
+    U.el('div', { class: 'fold-body' }, fields),
+  ]);
+}
+
+/* 각주 목록 — 차례는 본문에 나온 순서 그대로다. 자리를 옮기려면 편집기에서
+   [[fn:…]] 표를 옮기면 된다. 여기서는 설명을 적고 빼기만 한다. */
+function noteList(container, onChange) {
+  const rebuild = () => buildSettings(container, onChange);
+  const ids = [...new Set(noteOrder(state.text.source))];
+  // 편집기에서 표를 손수 지웠으면 설명도 함께 버린다
+  state.text.notes = state.text.notes.filter(n => ids.includes(n.id));
+
+  if (!ids.length) {
+    return U.el('div', { class: 'hint', text: '「각주」 단추를 누르면 커서 자리에 표가 들어갑니다. 설명은 여기에 적습니다. 번호는 장마다 1부터 다시 매겨집니다.' });
+  }
+
+  const { at, pages } = notePlaces();
+  const rows = ids.map((id) => {
+    const note = state.text.notes.find(n => n.id === id)
+      || (state.text.notes.push({ id, text: '' }), state.text.notes[state.text.notes.length - 1]);
+    const spot = at.get(id);
+    return U.el('div', { class: 'fn-row' }, [
+      pages > 1 ? U.el('span', { class: 'fn-pg', text: `${spot?.page ?? '?'}장` }) : null,
+      U.el('span', { class: 'fn-no', text: String(spot?.n ?? '?') }),
+      U.el('input', {
+        type: 'text', class: 'fn-text', value: note.text, placeholder: '설명',
+        onInput: (e) => { note.text = e.target.value; onChange(); },
+      }),
+      U.el('button', {
+        class: 'prof-x', type: 'button', text: '×', title: '이 각주 빼기',
+        onClick: () => {
+          state.text.source = removeNoteMarker(state.text.source, id);
+          state.text.notes = state.text.notes.filter(n => n.id !== id);
+          srcEl().value = state.text.source;
+          rebuild(); onChange();
+        },
+      }),
+    ].filter(Boolean));
+  });
+  return U.el('div', { class: 'fn-list' }, rows);
+}
+
+/* 각주가 몇 장의 몇 번인지 — 저장할 때 나뉘는 장을 그대로 따른다. */
+function notePlaces() {
+  const parts = pageParts();
+  const at = new Map();
+  parts.forEach((part, pi) => {
+    let n = 0;
+    for (const id of noteOrder(part.source)) {
+      if (at.has(id)) continue;
+      at.set(id, { page: pi + 1, n: ++n });
+    }
+  });
+  return { at, pages: parts.length };
 }
 
 /* 본문에 넣은 사진 — 순서는 글 안의 마커 순서를 그대로 따른다.
@@ -1022,17 +1325,10 @@ function panelCanvas(container, onChange) {
       RATIOS[st.ratio] ? U.el('div', { class: 'tgl-row tgl-boxed' }, [
         U.toggle('자동 분할', st.autoSplit, (v) => { st.autoSplit = v; touch(); }),
       ]) : U.el('div', { class: 'field-split' }, [
-        U.field('단', U.seg(st.columns ? 'two' : 'one', [['one', '기본(1단)'], ['two', '책 내지(2단)']],
-          (v) => {
-            st.columns = v === 'two';
-            // 두 단은 좁은 캔버스에서 글줄이 너무 짧아진다. 책 내지 폭까지 넓혀 준다.
-            if (st.columns) {
-              if (st.width < BOOK_WIDTH) st.width = BOOK_WIDTH;
-              if (st.columnGap === OLD_COL_GAP) st.columnGap = DEFAULT_STYLE.columnGap;
-            }
-            rebuild(); touch();
-          })),
-        st.columns
+        U.field('단', U.el('div', { class: 'seg-tight' }, [U.seg(String(st.columns || 1),
+          [['1', '기본(1단)'], ['2', '책 내지(2단)'], ['4', '잡지(4단)']],
+          (v) => { setColumns(st, Number(v)); rebuild(); touch(); })])),
+        (st.columns || 1) > 1
           ? U.field('단 간격', U.stepper(st.columnGap ?? 64, {
             min: 8, max: 120, step: 4, unit: 'px', plain: true, onChange: (v) => { st.columnGap = v; touch(); },
           }))
@@ -1042,7 +1338,7 @@ function panelCanvas(container, onChange) {
         class: 'hint',
         text: RATIOS[st.ratio]
           ? '비율을 고르면 그 높이가 최소 높이가 됩니다. 자동 분할을 켜면 넘치는 만큼 다음 장으로 넘어갑니다. === 로 손수 나눈 자리도 그대로 지켜집니다.'
-          : '비율을 고르면 그 높이가 최소 높이가 됩니다. 2단 배치는 「자동」에서만 선택 가능합니다.',
+          : '비율을 고르면 그 높이가 최소 높이가 됩니다. 여러 단 배치는 「자동」에서만 선택 가능합니다.',
       }),
     ]),
     group('여백', [
@@ -1092,6 +1388,7 @@ function panelCanvas(container, onChange) {
       ]) : null,
     ]),
     signGroup(st, touch, rebuild),
+    tabReset('canvas', container, onChange),
   ]);
 }
 
@@ -1231,6 +1528,7 @@ function panelColor(container, onChange) {
         U.colorCell('형광펜', st.hlColor, (v) => { st.hlColor = v; touch(); }),
         U.colorCell('인용구', st.bqColor, (v) => { st.bqColor = v; touch(); }),
         U.colorCell('구분선', st.dividerColor, (v) => { st.dividerColor = v; touch(); }),
+        U.colorCell('각주', st.fnColor, (v) => { st.fnColor = v; touch(); }),
       ]),
     ]),
     group('색 슬롯', [
@@ -1256,6 +1554,7 @@ function panelColor(container, onChange) {
         U.colorCell('제목', st.codeTitleColor, (v) => { st.codeTitleColor = v; touch(); }),
       ]),
     ]),
+    tabReset('color', container, onChange),
   ]);
 }
 
@@ -1387,7 +1686,7 @@ export function addImageFile(file, onChange, afterAdd) {
     const pos = ta.selectionStart;
     const before = ta.value.slice(0, pos);
     const lead = before.length && !before.endsWith('\n') ? '\n' : '';
-    ta.setRangeText(`${lead}[[img:${id}]]\n`, pos, ta.selectionEnd, 'end');
+    replaceRange(ta, pos, ta.selectionEnd, `${lead}[[img:${id}]]\n`);
     state.text.source = ta.value;
 
     afterAdd?.();
@@ -1830,6 +2129,26 @@ export function resetSettings() {
 }
 
 /* ── 편집기 동작 ────────────────────────────── */
+
+/* 글을 바꿔 넣는다.
+
+   setRangeText 는 브라우저가 들고 있는 되돌리기 기록을 지운다. 그래서 단추로
+   마커를 넣고 나면 Ctrl+Z 로 그 앞까지 못 간다. execCommand 는 낡았다고
+   표시돼 있지만, 사람이 친 것처럼 기록을 남기는 길은 아직 이것뿐이다.
+   막히면 예전 방식으로 넣는다 — 되돌리기만 못 할 뿐 결과는 같다. */
+function replaceRange(ta, start, end, text, mode = 'end') {
+  ta.focus();
+  ta.setSelectionRange(start, end);
+  let ok = false;
+  try {
+    ok = text === ''
+      ? (start !== end && document.execCommand('delete'))
+      : document.execCommand('insertText', false, text);
+  } catch (e) { ok = false; }
+  if (!ok) ta.setRangeText(text, start, end, 'end');
+  if (mode === 'select') ta.setSelectionRange(start, start + text.length);
+  return ok;
+}
 function wrapSelection(open, close, onChange) {
   const ta = srcEl();
   const s = ta.selectionStart, e = ta.selectionEnd;
@@ -1837,18 +2156,18 @@ function wrapSelection(open, close, onChange) {
 
   // 선택한 덩어리가 마커를 품고 있으면 벗긴다
   if (sel.length >= open.length + close.length && sel.startsWith(open) && sel.endsWith(close)) {
-    ta.setRangeText(sel.slice(open.length, sel.length - close.length), s, e, 'select');
+    replaceRange(ta, s, e, sel.slice(open.length, sel.length - close.length), 'select');
   }
   // 마커가 선택 바로 바깥에 있어도 벗긴다
   else if (sel
     && ta.value.slice(Math.max(0, s - open.length), s) === open
     && ta.value.slice(e, e + close.length) === close) {
-    ta.setRangeText(sel, s - open.length, e + close.length, 'select');
+    replaceRange(ta, s - open.length, e + close.length, sel, 'select');
   }
   // 아니면 감싼다. 마커를 뺀 안쪽만 선택해 두어 한 번 더 누르면 해제되게 한다.
   else {
     const body = sel || '내용';
-    ta.setRangeText(open + body + close, s, e, 'end');
+    replaceRange(ta, s, e, open + body + close);
     ta.setSelectionRange(s + open.length, s + open.length + body.length);
   }
 
@@ -1870,7 +2189,7 @@ function prefixLines(prefix, onChange) {
     .map(l => (allHave ? l.slice(prefix.length) : prefix + l.replace(/^\s*(#{1,2}\s+|>[1-5]?\s?)/, '')))
     .join('\n');
 
-  ta.setRangeText(next, start, end, 'select');
+  replaceRange(ta, start, end, next, 'select');
   state.text.source = ta.value;
   ta.focus();
   onChange();
@@ -1882,7 +2201,7 @@ function insertFence(onChange) {
   const sel = ta.value.slice(s, e) || '내용';
   const before = ta.value.slice(0, s);
   const lead = before.length && !before.endsWith('\n') ? '\n' : '';
-  ta.setRangeText(`${lead}\`\`\`제목\n${sel}\n\`\`\`\n`, s, e, 'end');
+  replaceRange(ta, s, e, `${lead}\`\`\`제목\n${sel}\n\`\`\`\n`);
   state.text.source = ta.value;
   ta.focus();
   onChange();
@@ -1905,6 +2224,16 @@ export function bindEditor(onChange) {
 
   document.querySelector('.fmt-btn[data-fence]').addEventListener('click', () => insertFence(onChange));
 
+  document.getElementById('insertNote').addEventListener('click', () => {
+    const id = Math.random().toString(36).slice(2, 9);
+    state.text.notes.push({ id, text: '' });
+    replaceRange(ta, ta.selectionStart, ta.selectionEnd, `[[fn:${id}]]`);
+    state.text.source = ta.value;
+    ta.focus();
+    onChange();
+    buildSettings(document.getElementById('textSettings'), onChange);
+  });
+
   document.getElementById('insertImage').addEventListener('click', () => {
     pickImage(onChange, () => {
       srcEl().focus();
@@ -1918,7 +2247,7 @@ export function bindEditor(onChange) {
       const pos = ta.selectionStart;
       const before = ta.value.slice(0, pos);
       const insert = (before.length && !before.endsWith('\n') ? '\n' : '') + mark + '\n';
-      ta.setRangeText(insert, pos, ta.selectionEnd, 'end');
+      replaceRange(ta, pos, ta.selectionEnd, insert);
       state.text.source = ta.value;
       ta.focus();
       onChange();
@@ -1928,10 +2257,10 @@ export function bindEditor(onChange) {
   document.getElementById('stripText').addEventListener('click', () => {
     const s = ta.selectionStart, e = ta.selectionEnd;
     if (s !== e) {
-      ta.setRangeText(stripMarkers(ta.value.slice(s, e)), s, e, 'select');
+      replaceRange(ta, s, e, stripMarkers(ta.value.slice(s, e)), 'select');
     } else {
       if (!ta.value || !confirm('전체 글의 서식 마커를 걷어낼까요? 글자는 그대로 남습니다.')) return;
-      ta.value = stripMarkers(ta.value);
+      replaceRange(ta, 0, ta.value.length, stripMarkers(ta.value));
     }
     state.text.source = ta.value;
     ta.focus();
@@ -1940,8 +2269,8 @@ export function bindEditor(onChange) {
 
   document.getElementById('clearText').addEventListener('click', () => {
     if (ta.value && !confirm('내용을 모두 지울까요? 서식 설정은 그대로 남습니다.')) return;
-    ta.value = '';
-    state.text.source = '';
+    replaceRange(ta, 0, ta.value.length, '');
+    state.text.source = ta.value;
     onChange();
     ta.focus();
   });

@@ -1,8 +1,9 @@
 /* 스킨 — 말풍선 색만 잠깐 덮어씌운다.
 
    건드리는 것 — 프로필마다의 말풍선·글자·이름·따옴표·괄호 색, 그 다섯 가지.
-   건드리지 않는 것 — 배경, 지문 색, 말풍선 모양·모서리·간격, 프로필 사진 모양,
-                      이름·사진 표시 여부. 전부 네가 정한 대로 둔다.
+                 그리고 스킨이 style 을 들고 있으면 그 몇 가지 모양값.
+   건드리지 않는 것 — 배경, 지문 색, 프로필 사진 모양, 이름·사진 표시 여부.
+                      전부 네가 정한 대로 둔다.
 
    골라 둔 색을 고치지 않는다. 그릴 때만 스킨의 값을 얹고,
    「없음」으로 돌리면 원래 색이 그대로 돌아온다.
@@ -97,15 +98,12 @@ export const SKINS = [
   {
     id: 'clear',
     label: '투명',
-    note: '말풍선만 지웁니다. 밝은 바탕에서 안 보일 만큼 옅은 글자색은 읽히게 낮춥니다.',
-    right: {
-      bubbleBg: 'transparent', textColor: 'sink',
-      quoteColor: 'sink', parenColor: 'sink',
-    },
-    left: {
-      bubbleBg: 'transparent', textColor: 'sink',
-      quoteColor: 'sink', parenColor: 'sink',
-    },
+    note: '말풍선만 지웁니다. 글자색은 건드리지 않으니, 흰 글자를 쓰던 자리는 배경에 묻히지 않게 색을 따로 맞추세요.',
+    /* 말풍선이 사라지면 안쪽 여백이 글을 밀어내기만 하고, 이름은 너무 붙는다.
+       고른 동안만 이 값으로 그린다. 「없음」으로 돌리면 네 값이 돌아온다. */
+    style: { nameGap: 8, bubblePadV: 0, bubblePadH: 2 },
+    right: { bubbleBg: 'transparent' },
+    left: { bubbleBg: 'transparent' },
   },
 ];
 
@@ -130,6 +128,12 @@ export function resolve(v, base) {
     return base ? shift(base, v === 'lift' ? 'up' : 'down') : null;
   }
   return v;
+}
+
+/* 스킨이 들고 있는 모양값을 얹은 설정. 얹을 것이 없으면 그대로 돌려준다. */
+export function skinStyle(style, id) {
+  const skin = skinById(id);
+  return skin && skin.style ? { ...style, ...skin.style } : style;
 }
 
 /* 스킨을 얹은 프로필. 이름·위치·사진·표시 여부는 건드리지 않는다. */

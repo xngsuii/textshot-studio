@@ -10,8 +10,8 @@
 
 import {
   state, DEFAULT_STYLE, DEFAULT_FORMATS, DEFAULT_PROFILES,
-  newProfile, normalizeSlots, MAX_SLOTS, RATIOS,
-} from './store.js';
+  newProfile, normalizeSlots, MAX_SLOTS, RATIOS, normalizeColumns,
+} from './store.js?v=50';
 
 const APP = 'textshot-studio';
 const HEX = /^#[0-9a-fA-F]{6}$/;
@@ -34,6 +34,8 @@ export function buildPayload(source) {
     style,
     formats: { ...state.text.formats },
     profiles: state.text.profiles.map(({ avatar, ...rest }) => rest),
+    // 이 장에 표가 남아 있는 각주만 담는다
+    notes: state.text.notes.filter(n => String(source ?? '').includes(`[[fn:${n.id}]]`)),
   };
 }
 
@@ -54,6 +56,8 @@ const RANGE = {
   bubbleRadius: [0, 200], bubbleAlpha: [0, 100], bubbleGap: [0, 400], nameGap: [0, 200],
   bubbleMaxWidth: [10, 100], bubblePadV: [0, 200], bubblePadH: [0, 200],
   signSize: [6, 200], signGap: [0, 600],
+  columns: [1, 4], columnGap: [0, 400], bqBar: [0, 40],
+  h1Size: [0.5, 8], h2Size: [0.5, 8],
 };
 const DEFAULT_RANGE = [-2000, 2000];
 
@@ -80,7 +84,26 @@ function cleanStyle(raw) {
     color: HEX.test(s.color) ? s.color : '#1F5D8C',
   }));
   if (!(out.ratio in RATIOS)) out.ratio = 'auto';
+  // 예전 판은 두 단 여부를 참/거짓으로 담았다
+  if (typeof raw?.columns === 'boolean') out.columns = raw.columns ? 2 : 1;
+  normalizeColumns(out);
+  if (!['line', 'fade', 'dots', 'bar', 'slash'].includes(out.dividerStyle)) out.dividerStyle = 'line';
+  if (!['left', 'center', 'right', 'justify'].includes(out.align)) out.align = 'left';
+  for (const k of ['h1Align', 'h2Align']) {
+    if (!['', 'left', 'center', 'right'].includes(out[k])) out[k] = '';
+  }
   return out;
+}
+
+/* 각주 — 표가 본문에 있어야 뜻이 있다. 글은 넉넉히 자른다. */
+function cleanNotes(raw) {
+  const list = Array.isArray(raw) ? raw : [];
+  const seen = new Set();
+  return list
+    .filter(n => n && typeof n.id === 'string' && /^[a-z0-9]{1,24}$/.test(n.id))
+    .filter(n => (seen.has(n.id) ? false : seen.add(n.id)))
+    .slice(0, 200)
+    .map(n => ({ id: n.id, text: String(n.text ?? '').slice(0, 2000) }));
 }
 
 function cleanFormats(raw) {
@@ -123,6 +146,7 @@ export function applyPayload(p, mode) {
     state.activeTemplate = null;
   }
   state.text.source = String(p.source ?? '');
+  state.text.notes = cleanNotes(p.notes);
 }
 
 /* ── 미리 알려 줄 것들 ──────────────────────── */
