@@ -66,6 +66,22 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
   .toggle-thumb, .toggle-opt { transition: none; }
 }
 
+/* 이름줄 복사·저장 — 좁은 화면 전용 */
+.top-acts { display: none; align-items: center; gap: 6px; }
+.top-acts svg {
+  width: 17px; height: 17px; flex: none;
+  fill: none; stroke: currentColor; stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.icon-btn {
+  display: grid; place-items: center;
+  width: 32px; height: 32px; border-radius: var(--r-sm);
+  border: 1px solid var(--line-strong); background: var(--bg); color: var(--fg-2);
+}
+.icon-btn:active { background: var(--bg-sunken); }
+.icon-btn:disabled { opacity: .45; }
+#saveBtnTop { display: inline-flex; align-items: center; gap: 5px; padding: 0 12px; }
+
 .save-hint { font-size: 12px; color: var(--fg-3); }
 .save-hint.is-warn { color: var(--danger); font-weight: 600; }
 
@@ -916,9 +932,17 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
   body { overflow: hidden; }
   button, input, select, textarea, .fmt-btn, .seg-btn, .tab { touch-action: manipulation; }
 
-  .topbar { padding: 0 12px; gap: 10px; }
-  .brand-thin, .save-hint { display: none; }
+  /* 🎬 [텍스트 발췌|HTML] ……… ⧉ [저장]
+     이름 글자를 빼 만든 자리로 토글을 당기고, 오른쪽 끝을 단추에 준다. */
+  .topbar { padding: 0 10px; gap: 8px; }
+  .brand-name, .save-hint { display: none; }
   .toggle-opt { padding: 5px 12px; font-size: 12px; }
+  .brand { order: 0; }
+  #tabToggle { order: 1; }
+  .topbar .spacer { order: 2; }
+  .top-acts { order: 3; display: flex; }
+  /* 미리보기 막대에 있던 짝은 겹치니 감춘다 */
+  .preview-bar #copyBtn, .preview-bar #saveBtn { display: none; }
 
   /* 100vh 는 아이폰에서 주소창까지 포함해 아래가 잘린다 */
   .workspace { display: block; height: calc(100dvh - var(--topbar-h)); }

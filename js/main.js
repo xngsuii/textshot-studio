@@ -13,7 +13,7 @@ import { toast } from './ui.js';
 /* index.html 의 app-version 과 짝을 이룬다. 브라우저가 둘 중 하나만 새로
    받으면 화면은 새것인데 동작은 옛것인 상태가 되어 원인 찾기가 어렵다.
    어긋나면 하단에 알려 준다. 고칠 때 두 값을 같이 올릴 것. */
-const APP_VERSION = '42';
+const APP_VERSION = '43';
 
 const $ = (id) => document.getElementById(id);
 
@@ -256,8 +256,7 @@ async function collectBlobs() {
 }
 
 function busy(on, msg = '') {
-  $('saveBtn').disabled = on;
-  $('copyBtn').disabled = on;
+  document.querySelectorAll('[data-act="save"], [data-act="copy"]').forEach((b) => { b.disabled = on; });
   $('statusMsg').textContent = msg;
   $('statusMsg').className = 'status-msg';
 }
@@ -422,8 +421,9 @@ function boot() {
     host().classList.toggle('is-checker', state.checker);
   });
 
-  $('saveBtn').addEventListener('click', doSave);
-  $('copyBtn').addEventListener('click', doCopy);
+  // 미리보기 막대와 이름줄, 두 자리에 같은 단추가 있다
+  document.querySelectorAll('[data-act="save"]').forEach(b => b.addEventListener('click', doSave));
+  document.querySelectorAll('[data-act="copy"]').forEach(b => b.addEventListener('click', doCopy));
 
   window.addEventListener('resize', () => { if (state.zoom === 'fit') applyZoom(); });
 

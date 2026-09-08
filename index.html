@@ -16,9 +16,9 @@
 <!-- Pretendard 는 js/fonts.js 가 불러온다. dynamic-subset 판은 @font-face 가 300개 가까이라
      캡쳐할 때 그 폰트 조각을 전부 내려받느라 멈춘다. 통짜 variable 판 하나만 쓴다. -->
 <!-- ?v= 를 올리면 브라우저가 새로 받는다. js/main.js 의 APP_VERSION 과 같이 올릴 것 -->
-<link rel="stylesheet" href="css/tokens.css?v=42">
-<link rel="stylesheet" href="css/app.css?v=42">
-<meta name="app-version" content="42">
+<link rel="stylesheet" href="css/tokens.css?v=43">
+<link rel="stylesheet" href="css/app.css?v=43">
+<meta name="app-version" content="43">
 <script src="vendor/jszip.min.js" defer></script>
 </head>
 <body>
@@ -34,6 +34,18 @@
     <span class="toggle-thumb" id="toggleThumb"></span>
     <button class="toggle-opt is-active" role="tab" data-tab="text" aria-selected="true">텍스트 발췌</button>
     <button class="toggle-opt" role="tab" data-tab="html" aria-selected="false">HTML</button>
+  </div>
+
+  <!-- 좁은 화면에서만 나오는 복사·저장. 미리보기 막대는 옆으로 흘러서
+       저장 단추가 눈에 띄지 않으므로 늘 보이는 이름줄로 끌어올린다. -->
+  <div class="top-acts">
+    <button class="icon-btn" id="copyBtnTop" data-act="copy" title="클립보드에 복사" aria-label="클립보드에 복사">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 14V6a2 2 0 0 1 2-2h7"/><rect x="8" y="6.5" width="11.5" height="14" rx="2"/></svg>
+    </button>
+    <button class="btn btn-primary" id="saveBtnTop" data-act="save" title="이미지 저장">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5v10"/><path d="M8 7.5l4-4 4 4"/><path d="M7.5 10.5H4.5v10h15v-10h-3"/></svg>
+      <span>저장</span>
+    </button>
   </div>
 </header>
 
@@ -141,8 +153,8 @@
       <div class="spacer"></div>
       <button class="btn btn-ghost" id="resetBtn" title="글은 두고 설정만 기본값으로">설정 초기화</button>
       <button class="btn btn-ghost" id="collapseBtn">편집기 닫기</button>
-      <button class="btn btn-ghost" id="copyBtn">클립보드 복사</button>
-      <button class="btn btn-primary" id="saveBtn">이미지 저장</button>
+      <button class="btn btn-ghost" id="copyBtn" data-act="copy">클립보드 복사</button>
+      <button class="btn btn-primary" id="saveBtn" data-act="save">이미지 저장</button>
     </div>
 
     <div class="preview-scroll" id="previewScroll">
@@ -164,6 +176,6 @@
 
 <div class="toast" id="toast" hidden></div>
 
-<script type="module" src="js/main.js?v=42"></script>
+<script type="module" src="js/main.js?v=43"></script>
 </body>
 </html>
