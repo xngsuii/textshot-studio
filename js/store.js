@@ -40,6 +40,25 @@ export const FONTS = [
 
 export const fontById = (id) => FONTS.find(f => f.id === id) || FONTS[0];
 
+/* 폰트가 실제로 가진 굵기들. 따로 적어 두지 않고 불러오는 주소에서 읽는다 —
+   구글 폰트는 주소의 wght@…, 직접 넣는 파일은 files 의 굵기, 둘 다 없으면
+   가변 폰트(Pretendard)라 모든 굵기를 낸다. */
+export function fontWeights(f) {
+  if (f.files) return f.files.map(([, w]) => w);
+  const m = /wght@([\d;]+)/.exec(f.css || '');
+  if (m) return m[1].split(';').map(Number);
+  return [100, 200, 300, 400, 500, 600, 700, 800, 900];
+}
+
+/* 라이트·굵게를 진짜 글꼴로 낼 수 있는지. 없는 굵게는 브라우저가 억지로
+   두껍게 그려 흉하고, 없는 라이트는 아예 달라지지 않는다. 일반은 늘 된다. */
+export function fontHasWeight(f, w) {
+  const ws = fontWeights(f);
+  if (w <= 300) return ws.some(x => x <= 300);
+  if (w >= 700) return ws.some(x => x >= 600);
+  return true;
+}
+
 /* 캔버스 비율 — 값은 높이÷너비. 자동이면 글 길이만큼 늘어난다. */
 export const RATIOS = {
   auto: null,
@@ -66,6 +85,13 @@ export const DEFAULT_STYLE = {
   paraGap: 5,
   squeeze: 100,                 // 장평 % — 100 이면 글자를 그대로 둔다
   breakMode: 'word',            // word: 단어 단위 / char: 글자 단위
+  dropCap: false,               // 첫 문단 첫 글자를 크게
+  dropCapLines: 3,              // 드롭캡이 차지하는 줄 수
+  dropCapWeight: 400,            // 300 라이트 / 400 일반 / 700 굵게
+  dropCapKind: 'drop',          // drop 줄을 파고드는 / raise 첫 줄 위로 솟는
+  dropCapScope: 'first',        // first 첫 장만 / page 장마다
+  dropCapFont: '',              // 빈 값이면 본문 폰트
+  dropCapColor: '',             // 빈 값이면 그 자리 글자색을 따라간다
 
   width: 800,
   ratio: 'auto',
@@ -120,6 +146,7 @@ export const DEFAULT_STYLE = {
   bubbleRadius: 16,
   bubbleAlpha: 100,            // 말풍선 투명도 — 프로필 구분 없이 모두에 걸린다
   bubbleGap: 8,                // 말풍선 덩어리 사이의 간격
+  bubbleInGap: 8,              // 한 사람이 이어 말할 때 말풍선끼리
   nameGap: 3,                  // 이름과 말풍선 사이
   nameBold: false,
   bubbleMaxWidth: 76,        // %
@@ -339,6 +366,11 @@ export function loadAll() {
         Object.assign(state.text.formats, d.text.formats || {});
         Object.assign(state.text.style, d.text.style || {});
         normalizeColumns(state.text.style);
+        // 드롭캡 굵기는 잠깐 켜고 끄는 값이었다
+        if (d.text.style && typeof d.text.style.dropCapBold === 'boolean' && d.text.style.dropCapWeight === undefined) {
+          state.text.style.dropCapWeight = d.text.style.dropCapBold ? 700 : 400;
+        }
+        delete state.text.style.dropCapBold;
         state.text.style.slots = normalizeSlots(state.text.style.slots ?? d.text.style?.colorSlots);
         delete state.text.style.colorSlots;
         // A4·A5·B5 를 쓰던 설정은 자동으로 되돌린다

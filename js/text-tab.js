@@ -3,21 +3,22 @@
 import {
   state, saveSoon, FONTS, fontById, DEFAULT_FORMATS, DEFAULT_STYLE,
   DEFAULT_OUTPUT, RATIOS, RATIO_ORDER, RATIO_LABEL, MAX_SLOTS, newProfile, NAME_COLOR,
+  fontHasWeight,
   storedBytes, photoStats, photoUsage, dropTemplatePhotos, clearStored,
-} from './store.js?v=50';
+} from './store.js?v=60';
 import {
   splitChunks, hasSplit, renderChunk, renderWithSplitMarks, stripMarkers,
   imageOrder, removeImageMarker, chunkOffsets, setSpeakerAt, speakerNameAt,
   renameSpeaker, NAME_SEP, noteOrder, removeNoteMarker,
-} from './markup.js?v=50';
-import { ensureFont, isAvailable } from './fonts.js?v=50';
-import { SKINS, skinById, skinProfiles, skinStyle, resolve, CHIPS } from './skins.js?v=50';
-import { buildTemplateSection } from './templates.js?v=50';
-import { extract as extractMeta } from './png-meta.js?v=50';
+} from './markup.js?v=60';
+import { ensureFont, isAvailable } from './fonts.js?v=60';
+import { SKINS, skinById, skinProfiles, skinStyle, resolve, CHIPS } from './skins.js?v=60';
+import { buildTemplateSection } from './templates.js?v=60';
+import { extract as extractMeta } from './png-meta.js?v=60';
 import {
   isPayload, applyPayload, summarize, commonWarnings, textOnlyWarnings,
-} from './doc-io.js?v=50';
-import * as U from './ui.js?v=50';
+} from './doc-io.js?v=60';
+import * as U from './ui.js?v=60';
 
 const srcEl = () => document.getElementById('src');
 const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -28,7 +29,9 @@ const TAB_RESET = {
   body: {
     label: '본문·간격',
     keys: ['font', 'fontSize', 'lineHeight', 'letterSpacing', 'align', 'paraGap', 'squeeze',
-      'breakMode', 'dividerStyle', 'bqBar',
+      'breakMode', 'dropCap', 'dropCapLines', 'dropCapWeight', 'dropCapFont', 'dropCapColor',
+      'dropCapKind', 'dropCapScope',
+      'dividerStyle', 'bqBar',
       'h1Font', 'h1Size', 'h1Align', 'h1Bold', 'h2Font', 'h2Size', 'h2Align', 'h2Bold'],
     note: '넣어 둔 본문 사진은 그대로 둡니다.',
   },
@@ -50,7 +53,7 @@ const TAB_RESET = {
   chat: {
     label: '말풍선',
     keys: ['skin', 'bubbleStyle', 'avatarShape', 'avatarSize', 'bubbleRadius', 'bubbleAlpha',
-      'bubbleGap', 'nameGap', 'nameBold', 'bubbleMaxWidth', 'bubblePadV', 'bubblePadH',
+      'bubbleGap', 'bubbleInGap', 'nameGap', 'nameBold', 'bubbleMaxWidth', 'bubblePadV', 'bubblePadH',
       'hideQuotesInBubble', 'parenBreakInBubble'],
     note: '프로필의 이름·색·사진은 그대로 둡니다.',
   },
@@ -308,6 +311,19 @@ function applyStyle(stage) {
   stage.style.setProperty('--para-gap', st.paraGap + 'px');
   stage.style.setProperty('--b-radius', st.bubbleRadius + 'px');
   stage.style.setProperty('--b-gap', st.bubbleGap + 'px');
+  stage.style.setProperty('--b-in-gap', (st.bubbleInGap ?? 8) + 'px');
+  /* 드롭캡 — N 줄의 윗글자 머리부터 N 번째 줄 글자 바닥까지가 한 글자 높이다.
+     줄 높이에서 위아래 반씩 남는 틈(행간-1)을 빼고, 첫 줄의 위쪽 틈만큼 내린다. */
+  {
+    const lh = Number(st.lineHeight) || 1.7;
+    const n = Math.max(2, Math.min(6, Number(st.dropCapLines) || 3));
+    stage.style.setProperty('--dc-size', `${((n * lh) - (lh - 1)) * st.fontSize}px`);
+    stage.style.setProperty('--dc-top', `${((lh - 1) / 2) * st.fontSize}px`);
+    if (st.dropCapFont) ensureFont(st.dropCapFont);
+    stage.style.setProperty('--dc-font', fontById(st.dropCapFont || st.font).stack);
+    stage.style.setProperty('--dc-weight', String(st.dropCapWeight || 400));
+    stage.style.setProperty('--dc-color', st.dropCapColor || 'currentColor');
+  }
   stage.style.setProperty('--name-gap', (st.nameGap ?? 3) + 'px');
   stage.style.setProperty('--name-w', st.nameBold ? '700' : '400');
   stage.style.setProperty('--b-max', st.bubbleMaxWidth + '%');
@@ -481,7 +497,50 @@ function pageParts() {
 
 /* 저장용 — 그린 판과 그 판에 담긴 원문을 짝지어 돌려준다. */
 export function buildExportStages() {
-  return pageParts().map(part => ({ stage: makeStage(part.html), source: part.source }));
+  const parts = pageParts().map(part => ({ stage: makeStage(part.html), source: part.source }));
+  applyDropCap(parts.map(p => p.stage));
+  return parts;
+}
+
+/* ── 드롭캡 ──────────────────────────────────
+   문서 맨 첫 본문 문단의 첫 글자를 따로 떼어 크게 띄운다. ::first-letter 는
+   그림으로 옮길 때 빠질 수 있어 진짜 칸(span)으로 감싼다. 첫 글자 앞의
+   따옴표·괄호 같은 부호는 글자와 함께 묶는다. */
+function applyDropCap(stages) {
+  const st = state.text.style;
+  if (!st.dropCap || !stages.length) return;
+  const each = st.dropCapScope === 'page';
+  // 자동 분할은 덩어리 사이에서만 끊으므로 장의 첫 문단은 늘 문단의 시작이다.
+  // 「분할 전」 보기는 한 판 안에 분할선이 끼어 있어, 장마다면 선 뒤도 새 장으로 본다.
+  for (const stage of (each ? stages : stages.slice(0, 1))) {
+    const inner = stage.querySelector('.stage-in');
+    if (!inner) continue;
+    let armed = true;
+    for (const el of inner.children) {
+      if (el.classList.contains('mk-splitline-wrap')) { if (each) armed = true; continue; }
+      if (armed && el.classList.contains('mk-p')) { capParagraph(el, st.dropCapKind === 'raise'); armed = false; }
+    }
+  }
+}
+
+/* 문단 첫 글자를 떼어 크게 쓴다 */
+function capParagraph(p, raised) {
+  const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = walker.nextNode())) {
+    const text = node.nodeValue;
+    const m = text.match(/^(\s*)([\p{P}\p{S}]*)(.)/su);
+    if (!m || !m[3].trim()) continue;
+    const start = m[1].length;
+    const len = m[2].length + m[3].length;
+    const rest = node.splitText(start);
+    rest.splitText(len);
+    const cap = U.el('span', { class: raised ? 'mk-dropcap is-raised' : 'mk-dropcap' });
+    rest.parentNode.insertBefore(cap, rest);
+    cap.appendChild(rest);
+    if (!raised) p.classList.add('has-dropcap');
+    return;
+  }
 }
 
 /* ── 각주 ────────────────────────────────────
@@ -585,6 +644,7 @@ export function renderPreview(host) {
     if (stages.length > 1) wrap.appendChild(U.el('div', { class: 'stage-label', text: `${i + 1} / ${stages.length}` }));
     host.appendChild(wrap);
   });
+  applyDropCap(stages);
   // 각주는 자리를 재야 하므로 판이 붙은 뒤에 앉힌다
   stages.forEach(layoutFootnotes);
 
@@ -1077,13 +1137,14 @@ function panelChat(container, onChange) {
         U.field('최대 폭', U.stepper(st.bubbleMaxWidth, { min: 30, max: 100, step: 2, unit: '%', onChange: (v) => { st.bubbleMaxWidth = v; touch(); } })),
         U.field('모서리', U.stepper(st.bubbleRadius, { min: 0, max: 40, step: 1, unit: 'px', onChange: (v) => { st.bubbleRadius = v; touch(); } })),
         U.field('말풍선 간격', U.stepper(st.bubbleGap, { min: 0, max: 40, step: 1, unit: 'px', onChange: (v) => { st.bubbleGap = v; touch(); } })),
+        U.field('연속 간격', U.stepper(st.bubbleInGap ?? 8, { min: 0, max: 40, step: 1, unit: 'px', onChange: (v) => { st.bubbleInGap = v; touch(); } })),
         U.field('이름 간격', U.stepper(st.nameGap ?? 3, { min: 0, max: 40, step: 1, unit: 'px', onChange: (v) => { st.nameGap = v; touch(); } })),
       ]),
       U.field('안쪽 여백', U.el('div', { class: 'field-row' }, [
         U.stepper(st.bubblePadV, { min: 0, max: 40, step: 1, unit: '↕', onChange: (v) => { st.bubblePadV = v; touch(); } }),
         U.stepper(st.bubblePadH, { min: 0, max: 40, step: 1, unit: '↔', onChange: (v) => { st.bubblePadH = v; touch(); } }),
       ])),
-      U.el('div', { class: 'hint', text: '「꼬리」와 「모서리」는 한 사람이 이어 말할 때 첫 말풍선에만 붙습니다. 「말풍선 간격」은 말풍선끼리, 「이름 간격」은 이름과 말풍선 사이입니다.' }),
+      U.el('div', { class: 'hint', text: '「꼬리」와 「모서리」는 한 사람이 이어 말할 때 첫 말풍선에만 붙습니다. 「말풍선 간격」은 사람이 바뀔 때, 「연속 간격」은 한 사람이 이어 말할 때, 「이름 간격」은 이름과 말풍선 사이입니다.' }),
     ]),
     tabReset('chat', container, onChange),
   ]);
@@ -1152,6 +1213,7 @@ function panelBody(container, onChange) {
       U.field('줄바꿈', U.seg(st.breakMode, [['word', '단어 단위'], ['char', '글자 단위']], (v) => { st.breakMode = v; touch(); })),
       U.el('div', { class: 'hint', text: '단어 단위는 낱말이 잘리지 않게 넘깁니다. 좁은 폭에서 오른쪽이 들쭉날쭉하면 글자 단위로 바꿔 보세요.' }),
     ]),
+    dropCapGroup(st, touch, () => buildSettings(container, onChange)),
     group('스타일', [
       U.field('구분선', U.seg(st.dividerStyle || 'line',
         DIVIDERS.map(([v, label]) => [v, dividerPreview(v, label)]),
@@ -1167,6 +1229,58 @@ function panelBody(container, onChange) {
     group('본문 사진', [photoList(container, onChange)]),
     tabReset('body', container, onChange),
   ]);
+}
+
+/* 굵기 고르개 — 지금 폰트에 없는 굵기는 누를 수 없게 둔다 */
+function weightSeg(st, touch) {
+  const font = fontById(st.dropCapFont || st.font);
+  const opts = [[300, '라이트'], [400, '일반'], [700, '굵게']];
+  const seg = U.seg(String(st.dropCapWeight || 400), opts.map(([w, l]) => [String(w), l]),
+    (v) => { st.dropCapWeight = Number(v); touch(); });
+  [...seg.children].forEach((b, i) => {
+    const [w, l] = opts[i];
+    if (!fontHasWeight(font, w)) { b.disabled = true; b.title = `${font.label}에는 ${l} 굵기가 없습니다`; }
+  });
+  return seg;
+}
+
+/* 드롭캡 — 제목 줄 오른쪽에 켜고 끄는 토글을 둔다. 칸은 접지 않는다. */
+function dropCapGroup(st, touch, rebuild) {
+  const sw = U.toggle('', !!st.dropCap, (v) => { st.dropCap = v; rebuild(); touch(); }, null,
+    st.dropCap ? '드롭캡을 끕니다' : '드롭캡을 켭니다');
+
+  return group('드롭캡', [
+    U.fieldGrid([
+      U.field('모양', U.seg(st.dropCapKind || 'drop', [['drop', '내림'], ['raise', '올림']],
+        (v) => { st.dropCapKind = v; touch(); })),
+      U.field('적용', U.seg(st.dropCapScope || 'first', [['first', '첫 장만'], ['page', '장마다']],
+        (v) => { st.dropCapScope = v; touch(); })),
+    ]),
+    // 제목 칸과 같은 짜임 — 폰트 | 크기, 색 | 굵게
+    U.fieldGrid([
+      U.field('폰트', U.select(st.dropCapFont || '',
+        [['', '본문과 같이'], ...FONTS.map(f => [f.id, f.label])],
+        (v) => {
+          st.dropCapFont = v;
+          // 새 폰트에 없는 굵기를 골라 두었으면 일반으로 돌린다
+          if (!fontHasWeight(fontById(v || st.font), st.dropCapWeight || 400)) st.dropCapWeight = 400;
+          rebuild(); touch();
+        })),
+      U.field('크기', U.stepper(st.dropCapLines ?? 3, {
+        min: 2, max: 6, step: 1, unit: '줄',
+        onChange: (v) => { st.dropCapLines = v; touch(); },
+      })),
+    ]),
+    U.fieldGrid([
+      U.field('색', (() => {
+        const c = U.color(st.dropCapColor || st.fg, (v) => { st.dropCapColor = v; touch(); });
+        c.classList.add('color-wide');
+        return c;
+      })()),
+      U.field('굵기', weightSeg(st, touch)),
+    ]),
+    U.el('div', { class: 'hint', text: '첫 본문 문단의 첫 글자를 크게 씁니다. 「내림」은 여러 줄에 걸쳐 파고들고, 「올림」은 첫 줄 위로 솟습니다. 제목·말풍선·인용구는 건너뜁니다.' }),
+  ], sw);
 }
 
 /* 제목·부제목만 따로 손보는 접는 칸. 본문 설정은 건드리지 않고,
@@ -1345,7 +1459,8 @@ function panelCanvas(container, onChange) {
       U.padGrid(st, ['padTop', 'padRight', 'padBottom', 'padLeft'], () => st.padLinked, touch),
     ], U.check('네 방향 동일', st.padLinked, (v) => { st.padLinked = v; })),
     group('배경', [
-      U.field('배경색', bgPicker(st, touch, rebuild)),
+      // 단색·그라데이션·투명 칸만으로 무엇을 고르는지 알 수 있어 이름표는 두지 않는다
+      bgPicker(st, touch, rebuild),
       // 썸네일 칸이 곧 사진을 넣는 칸이다. 비어 있으면 눌러서 고른다.
       st.bgImage
         ? (() => {

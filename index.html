@@ -2,8 +2,10 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<!-- viewport-fit=cover 라야 아이폰 홈 인디케이터 영역을 env() 로 피할 수 있다 -->
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- viewport-fit=cover 라야 아이폰 홈 인디케이터 영역을 env() 로 피할 수 있다.
+     maximum-scale=1 — 폰에서 입력칸을 누를 때 화면이 저절로 커지지 않게 한다.
+     미리보기 확대는 앱이 두 손가락 손짓을 따로 받아 배율로 옮긴다. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>textshot studio</title>
 <meta name="description" content="텍스트와 HTML을 이미지로 발췌하는 개인용 도구">
 <!-- U+FE0E(VS15)를 붙여 컬러 이모지 대신 흑백 텍스트 글리프로 그린다 -->
@@ -16,9 +18,9 @@
 <!-- Pretendard 는 js/fonts.js 가 불러온다. dynamic-subset 판은 @font-face 가 300개 가까이라
      캡쳐할 때 그 폰트 조각을 전부 내려받느라 멈춘다. 통짜 variable 판 하나만 쓴다. -->
 <!-- ?v= 를 올리면 브라우저가 새로 받는다. js/main.js 의 APP_VERSION 과 같이 올릴 것 -->
-<link rel="stylesheet" href="css/tokens.css?v=50">
-<link rel="stylesheet" href="css/app.css?v=50">
-<meta name="app-version" content="50">
+<link rel="stylesheet" href="css/tokens.css?v=60">
+<link rel="stylesheet" href="css/app.css?v=60">
+<meta name="app-version" content="60">
 <script src="vendor/jszip.min.js" defer></script>
 </head>
 <body>
@@ -76,7 +78,7 @@
           </div>
           <div class="fmt-group" id="slotBar"></div>
         </div>
-        <div class="fmt-row">
+        <div class="fmt-row fmt-row-prof">
           <span class="fmt-tag">프로필</span>
           <div class="fmt-group" id="profileBar"></div>
         </div>
@@ -86,7 +88,7 @@
             <button class="fmt-btn" data-prefix="# " title="제목">제목</button>
             <button class="fmt-btn" data-prefix="## " title="부제목">부제목</button>
             <button class="fmt-btn" data-prefix="&gt; " title="인용구">인용</button>
-            <button class="fmt-btn" data-fence="1" title="코드블럭">코드블럭</button>
+            <button class="fmt-btn" data-fence="1" title="코드블럭">코드</button>
             <button class="fmt-btn" id="insertImage" title="커서 자리에 사진을 넣습니다">사진</button>
             <button class="fmt-btn" id="insertNote" title="커서 자리에 각주 표를 넣습니다">각주</button>
           </div>
@@ -102,7 +104,7 @@
         </div>
       </div>
 
-      <textarea id="src" class="src" spellcheck="false" placeholder="지문을 붙여넣으세요.
+      <textarea id="src" class="src" spellcheck="false" placeholder="텍스트를 입력하세요.
 
 **굵게**   *행동지문*   &quot;대사&quot;   _기울임_   ==형광펜==   (괄호)
 # 제목   ## 부제목   &gt; 인용구   &gt;2 인용구(색 슬롯 2)
@@ -177,6 +179,6 @@
 
 <div class="toast" id="toast" hidden></div>
 
-<script type="module" src="js/main.js?v=50"></script>
+<script type="module" src="js/main.js?v=60"></script>
 </body>
 </html>

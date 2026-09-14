@@ -11,7 +11,7 @@
 import {
   state, DEFAULT_STYLE, DEFAULT_FORMATS, DEFAULT_PROFILES,
   newProfile, normalizeSlots, MAX_SLOTS, RATIOS, normalizeColumns,
-} from './store.js?v=50';
+} from './store.js?v=60';
 
 const APP = 'textshot-studio';
 const HEX = /^#[0-9a-fA-F]{6}$/;
@@ -58,6 +58,7 @@ const RANGE = {
   signSize: [6, 200], signGap: [0, 600],
   columns: [1, 4], columnGap: [0, 400], bqBar: [0, 40],
   h1Size: [0.5, 8], h2Size: [0.5, 8],
+  bubbleInGap: [0, 200], dropCapLines: [2, 6],
 };
 const DEFAULT_RANGE = [-2000, 2000];
 
@@ -89,6 +90,10 @@ function cleanStyle(raw) {
   normalizeColumns(out);
   if (!['line', 'fade', 'dots', 'bar', 'slash'].includes(out.dividerStyle)) out.dividerStyle = 'line';
   if (!['left', 'center', 'right', 'justify'].includes(out.align)) out.align = 'left';
+  if (out.dropCapColor && !HEX.test(out.dropCapColor)) out.dropCapColor = '';
+  if (!['drop', 'raise'].includes(out.dropCapKind)) out.dropCapKind = 'drop';
+  if (![300, 400, 700].includes(out.dropCapWeight)) out.dropCapWeight = 400;
+  if (!['first', 'page'].includes(out.dropCapScope)) out.dropCapScope = 'first';
   for (const k of ['h1Align', 'h2Align']) {
     if (!['', 'left', 'center', 'right'].includes(out[k])) out[k] = '';
   }
