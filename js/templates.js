@@ -2,10 +2,10 @@
    자동 서식 on/off 는 템플릿에 넣지 않는다 (전역 설정). */
 
 import {
-  state, templates, persistTemplates, DEFAULT_STYLE, templatePhotoCount, normalizeColumns,
-} from './store.js?v=60';
-import { el, toast } from './ui.js?v=60';
-import { downloadBlob } from './capture.js?v=60';
+  state, templates, persistTemplates, DEFAULT_STYLE, templatePhotoCount, normalizeColumns, migrateWeights,
+} from './store.js?v=64';
+import { el, toast } from './ui.js?v=64';
+import { downloadBlob } from './capture.js?v=64';
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
 
@@ -58,6 +58,7 @@ export function buildTemplateSection(onApply, rerender) {
             if (!okToSwapProfiles(name, profiles)) return;
             Object.assign(state.text.style, clone(style));
             normalizeColumns(state.text.style);
+            migrateWeights(state.text.style, style);
             if (profiles && profiles.length) state.text.profiles = clone(profiles);
             state.activeTemplate = name;
             onApply();

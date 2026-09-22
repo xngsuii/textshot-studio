@@ -341,7 +341,7 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 
 .photo-list { display: flex; flex-direction: column; gap: 5px; }
 .photo-row {
-  display: grid; grid-template-columns: 14px 40px minmax(0, 1fr) 94px 22px;
+  display: grid; grid-template-columns: 14px 40px minmax(0, 1fr) 102px 22px;
   align-items: center; gap: 7px;
   padding: 5px 6px;
   border: 1px solid var(--line); border-radius: var(--r-sm);
@@ -360,7 +360,10 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .photo-w .slider-row { gap: 5px; }
 .photo-w .slider-val { width: 30px; font-size: 11px; }
 .photo-r .step-input { min-width: 0; }
+/* 좁은 줄이라 입력칸 기본 안쪽 여백(8px)이 숫자를 가렸다. 여백을 줄여
+   −/+ 사이에서도 두 자리가 다 보이게 하고, 모자라는 폭은 슬라이더가 내준다. */
 .photo-r .step-btn { width: 21px; }
+.photo-r .step-input { padding: 0 2px; }
 .photo-r .step-unit { min-width: 0; font-size: 10px; }
 .photo-x {
   width: 22px; height: 22px; border-radius: var(--r-sm);
@@ -1006,6 +1009,8 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .stage > *:not(.stage-bg) { position: relative; z-index: 1; }
 /* 본문 위에 얹는 띠. 여백 밖으로 나가야 하므로 넘치는 쪽은 스테이지가 잘라 낸다. */
 .stage-header { flex: none; position: relative; overflow: hidden; }
+/* 여백 안쪽에 들여 놓은 헤더 — 모서리를 둥글린다 */
+.stage-header.is-inset { border-radius: 12px; }
 /* 사진은 안쪽 판에. 흐리게 해도 띠의 네 변은 또렷하게 남는다. */
 .stage-header-face { position: absolute; }
 /* 배경 사진을 끌어 옮길 수 있을 때 */

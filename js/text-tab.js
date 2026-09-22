@@ -5,20 +5,20 @@ import {
   DEFAULT_OUTPUT, RATIOS, RATIO_ORDER, RATIO_LABEL, MAX_SLOTS, newProfile, NAME_COLOR,
   fontHasWeight,
   storedBytes, photoStats, photoUsage, dropTemplatePhotos, clearStored,
-} from './store.js?v=60';
+} from './store.js?v=64';
 import {
   splitChunks, hasSplit, renderChunk, renderWithSplitMarks, stripMarkers,
   imageOrder, removeImageMarker, chunkOffsets, setSpeakerAt, speakerNameAt,
   renameSpeaker, NAME_SEP, noteOrder, removeNoteMarker,
-} from './markup.js?v=60';
-import { ensureFont, isAvailable } from './fonts.js?v=60';
-import { SKINS, skinById, skinProfiles, skinStyle, resolve, CHIPS } from './skins.js?v=60';
-import { buildTemplateSection } from './templates.js?v=60';
-import { extract as extractMeta } from './png-meta.js?v=60';
+} from './markup.js?v=64';
+import { ensureFont, isAvailable } from './fonts.js?v=64';
+import { SKINS, skinById, skinProfiles, skinStyle, resolve, CHIPS } from './skins.js?v=64';
+import { buildTemplateSection } from './templates.js?v=64';
+import { extract as extractMeta } from './png-meta.js?v=64';
 import {
   isPayload, applyPayload, summarize, commonWarnings, textOnlyWarnings,
-} from './doc-io.js?v=60';
-import * as U from './ui.js?v=60';
+} from './doc-io.js?v=64';
+import * as U from './ui.js?v=64';
 
 const srcEl = () => document.getElementById('src');
 const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -32,7 +32,7 @@ const TAB_RESET = {
       'breakMode', 'dropCap', 'dropCapLines', 'dropCapWeight', 'dropCapFont', 'dropCapColor',
       'dropCapKind', 'dropCapScope',
       'dividerStyle', 'bqBar',
-      'h1Font', 'h1Size', 'h1Align', 'h1Bold', 'h2Font', 'h2Size', 'h2Align', 'h2Bold'],
+      'h1Font', 'h1Size', 'h1Align', 'h1Weight', 'h2Font', 'h2Size', 'h2Align', 'h2Weight'],
     note: '넣어 둔 본문 사진은 그대로 둡니다.',
   },
   canvas: {
@@ -40,7 +40,7 @@ const TAB_RESET = {
     keys: ['width', 'ratio', 'autoSplit', 'columns', 'columnGap',
       'padTop', 'padRight', 'padBottom', 'padLeft', 'padLinked',
       'bgMode', 'bg', 'bg2', 'bgImage', 'bgFit', 'bgOpacity', 'bgX', 'bgY', 'bgBlur',
-      'bgAsHeader', 'bgHeaderH', 'transparent',
+      'bgAsHeader', 'bgHeaderH', 'bgHeaderSide', 'bgHeaderW', 'bgHeaderInset', 'transparent',
       'signOn', 'signSep', 'signAlign', 'signSize', 'signGap', 'signColor'],
     note: '깔아 둔 배경 사진도 빠집니다. 서명에 적어 둔 이름은 그대로 둡니다.',
   },
@@ -305,7 +305,7 @@ function applyStyle(stage) {
     stage.style.setProperty(`--${h}-font`, fontById(fid || st.font).stack);
     stage.style.setProperty(`--${h}-size`, `${st[`${h}Size`] ?? (h === 'h1' ? 1.6 : 1.22)}em`);
     stage.style.setProperty(`--${h}-align`, st[`${h}Align`] || st.align || 'left');
-    stage.style.setProperty(`--${h}-weight`, st[`${h}Bold`] ? '700' : '400');
+    stage.style.setProperty(`--${h}-weight`, String(st[`${h}Weight`] ?? (h === 'h1' ? 700 : 400)));
   }
 
   stage.style.setProperty('--para-gap', st.paraGap + 'px');
@@ -338,6 +338,10 @@ function applyStyle(stage) {
   }
 
   if (st.bgImage) stage.prepend(st.bgAsHeader ? headerBand(st) : bgLayer(st));
+  if (st.bgImage && st.bgAsHeader && headerSide(st) !== 'top') {
+    const { side, px } = sidePadding(st);
+    stage.style[side === 'left' ? 'paddingLeft' : 'paddingRight'] = px + 'px';
+  }
 }
 
 /* 캔버스 전체에 깔리는 배경. 흐리게 하면 가장자리가 비쳐서
@@ -375,14 +379,47 @@ function headerBand(st) {
     filter: blur ? `blur(${blur}px)` : '',
   });
   const band = U.el('div', { class: 'stage-header' }, [face]);
+  const side = headerSide(st);
+  const inset = !!st.bgHeaderInset;
+  band.dataset.side = side;
+  band.classList.toggle('is-inset', inset);
+
+  if (side === 'top') {
+    // 꽉 채우면 여백 밖 캔버스 끝까지, 들여 놓으면 여백 안쪽에 앉는다
+    Object.assign(band.style, inset
+      ? { height: (st.bgHeaderH ?? 220) + 'px', marginBottom: st.padTop + 'px' }
+      : {
+        height: (st.bgHeaderH ?? 220) + 'px',
+        marginTop: -st.padTop + 'px',
+        marginLeft: -st.padLeft + 'px',
+        marginRight: -st.padRight + 'px',
+        marginBottom: st.padTop + 'px',
+      });
+    return band;
+  }
+
+  /* 옆에 둘 때는 글 흐름에서 빼서 그 옆에 세운다. 글은 판의 그쪽 여백을
+     띠 폭만큼 늘려 비켜 가게 한다(applyStyle). 높이는 캔버스를 따라간다. */
+  const pad = side === 'left' ? st.padLeft : st.padRight;
   Object.assign(band.style, {
-    height: (st.bgHeaderH ?? 220) + 'px',
-    marginTop: -st.padTop + 'px',
-    marginLeft: -st.padLeft + 'px',
-    marginRight: -st.padRight + 'px',
-    marginBottom: st.padTop + 'px',
+    position: 'absolute',
+    width: sideBandWidth(st) + 'px',
+    top: (inset ? st.padTop : 0) + 'px',
+    bottom: (inset ? st.padBottom : 0) + 'px',
+    [side]: (inset ? pad : 0) + 'px',
   });
   return band;
+}
+
+const headerSide = (st) => (['left', 'right'].includes(st.bgHeaderSide) ? st.bgHeaderSide : 'top');
+const sideBandWidth = (st) => Math.round(st.width * (st.bgHeaderW ?? 38) / 100);
+
+/* 옆 헤더가 있을 때 그쪽 판 여백 — 띠 폭에 원래 여백만큼 틈을 더한다.
+   들여 놓으면 캔버스 끝에서 띠까지도 여백만큼 떨어진다. */
+function sidePadding(st) {
+  const side = headerSide(st);
+  const pad = side === 'left' ? st.padLeft : st.padRight;
+  return { side, px: (st.bgHeaderInset ? pad : 0) + sideBandWidth(st) + pad };
 }
 
 /* 캔버스 아래 한 줄 — 이름과 소속. 둘 다 비어 있으면 아예 만들지 않는다.
@@ -446,7 +483,10 @@ function splitToPages(html) {
   const inner = probe.querySelector('.stage-in');
   let limit = Math.round(st.width * RATIOS[st.ratio]) - st.padTop - st.padBottom;
   const band = probe.querySelector('.stage-header');
-  if (band) limit -= band.offsetHeight;
+  // 위 띠만 세로 자리를 먹는다. 들여 놓았으면 아래 틈까지.
+  if (band && band.dataset.side === 'top') {
+    limit -= band.offsetHeight + (band.classList.contains('is-inset') ? st.padTop : 0);
+  }
   const sign = probe.querySelector('.stage-sign');
   if (sign) limit -= sign.offsetHeight + (st.signGap ?? 32);
 
@@ -687,6 +727,15 @@ function naturalSize(src) {
   return box;
 }
 
+/* 띠의 어느 가장자리를 잡아야 크기가 바뀌는지 — 위 띠는 아래, 옆 띠는 글 쪽 */
+function nearBandEdge(band, e) {
+  const box = band.getBoundingClientRect();
+  const side = band.dataset.side || 'top';
+  if (side === 'left') return box.right - e.clientX <= 12;
+  if (side === 'right') return e.clientX - box.left <= 12;
+  return box.bottom - e.clientY <= 12;
+}
+
 function draggableBg() {
   const st = state.text.style;
   if (!st.bgImage) return null;
@@ -705,16 +754,14 @@ export function bindBgDrag(host, onChange) {
     /* 헤더 띠의 아래 가장자리를 잡으면 높이를 바꾼다. 그 안쪽을 잡으면
        아래처럼 보이는 자리를 옮긴다. 수치로 정하는 칸도 그대로 쓴다. */
     const head = t.closest?.('.stage-header');
-    if (head) {
-      const box = head.getBoundingClientRect();
-      if (box.bottom - e.clientY <= 12) {
-        e.preventDefault();
-        try { host.setPointerCapture(e.pointerId); } catch { /* 못 잡아도 끌기는 된다 */ }
-        drag = { id: e.pointerId, mode: 'head', st, y: e.clientY,
-          h0: st.bgHeaderH ?? 220, k: hostScale(host) };
-        host.classList.add('is-headsize');
-        return;
-      }
+    if (head && nearBandEdge(head, e)) {
+      e.preventDefault();
+      try { host.setPointerCapture(e.pointerId); } catch { /* 못 잡아도 끌기는 된다 */ }
+      drag = { id: e.pointerId, mode: 'head', side: head.dataset.side || 'top', st,
+        x: e.clientX, y: e.clientY,
+        h0: st.bgHeaderH ?? 220, w0: sideBandWidth(st), k: hostScale(host) };
+      host.classList.add('is-headsize');
+      return;
     }
 
     // 글이나 말풍선이 아니라 빈 여백을 잡았을 때만 움직인다
@@ -747,18 +794,31 @@ export function bindBgDrag(host, onChange) {
       // 어디를 잡으면 높이가 바뀌는지 마우스 모양으로 알려 준다
       const n = e.target.closest?.('.stage-header');
       if (n) {
-        const box = n.getBoundingClientRect();
-        n.style.cursor = box.bottom - e.clientY <= 12 ? 'ns-resize' : 'grab';
+        const side = n.dataset.side || 'top';
+        n.style.cursor = nearBandEdge(n, e) ? (side === 'top' ? 'ns-resize' : 'ew-resize') : 'grab';
       }
       return;
     }
     if (e.pointerId !== drag.id) return;
 
     if (drag.mode === 'head') {
-      const dy = (e.clientY - drag.y) / (drag.k || 1);
-      drag.st.bgHeaderH = Math.max(40, Math.min(1600, Math.round(drag.h0 + dy)));
-      // 다시 그리면 한 박자 늦어 끌리는 게 안 보인다. 지금 띠를 바로 늘린다.
-      host.querySelectorAll('.stage-header').forEach(n => { n.style.height = drag.st.bgHeaderH + 'px'; });
+      const st = drag.st;
+      if (drag.side === 'top') {
+        const dy = (e.clientY - drag.y) / (drag.k || 1);
+        st.bgHeaderH = Math.max(40, Math.min(1600, Math.round(drag.h0 + dy)));
+        // 다시 그리면 한 박자 늦어 끌리는 게 안 보인다. 지금 띠를 바로 늘린다.
+        host.querySelectorAll('.stage-header').forEach(n => { n.style.height = st.bgHeaderH + 'px'; });
+        return;
+      }
+      // 옆 띠는 글 쪽 가장자리를 끈다. 왼쪽 띠는 오른쪽으로, 오른쪽 띠는 왼쪽으로 밀면 넓어진다.
+      const dx = (e.clientX - drag.x) / (drag.k || 1) * (drag.side === 'left' ? 1 : -1);
+      st.bgHeaderW = Math.max(10, Math.min(80, Math.round((drag.w0 + dx) / st.width * 100)));
+      const { side, px } = sidePadding(st);
+      host.querySelectorAll('.stage').forEach((stage) => {
+        const n = stage.querySelector('.stage-header');
+        if (n) n.style.width = sideBandWidth(st) + 'px';
+        stage.style[side === 'left' ? 'paddingLeft' : 'paddingRight'] = px + 'px';
+      });
       return;
     }
 
@@ -775,10 +835,13 @@ export function bindBgDrag(host, onChange) {
 
   const end = (e) => {
     if (!drag || e.pointerId !== drag.id) return;
+    const sized = drag.mode === 'head';
     drag = null;
     host.classList.remove('is-bgdrag', 'is-headsize');
     state.activeTemplate = null;
     onChange();
+    // 끌어서 바꾼 높이·폭이 설정 칸 숫자에도 보이게 칸을 다시 그린다 (스크롤 자리는 그대로)
+    if (sized) buildSettings(document.getElementById('textSettings'), onChange);
   };
   host.addEventListener('pointerup', end);
   host.addEventListener('pointercancel', end);
@@ -1094,14 +1157,19 @@ function panelChat(container, onChange) {
   }, { axis: isList ? 'y' : 'both' });
 
   return U.el('div', { class: 'panel' }, [
-    // 네 칸에 나눠 담느라 이름표를 줄였다. 무슨 뜻인지는 툴팁에 적어 둔다.
-    U.el('div', { class: 'tgl-row tgl-boxed cols-4' }, [
+    // 세 칸에 나눠 담느라 이름표를 줄였다. 무슨 뜻인지는 툴팁에 적어 둔다.
+    U.el('div', { class: 'tgl-row tgl-boxed cols-3' }, [
       U.toggle('이름 볼드', st.nameBold, (v) => { st.nameBold = v; touch(); }, null, '이름을 굵게'),
       U.toggle('따옴표', st.hideQuotesInBubble, (v) => { st.hideQuotesInBubble = v; touch(); }, null, '말풍선 안 따옴표 기호 감추기'),
       U.toggle('괄호', st.parenBreakInBubble, (v) => { st.parenBreakInBubble = v; touch(); }, null, '말풍선 안 괄호를 늘 새 줄에'),
-      U.pct('투명도', st.bubbleAlpha ?? 100, (v) => { st.bubbleAlpha = v; touch(); },
-        '말풍선 투명도 — 프로필과 상관없이 모든 말풍선에 걸립니다'),
     ]),
+    (() => {
+      const f = U.field('투명도', U.slider(st.bubbleAlpha ?? 100, {
+        min: 0, max: 100, step: 5, unit: '%', onChange: (v) => { st.bubbleAlpha = v; touch(); },
+      }));
+      f.title = '말풍선 투명도 — 프로필과 상관없이 모든 말풍선에 걸립니다';
+      return f;
+    })(),
     group('프로필', [
       listEl,
       U.el('div', { class: 'field-row' }, [
@@ -1218,12 +1286,12 @@ function panelBody(container, onChange) {
       U.field('구분선', U.seg(st.dividerStyle || 'line',
         DIVIDERS.map(([v, label]) => [v, dividerPreview(v, label)]),
         (v) => { st.dividerStyle = v; touch(); })),
-      U.field('인용 막대', U.slider(st.bqBar ?? 3, {
+      U.field('인용 막대', U.stepper(st.bqBar ?? 3, {
         min: 0, max: 12, step: 1, unit: 'px', onChange: (v) => { st.bqBar = v; touch(); },
       })),
       U.el('div', { class: 'hint', text: '구분선 --- 의 모양과 인용구 > 왼쪽 막대의 두께입니다. 색은 색상 탭에서 고릅니다.' }),
-      headGroup('h1', '제목', st, touch),
-      headGroup('h2', '부제목', st, touch),
+      headGroup('h1', '제목', st, touch, () => buildSettings(container, onChange)),
+      headGroup('h2', '부제목', st, touch, () => buildSettings(container, onChange)),
     ]),
     group('각주', [noteList(container, onChange)]),
     group('본문 사진', [photoList(container, onChange)]),
@@ -1232,11 +1300,11 @@ function panelBody(container, onChange) {
 }
 
 /* 굵기 고르개 — 지금 폰트에 없는 굵기는 누를 수 없게 둔다 */
-function weightSeg(st, touch) {
-  const font = fontById(st.dropCapFont || st.font);
+function weightSeg(fontId, value, onPick) {
+  const font = fontById(fontId);
   const opts = [[300, '라이트'], [400, '일반'], [700, '굵게']];
-  const seg = U.seg(String(st.dropCapWeight || 400), opts.map(([w, l]) => [String(w), l]),
-    (v) => { st.dropCapWeight = Number(v); touch(); });
+  const seg = U.seg(String(value || 400), opts.map(([w, l]) => [String(w), l]),
+    (v) => onPick(Number(v)));
   [...seg.children].forEach((b, i) => {
     const [w, l] = opts[i];
     if (!fontHasWeight(font, w)) { b.disabled = true; b.title = `${font.label}에는 ${l} 굵기가 없습니다`; }
@@ -1277,7 +1345,8 @@ function dropCapGroup(st, touch, rebuild) {
         c.classList.add('color-wide');
         return c;
       })()),
-      U.field('굵기', weightSeg(st, touch)),
+      U.field('굵기', weightSeg(st.dropCapFont || st.font, st.dropCapWeight,
+        (w) => { st.dropCapWeight = w; touch(); })),
     ]),
     U.el('div', { class: 'hint', text: '첫 본문 문단의 첫 글자를 크게 씁니다. 「내림」은 여러 줄에 걸쳐 파고들고, 「올림」은 첫 줄 위로 솟습니다. 제목·말풍선·인용구는 건너뜁니다.' }),
   ], sw);
@@ -1286,13 +1355,19 @@ function dropCapGroup(st, touch, rebuild) {
 /* 제목·부제목만 따로 손보는 접는 칸. 본문 설정은 건드리지 않고,
    # 과 ## 이 달린 줄에만 걸린다. 여러 단일 때 정렬은 그 줄이 놓인
    단 안에서 걸린다 — 단이 곧 글줄의 폭이니 저절로 그렇게 된다. */
-function headGroup(key, label, st, touch) {
+function headGroup(key, label, st, touch, rebuild) {
   const size = st[`${key}Size`] ?? (key === 'h1' ? 1.6 : 1.22);
+  const wKey = `${key}Weight`;
   const fields = [
     U.fieldGrid([
       U.field('폰트', U.select(st[`${key}Font`] || '',
         [['', '본문과 같이'], ...FONTS.map(f => [f.id, f.label])],
-        (v) => { st[`${key}Font`] = v; touch(); })),
+        (v) => {
+          st[`${key}Font`] = v;
+          // 새 폰트에 없는 굵기를 골라 두었으면 일반으로 돌린다
+          if (!fontHasWeight(fontById(v || st.font), st[wKey] ?? 400)) st[wKey] = 400;
+          rebuild(); touch();
+        })),
       U.field('크기', U.stepper(size, {
         min: 0.6, max: 5, step: 0.05, decimals: 2, unit: '배',
         onChange: (v) => { st[`${key}Size`] = v; touch(); },
@@ -1301,15 +1376,19 @@ function headGroup(key, label, st, touch) {
     U.field('정렬', U.seg(st[`${key}Align`] || '',
       [['', '본문과 같이'], ['left', '왼쪽'], ['center', '가운데'], ['right', '오른쪽']],
       (v) => { st[`${key}Align`] = v; touch(); })),
-    U.el('div', { class: 'tgl-row tgl-boxed' }, [
-      U.toggle('굵게', !!st[`${key}Bold`], (v) => { st[`${key}Bold`] = v; touch(); }),
-    ]),
+    U.field('굵기', weightSeg(st[`${key}Font`] || st.font, st[wKey] ?? (key === 'h1' ? 700 : 400),
+      (w) => { st[wKey] = w; touch(); })),
   ];
-  return U.el('details', { class: 'grp fold-grp fold-sub' }, [
+  const det = U.el('details', { class: 'grp fold-grp fold-sub' }, [
     U.el('summary', { class: 'grp-t' }, [U.el('span', { text: label })]),
     U.el('div', { class: 'fold-body' }, fields),
   ]);
+  // 폰트를 바꾸면 칸을 다시 그린다. 그때 펼쳐 둔 칸이 접히지 않게 기억해 둔다.
+  det.open = openHeads.has(key);
+  det.addEventListener('toggle', () => { if (det.open) openHeads.add(key); else openHeads.delete(key); });
+  return det;
 }
+const openHeads = new Set();
 
 /* 각주 목록 — 차례는 본문에 나온 순서 그대로다. 자리를 옮기려면 편집기에서
    [[fn:…]] 표를 옮기면 된다. 여기서는 설명을 적고 빼기만 한다. */
@@ -1380,7 +1459,7 @@ function photoList(container, onChange) {
         onChange: (v) => { im.width = v; onChange(); },
       }),
     ]),
-    U.el('div', { class: 'photo-r' }, [
+    U.el('div', { class: 'photo-r', title: '사진 모서리 둥글기' }, [
       U.stepper(im.radius ?? 4, {
         min: 0, max: 80, step: 1, unit: 'px', onChange: (v) => { im.radius = v; onChange(); },
       }),
@@ -1484,16 +1563,28 @@ function panelCanvas(container, onChange) {
           onClick: () => { st.bgAsHeader = !st.bgAsHeader; rebuild(); touch(); },
         }) : null,
       ]),
-      st.bgImage && st.bgAsHeader
-        ? U.field('헤더 높이', U.stepper(st.bgHeaderH ?? 220, { min: 40, max: 1200, step: 10, unit: 'px', onChange: (v) => { st.bgHeaderH = v; touch(); } }))
-        : null,
+      st.bgImage && st.bgAsHeader ? U.fieldGrid([
+        U.field('위치', (() => {
+          const seg = U.seg(headerSide(st), [['left', '←'], ['top', '↑'], ['right', '→']],
+            (v) => { st.bgHeaderSide = v; rebuild(); touch(); });
+          ['왼쪽에 둡니다', '위에 둡니다', '오른쪽에 둡니다'].forEach((t, i) => { seg.children[i].title = t; });
+          return seg;
+        })()),
+        U.field('여백', U.seg(st.bgHeaderInset ? 'inset' : 'full', [['full', '꽉 채움'], ['inset', '여백 두기']],
+          (v) => { st.bgHeaderInset = v === 'inset'; touch(); })),
+      ]) : null,
       st.bgImage && !st.bgAsHeader
         ? U.field('맞춤', U.seg(st.bgFit, [['cover', '꽉 채움'], ['contain', '전체 보임'], ['tile', '반복']], (v) => { st.bgFit = v; touch(); }))
         : null,
-      st.bgImage ? U.fieldGrid([
-        U.field('불투명도', U.slider(st.bgOpacity, { min: 0, max: 100, step: 5, unit: '%', onChange: (v) => { st.bgOpacity = v; touch(); } })),
-        U.field('흐림', U.slider(st.bgBlur ?? 0, { min: 0, max: 60, step: 1, unit: 'px', onChange: (v) => { st.bgBlur = v; touch(); } })),
-      ]) : null,
+      // 슬라이더는 값 글자와 옆 칸이 붙어 보여 한 줄에 하나씩 둔다
+      st.bgImage ? U.field('불투명도', U.slider(st.bgOpacity, { min: 0, max: 100, step: 5, unit: '%', onChange: (v) => { st.bgOpacity = v; touch(); } })) : null,
+      st.bgImage ? U.field('흐림', U.slider(st.bgBlur ?? 0, { min: 0, max: 60, step: 1, unit: 'px', onChange: (v) => { st.bgBlur = v; touch(); } })) : null,
+      // 헤더 크기는 불투명도·흐림 아래에
+      st.bgImage && st.bgAsHeader
+        ? (headerSide(st) === 'top'
+          ? U.field('헤더 높이', U.stepper(st.bgHeaderH ?? 220, { min: 40, max: 1200, step: 10, unit: 'px', onChange: (v) => { st.bgHeaderH = v; touch(); } }))
+          : U.field('헤더 폭', U.slider(st.bgHeaderW ?? 38, { min: 10, max: 80, step: 1, unit: '%', onChange: (v) => { st.bgHeaderW = v; touch(); } })))
+        : null,
       st.bgImage && (st.bgAsHeader || st.bgFit === 'cover') ? U.el('div', { class: 'field-row is-loose' }, [
         U.el('button', {
           class: 'btn btn-ghost btn-sm', type: 'button', text: '원래 위치로',

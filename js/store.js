@@ -110,7 +110,10 @@ export const DEFAULT_STYLE = {
   bgX: 50, bgY: 50,             // 꽉 채움일 때 보이는 자리 (%). 미리보기에서 끌어 옮긴다.
   bgBlur: 0,
   bgAsHeader: false,            // 배경 대신 본문 위 띠로 쓴다
-  bgHeaderH: 220,
+  bgHeaderH: 220,               // 위에 둘 때 높이 px
+  bgHeaderSide: 'top',          // top 위 / left 왼쪽 / right 오른쪽
+  bgHeaderW: 38,                // 옆에 둘 때 폭 — 캔버스 폭의 %
+  bgHeaderInset: false,         // 여백 안쪽에 둥글게 들여 놓는다
 
   fg: '#1A1A1A',
   fnColor: '#8A8F98',           // 각주 글씨
@@ -122,8 +125,8 @@ export const DEFAULT_STYLE = {
 
   /* 제목·부제목만 따로. 빈 값이면 본문을 그대로 따라간다.
      크기는 본문 글자 크기의 몇 배인지로 둔다 — 본문을 키우면 같이 커진다. */
-  h1Font: '', h1Size: 1.6, h1Align: '', h1Bold: true,
-  h2Font: '', h2Size: 1.22, h2Align: '', h2Bold: false,
+  h1Font: '', h1Size: 1.6, h1Align: '', h1Weight: 700,   // 굵기 300 / 400 / 700
+  h2Font: '', h2Size: 1.22, h2Align: '', h2Weight: 400,
   headingColor: '#111417',
   bqColor: '#14746F',
   hlColor: '#FFE9A3',
@@ -169,6 +172,16 @@ export const DEFAULT_STYLE = {
 };
 
 export const MAX_SLOTS = 5;
+
+/* 굵기는 예전에 켜고 끄는 값(…Bold)이었다. 지금의 굵기 수치로 옮긴다.
+   raw 는 저장돼 있던 그대로의 값 — 새 값이 이미 있으면 건드리지 않는다. */
+export function migrateWeights(st, raw) {
+  if (!st || !raw) return;
+  for (const [oldK, newK] of [['dropCapBold', 'dropCapWeight'], ['h1Bold', 'h1Weight'], ['h2Bold', 'h2Weight']]) {
+    if (typeof raw[oldK] === 'boolean' && raw[newK] === undefined) st[newK] = raw[oldK] ? 700 : 400;
+    delete st[oldK];
+  }
+}
 
 /* 단 수 — 예전에는 참/거짓 하나로 두 단 여부만 두었다. */
 export const COLUMN_CHOICES = [1, 2, 4];
@@ -366,11 +379,7 @@ export function loadAll() {
         Object.assign(state.text.formats, d.text.formats || {});
         Object.assign(state.text.style, d.text.style || {});
         normalizeColumns(state.text.style);
-        // 드롭캡 굵기는 잠깐 켜고 끄는 값이었다
-        if (d.text.style && typeof d.text.style.dropCapBold === 'boolean' && d.text.style.dropCapWeight === undefined) {
-          state.text.style.dropCapWeight = d.text.style.dropCapBold ? 700 : 400;
-        }
-        delete state.text.style.dropCapBold;
+        migrateWeights(state.text.style, d.text.style);
         state.text.style.slots = normalizeSlots(state.text.style.slots ?? d.text.style?.colorSlots);
         delete state.text.style.colorSlots;
         // A4·A5·B5 를 쓰던 설정은 자동으로 되돌린다
