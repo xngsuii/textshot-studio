@@ -26,6 +26,24 @@ export const FONTS = [
     stack: '"Gowun Batang", serif',
     css: 'https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&display=swap',
   },
+  {
+    /* 지마켓 산스 — 스타일시트가 없어 글꼴 파일만 있다. 이름은 우리가 붙인다. */
+    id: 'gmarket', label: 'G마켓 산스', source: 'cdn',
+    stack: '"GmarketSans", sans-serif',
+    weights: [300, 500, 700],
+    faces: [
+      ['https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansLight.woff', 300],
+      ['https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansMedium.woff', 500],
+      ['https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansBold.woff', 700],
+    ],
+  },
+  {
+    // 갈무리 11 — 도트(비트맵) 글꼴이라 매끄럽게 다듬으면 뭉개진다
+    id: 'galmuri11', label: '갈무리 11', source: 'cdn', pixel: true,
+    stack: '"Galmuri11", sans-serif',
+    weights: [400, 700],
+    css: 'https://cdn.jsdelivr.net/npm/galmuri/dist/galmuri.css',
+  },
   // ─ 아래 넷은 CDN에 없어 폰트 파일을 직접 넣어야 함 (assets/fonts/README.md 참고)
   //   files 의 경로는 확장자를 뺀 것. woff2 를 먼저 찾고 없으면 woff 로 넘어간다.
   { id: 'maruburi',  label: '마루 부리',     source: 'local', stack: '"MaruBuri", serif',
@@ -44,15 +62,25 @@ export const fontById = (id) => FONTS.find(f => f.id === id) || FONTS[0];
    구글 폰트는 주소의 wght@…, 직접 넣는 파일은 files 의 굵기, 둘 다 없으면
    가변 폰트(Pretendard)라 모든 굵기를 낸다. */
 export function fontWeights(f) {
+  if (f.weights) return f.weights;
   if (f.files) return f.files.map(([, w]) => w);
   const m = /wght@([\d;]+)/.exec(f.css || '');
   if (m) return m[1].split(';').map(Number);
   return [100, 200, 300, 400, 500, 600, 700, 800, 900];
 }
 
-/* 라이트·굵게를 진짜 글꼴로 낼 수 있는지. 없는 굵게는 브라우저가 억지로
-   두껍게 그려 흉하고, 없는 라이트는 아예 달라지지 않는다. 일반은 늘 된다. */
+/* 고를 수 있는 굵기인지.
+
+   굵게는 굵은 글꼴이 없어도 브라우저가 획을 부풀려 두껍게 그려 준다.
+   본문의 **굵게** 마커가 이미 그렇게 동작하므로 여기서도 막지 않는다.
+   반대로 가벼운 글꼴은 만들어내지 못해서, 라이트는 진짜 있을 때만 고를 수 있다. */
 export function fontHasWeight(f, w) {
+  if (w <= 300) return fontWeights(f).some(x => x <= 300);
+  return true;
+}
+
+/* 그 굵기의 글꼴 파일이 진짜 있는지 — 없으면 브라우저가 흉내 낸 것이다 */
+export function fontHasRealWeight(f, w) {
   const ws = fontWeights(f);
   if (w <= 300) return ws.some(x => x <= 300);
   if (w >= 700) return ws.some(x => x >= 600);
@@ -85,6 +113,7 @@ export const DEFAULT_STYLE = {
   paraGap: 5,
   squeeze: 100,                 // 장평 % — 100 이면 글자를 그대로 둔다
   breakMode: 'word',            // word: 단어 단위 / char: 글자 단위
+  textIndent: 0,                // 문단 첫 줄 들여쓰기 px
   dropCap: false,               // 첫 문단 첫 글자를 크게
   dropCapLines: 3,              // 드롭캡이 차지하는 줄 수
   dropCapWeight: 400,            // 300 라이트 / 400 일반 / 700 굵게
@@ -114,6 +143,7 @@ export const DEFAULT_STYLE = {
   bgHeaderSide: 'top',          // top 위 / left 왼쪽 / right 오른쪽
   bgHeaderW: 38,                // 옆에 둘 때 폭 — 캔버스 폭의 %
   bgHeaderInset: false,         // 여백 안쪽에 둥글게 들여 놓는다
+  bgHeaderGap: -1,              // 본문과의 간격 px. 0 보다 작으면 그쪽 여백을 따라간다.
 
   fg: '#1A1A1A',
   fnColor: '#8A8F98',           // 각주 글씨

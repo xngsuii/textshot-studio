@@ -11,7 +11,7 @@
 import {
   state, DEFAULT_STYLE, DEFAULT_FORMATS, DEFAULT_PROFILES,
   newProfile, normalizeSlots, MAX_SLOTS, RATIOS, normalizeColumns, migrateWeights,
-} from './store.js?v=64';
+} from './store.js?v=68';
 
 const APP = 'textshot-studio';
 const HEX = /^#[0-9a-fA-F]{6}$/;
@@ -59,6 +59,7 @@ const RANGE = {
   columns: [1, 4], columnGap: [0, 400], bqBar: [0, 40],
   h1Size: [0.5, 8], h2Size: [0.5, 8],
   bubbleInGap: [0, 200], dropCapLines: [2, 6], bgHeaderW: [10, 80],
+  textIndent: [0, 400], bgHeaderGap: [-1, 400],
 };
 const DEFAULT_RANGE = [-2000, 2000];
 

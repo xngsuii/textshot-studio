@@ -4,7 +4,7 @@
    source:'local' → assets/fonts/ 의 woff2 로 @font-face 주입.
                     파일이 없으면 조용히 실패하므로 availability 로 확인한다.
 */
-import { FONTS, fontById } from './store.js?v=64';
+import { FONTS, fontById } from './store.js?v=68';
 
 const loaded = new Set();
 
@@ -13,7 +13,7 @@ export function ensureFont(id) {
   const f = fontById(id);
   loaded.add(id);
 
-  if (f.source === 'cdn') {
+  if (f.css) {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = f.css;
@@ -23,13 +23,21 @@ export function ensureFont(id) {
   }
 
   const family = f.stack.split(',')[0].replace(/["']/g, '').trim();
-  // woff2 를 먼저 시도하고 파일이 없으면 브라우저가 알아서 다음 줄로 넘어간다.
-  // 어느 형식을 넣든 동작하되, 용량이 작은 woff2 가 우선이다.
-  const css = f.files.map(([path, weight]) => `
+  /* faces 는 주소를 통째로 적은 것(스타일시트가 없는 CDN 글꼴),
+     files 는 assets/fonts 안의 경로다. 경로 쪽은 woff2 를 먼저 시도하고
+     파일이 없으면 브라우저가 알아서 다음 줄로 넘어간다. */
+  /* 글꼴 파일을 고쳐도 브라우저가 예전 것을 계속 쓰지 않게 판 번호를 붙인다.
+     주소를 통째로 적은 CDN 글꼴은 그쪽에서 관리하므로 건드리지 않는다. */
+  const ver = document.querySelector('meta[name="app-version"]')?.content || '';
+  const q = ver ? `?v=${ver}` : '';
+  const src = (path) => (/^https?:/.test(path)
+    ? `url("${path}") format("${path.endsWith('.woff2') ? 'woff2' : 'woff'}")`
+    : `url("${path}.woff2${q}") format("woff2"),
+       url("${path}.woff${q}")  format("woff")`);
+  const css = (f.faces || f.files).map(([path, weight]) => `
 @font-face {
   font-family: "${family}";
-  src: url("${path}.woff2") format("woff2"),
-       url("${path}.woff")  format("woff");
+  src: ${src(path)};
   font-weight: ${weight};
   font-display: swap;
 }`).join('\n');
@@ -53,7 +61,7 @@ export async function isAvailable(id) {
     for (const [path] of f.files) {
       for (const ext of ['woff2', 'woff']) {
         try {
-          const r = await fetch(`${path}.${ext}`, { method: 'HEAD' });
+          const r = await fetch(`${path}.${ext}`, { method: 'HEAD', cache: 'no-cache' });
           if (r.ok) return true;
         } catch { /* 다음 후보로 */ }
       }

@@ -3,22 +3,22 @@
 import {
   state, saveSoon, FONTS, fontById, DEFAULT_FORMATS, DEFAULT_STYLE,
   DEFAULT_OUTPUT, RATIOS, RATIO_ORDER, RATIO_LABEL, MAX_SLOTS, newProfile, NAME_COLOR,
-  fontHasWeight,
+  fontHasWeight, fontHasRealWeight,
   storedBytes, photoStats, photoUsage, dropTemplatePhotos, clearStored,
-} from './store.js?v=64';
+} from './store.js?v=68';
 import {
   splitChunks, hasSplit, renderChunk, renderWithSplitMarks, stripMarkers,
   imageOrder, removeImageMarker, chunkOffsets, setSpeakerAt, speakerNameAt,
   renameSpeaker, NAME_SEP, noteOrder, removeNoteMarker,
-} from './markup.js?v=64';
-import { ensureFont, isAvailable } from './fonts.js?v=64';
-import { SKINS, skinById, skinProfiles, skinStyle, resolve, CHIPS } from './skins.js?v=64';
-import { buildTemplateSection } from './templates.js?v=64';
-import { extract as extractMeta } from './png-meta.js?v=64';
+} from './markup.js?v=68';
+import { ensureFont, isAvailable } from './fonts.js?v=68';
+import { SKINS, skinById, skinProfiles, skinStyle, resolve, CHIPS } from './skins.js?v=68';
+import { buildTemplateSection } from './templates.js?v=68';
+import { extract as extractMeta } from './png-meta.js?v=68';
 import {
   isPayload, applyPayload, summarize, commonWarnings, textOnlyWarnings,
-} from './doc-io.js?v=64';
-import * as U from './ui.js?v=64';
+} from './doc-io.js?v=68';
+import * as U from './ui.js?v=68';
 
 const srcEl = () => document.getElementById('src');
 const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -29,7 +29,7 @@ const TAB_RESET = {
   body: {
     label: '본문·간격',
     keys: ['font', 'fontSize', 'lineHeight', 'letterSpacing', 'align', 'paraGap', 'squeeze',
-      'breakMode', 'dropCap', 'dropCapLines', 'dropCapWeight', 'dropCapFont', 'dropCapColor',
+      'breakMode', 'textIndent', 'dropCap', 'dropCapLines', 'dropCapWeight', 'dropCapFont', 'dropCapColor',
       'dropCapKind', 'dropCapScope',
       'dividerStyle', 'bqBar',
       'h1Font', 'h1Size', 'h1Align', 'h1Weight', 'h2Font', 'h2Size', 'h2Align', 'h2Weight'],
@@ -40,7 +40,7 @@ const TAB_RESET = {
     keys: ['width', 'ratio', 'autoSplit', 'columns', 'columnGap',
       'padTop', 'padRight', 'padBottom', 'padLeft', 'padLinked',
       'bgMode', 'bg', 'bg2', 'bgImage', 'bgFit', 'bgOpacity', 'bgX', 'bgY', 'bgBlur',
-      'bgAsHeader', 'bgHeaderH', 'bgHeaderSide', 'bgHeaderW', 'bgHeaderInset', 'transparent',
+      'bgAsHeader', 'bgHeaderH', 'bgHeaderSide', 'bgHeaderW', 'bgHeaderInset', 'bgHeaderGap', 'transparent',
       'signOn', 'signSep', 'signAlign', 'signSize', 'signGap', 'signColor'],
     note: '깔아 둔 배경 사진도 빠집니다. 서명에 적어 둔 이름은 그대로 둡니다.',
   },
@@ -309,6 +309,9 @@ function applyStyle(stage) {
   }
 
   stage.style.setProperty('--para-gap', st.paraGap + 'px');
+  stage.style.setProperty('--indent', (st.textIndent ?? 0) + 'px');
+  // 도트 글꼴은 매끄럽게 다듬으면 획이 뭉개진다. 다듬기를 끈다.
+  stage.style.webkitFontSmoothing = fontById(st.font).pixel ? 'none' : '';
   stage.style.setProperty('--b-radius', st.bubbleRadius + 'px');
   stage.style.setProperty('--b-gap', st.bubbleGap + 'px');
   stage.style.setProperty('--b-in-gap', (st.bubbleInGap ?? 8) + 'px');
@@ -387,13 +390,13 @@ function headerBand(st) {
   if (side === 'top') {
     // 꽉 채우면 여백 밖 캔버스 끝까지, 들여 놓으면 여백 안쪽에 앉는다
     Object.assign(band.style, inset
-      ? { height: (st.bgHeaderH ?? 220) + 'px', marginBottom: st.padTop + 'px' }
+      ? { height: (st.bgHeaderH ?? 220) + 'px', marginBottom: headerGap(st) + 'px' }
       : {
         height: (st.bgHeaderH ?? 220) + 'px',
         marginTop: -st.padTop + 'px',
         marginLeft: -st.padLeft + 'px',
         marginRight: -st.padRight + 'px',
-        marginBottom: st.padTop + 'px',
+        marginBottom: headerGap(st) + 'px',
       });
     return band;
   }
@@ -412,6 +415,14 @@ function headerBand(st) {
 }
 
 const headerSide = (st) => (['left', 'right'].includes(st.bgHeaderSide) ? st.bgHeaderSide : 'top');
+
+/* 띠와 본문 사이 간격. 따로 정하지 않았으면(음수) 그쪽 여백을 그대로 쓴다. */
+function headerGap(st) {
+  const g = st.bgHeaderGap ?? -1;
+  if (g >= 0) return g;
+  const side = headerSide(st);
+  return side === 'top' ? st.padTop : (side === 'left' ? st.padLeft : st.padRight);
+}
 const sideBandWidth = (st) => Math.round(st.width * (st.bgHeaderW ?? 38) / 100);
 
 /* 옆 헤더가 있을 때 그쪽 판 여백 — 띠 폭에 원래 여백만큼 틈을 더한다.
@@ -419,7 +430,7 @@ const sideBandWidth = (st) => Math.round(st.width * (st.bgHeaderW ?? 38) / 100);
 function sidePadding(st) {
   const side = headerSide(st);
   const pad = side === 'left' ? st.padLeft : st.padRight;
-  return { side, px: (st.bgHeaderInset ? pad : 0) + sideBandWidth(st) + pad };
+  return { side, px: (st.bgHeaderInset ? pad : 0) + sideBandWidth(st) + headerGap(st) };
 }
 
 /* 캔버스 아래 한 줄 — 이름과 소속. 둘 다 비어 있으면 아예 만들지 않는다.
@@ -483,9 +494,10 @@ function splitToPages(html) {
   const inner = probe.querySelector('.stage-in');
   let limit = Math.round(st.width * RATIOS[st.ratio]) - st.padTop - st.padBottom;
   const band = probe.querySelector('.stage-header');
-  // 위 띠만 세로 자리를 먹는다. 들여 놓았으면 아래 틈까지.
+  // 위 띠만 세로 자리를 먹는다. 위로 뺀 만큼(음수 여백)과 아래 틈까지 함께 센다.
   if (band && band.dataset.side === 'top') {
-    limit -= band.offsetHeight + (band.classList.contains('is-inset') ? st.padTop : 0);
+    const bs = getComputedStyle(band);
+    limit -= band.offsetHeight + (parseFloat(bs.marginTop) || 0) + (parseFloat(bs.marginBottom) || 0);
   }
   const sign = probe.querySelector('.stage-sign');
   if (sign) limit -= sign.offsetHeight + (st.signGap ?? 32);
@@ -1279,6 +1291,13 @@ function panelBody(container, onChange) {
         [['left', '왼쪽'], ['center', '가운데'], ['right', '오른쪽'], ['justify', '양쪽']],
         (v) => { st.align = v; touch(); })),
       U.field('줄바꿈', U.seg(st.breakMode, [['word', '단어 단위'], ['char', '글자 단위']], (v) => { st.breakMode = v; touch(); })),
+      (() => {
+        const f = U.field('들여쓰기', U.stepper(st.textIndent ?? 0, {
+          min: 0, max: 200, step: 1, unit: 'px', onChange: (v) => { st.textIndent = v; touch(); },
+        }));
+        f.title = '문단 첫 줄을 들여 씁니다. 한 글자만큼 들이려면 글자 크기와 같은 값을 넣으세요.';
+        return f;
+      })(),
       U.el('div', { class: 'hint', text: '단어 단위는 낱말이 잘리지 않게 넘깁니다. 좁은 폭에서 오른쪽이 들쭉날쭉하면 글자 단위로 바꿔 보세요.' }),
     ]),
     dropCapGroup(st, touch, () => buildSettings(container, onChange)),
@@ -1307,7 +1326,13 @@ function weightSeg(fontId, value, onPick) {
     (v) => onPick(Number(v)));
   [...seg.children].forEach((b, i) => {
     const [w, l] = opts[i];
-    if (!fontHasWeight(font, w)) { b.disabled = true; b.title = `${font.label}에는 ${l} 굵기가 없습니다`; }
+    if (!fontHasWeight(font, w)) {
+      b.disabled = true;
+      b.title = `${font.label}에는 ${l} 글꼴이 없습니다`;
+    } else if (!fontHasRealWeight(font, w)) {
+      // 고를 수는 있다. 다만 진짜 글꼴이 아니라 브라우저가 두껍게 그린 것이다.
+      b.title = `${font.label}에는 ${l} 글꼴이 없어 브라우저가 두껍게 그립니다`;
+    }
   });
   return seg;
 }
@@ -1585,6 +1610,23 @@ function panelCanvas(container, onChange) {
           ? U.field('헤더 높이', U.stepper(st.bgHeaderH ?? 220, { min: 40, max: 1200, step: 10, unit: 'px', onChange: (v) => { st.bgHeaderH = v; touch(); } }))
           : U.field('헤더 폭', U.slider(st.bgHeaderW ?? 38, { min: 10, max: 80, step: 1, unit: '%', onChange: (v) => { st.bgHeaderW = v; touch(); } })))
         : null,
+      st.bgImage && st.bgAsHeader ? (() => {
+        /* 정해 두지 않았으면 그쪽 여백을 따라간다. 숫자를 건드리면 그 값으로 굳는다. */
+        const chk = U.check('여백과 같이', (st.bgHeaderGap ?? -1) < 0, (v) => {
+          st.bgHeaderGap = v ? -1 : headerGap(st);
+          rebuild(); touch();
+        });
+        const sp = U.stepper(headerGap(st), {
+          min: 0, max: 400, step: 2, unit: 'px',
+          onChange: (v) => {
+            st.bgHeaderGap = v;
+            const box = chk.querySelector('input');
+            if (box) box.checked = false;
+            touch();
+          },
+        });
+        return U.field('본문과 간격', U.el('div', { class: 'field-row' }, [sp, chk]));
+      })() : null,
       st.bgImage && (st.bgAsHeader || st.bgFit === 'cover') ? U.el('div', { class: 'field-row is-loose' }, [
         U.el('button', {
           class: 'btn btn-ghost btn-sm', type: 'button', text: '원래 위치로',

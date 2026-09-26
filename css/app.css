@@ -879,6 +879,10 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .mk-fn-no { flex: none; font-weight: 700; font-variant-numeric: tabular-nums; }
 .mk-fn-t { min-width: 0; }
 
+/* 첫 줄 들여쓰기 — 본문 문단에만. 인용구·말풍선 안은 건드리지 않고,
+   드롭캡이 붙은 문단도 큰 글자가 이미 자리를 잡아서 뺀다. */
+.stage-in > .mk-p:not(:has(.mk-dropcap)) { text-indent: var(--indent, 0px); }
+
 /* 드롭캡 — 첫 문단의 첫 글자를 몇 줄에 걸쳐 크게. 크기와 위 여백은
    줄 높이에서 셈해 판에 걸어 둔다(--dc-size, --dc-top). */
 .mk-dropcap {
