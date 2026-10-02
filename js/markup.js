@@ -134,7 +134,9 @@ function imgTag(im) {
   if (im.height) {
     css.push(`height:${im.height}px`, 'object-fit:cover', `object-position:50% ${im.posY ?? 50}%`);
   }
-  return `<img class='mk-img' data-img='${attr(im.id)}' src="${im.data}" style='${css.join(';')}' alt=''>`;
+  // 배경이 비치는 사진은 네모 테두리 대신 그림 윤곽을 두른다(app.css 의 is-cut)
+  const cut = im.alpha && !im.height ? ' is-cut' : '';
+  return `<img class='mk-img${cut}' data-img='${attr(im.id)}' src="${im.data}" style='${css.join(';')}' alt=''>`;
 }
 const imgLine = (t) => (t.match(/^\[\[img:([a-z0-9]+)\]\]$/) || [])[1];
 

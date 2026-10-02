@@ -218,13 +218,13 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .panel { display: flex; flex-direction: column; gap: 16px; padding: 14px; }
 /* 앞 묶음의 내용과 다음 묶음의 제목이 붙어 보이지 않게 사이를 벌린다.
    제목과 제 내용 사이(.grp 의 gap)는 그대로 둔다. */
-.panel > .grp + .grp { margin-top: 10px; }
+.panel > .grp + .grp { margin-top: 16px; }
 
 .grp { display: flex; flex-direction: column; gap: 9px; }
 .grp-t {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   font-size: 10.5px; font-weight: 700; letter-spacing: .07em;
-  color: var(--fg-3); text-transform: uppercase;
+  color: var(--fg-2); text-transform: uppercase;
   padding-bottom: 5px; border-bottom: 1px solid var(--line);
 }
 /* 제목 줄 오른쪽 끝의 작은 전환 버튼 */
@@ -354,7 +354,9 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .photo-thumb {
   width: 40px; height: 30px; object-fit: cover;
   border-radius: 3px; background: var(--bg-sunken);
+  cursor: pointer;
 }
+.photo-thumb:hover { outline: 1px solid var(--accent); outline-offset: 1px; }
 .photo-w .stepper, .photo-r .stepper { width: 100%; }
 /* 좁은 줄에 들어가므로 슬라이더 옆 것들을 줄인다 */
 .photo-w .slider-row { gap: 5px; }
@@ -984,6 +986,13 @@ input[type="checkbox"] { accent-color: var(--accent); }
 
 /* 본문에 넣은 사진 */
 .mk-img { display: block; width: var(--imgw, 100%); max-width: 100%; height: auto; border-radius: 4px; }
+/* 외곽선 — 사진 모서리를 따라 한 줄. 자리는 안쪽으로 먹으므로 크기가 변하지 않는다. */
+.stage.img-line .mk-img { border: var(--img-line-w, 1px) solid var(--img-line, #D8D8D8); }
+/* 배경이 비치는 사진 — 네모 테두리로는 오려 낸 그림을 두를 수 없어,
+   알파를 두께만큼 불려 그 색으로 칠한 뒤 원래 그림을 그 위에 얹는다. */
+.stage.img-line .mk-img.is-cut { border: 0; filter: var(--img-cut, none); }
+/* 윤곽선을 그릴 거리를 담아 두는 칸 — 자리를 차지하면 안 된다 */
+.mk-line-def { position: absolute; width: 0; height: 0; overflow: hidden; }
 
 /* ─── 장평 ──────────────────────────────────
    안쪽 판을 1/배율 만큼 넓게 깔고 가로로 누른다. 글은 넓은 폭에서
@@ -1015,6 +1024,8 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .stage-header { flex: none; position: relative; overflow: hidden; }
 /* 여백 안쪽에 들여 놓은 헤더 — 모서리를 둥글린다 */
 .stage-header.is-inset { border-radius: 12px; }
+/* 띠 가장자리를 따라 한 줄 */
+.stage-header.is-lined { border: var(--img-line-w, 1px) solid var(--img-line, #D8D8D8); }
 /* 사진은 안쪽 판에. 흐리게 해도 띠의 네 변은 또렷하게 남는다. */
 .stage-header-face { position: absolute; }
 /* 배경 사진을 끌어 옮길 수 있을 때 */
@@ -1412,6 +1423,13 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
 .stage.is-cols .stage-in { position: relative; }
 /* 단 안에서는 말풍선이 단 너비를 기준으로 잡혀야 한다 */
 .stage.is-cols .mk-chat { display: flex; }
+/* 저장 폴더 이름 — 길면 가운데가 아니라 끝을 자른다 */
+.dir-name {
+  flex: 1 1 auto; min-width: 0;
+  font-size: 12px; color: var(--fg-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
 /* ─── 접는 칸 ───────────────────────────────── */
 .fold > summary {
   font-size: 12px; color: var(--fg-3); cursor: pointer;
@@ -1468,7 +1486,7 @@ span.bgcell-hex { display: block; }
 .fold-grp > summary::-webkit-details-marker { display: none; }
 .fold-grp > summary > span:first-child::before { content: '▸ '; }
 .fold-grp[open] > summary > span:first-child::before { content: '▾ '; }
-.fold-grp > summary:hover { color: var(--fg-2); }
+.fold-grp > summary:hover { color: var(--fg); }
 /* 접었을 때는 요약 한 줄뿐인데도 flex 의 gap 이 아래에 한 칸 더 남는다.
    접힌 동안은 그 틈을 지워 위아래 여백을 같게 맞춘다. */
 .fold-grp:not([open]) { gap: 0; }

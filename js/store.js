@@ -114,6 +114,9 @@ export const DEFAULT_STYLE = {
   squeeze: 100,                 // 장평 % — 100 이면 글자를 그대로 둔다
   breakMode: 'word',            // word: 단어 단위 / char: 글자 단위
   textIndent: 0,                // 문단 첫 줄 들여쓰기 px
+  imgLine: false,               // 본문 사진에 외곽선
+  imgLineColor: '#D8D8D8',      // 외곽선 색 — 본문 사진과 헤더가 함께 쓴다
+  imgLineW: 1,                  // 외곽선 두께 px
   dropCap: false,               // 첫 문단 첫 글자를 크게
   dropCapLines: 3,              // 드롭캡이 차지하는 줄 수
   dropCapWeight: 400,            // 300 라이트 / 400 일반 / 700 굵게
@@ -144,6 +147,8 @@ export const DEFAULT_STYLE = {
   bgHeaderW: 38,                // 옆에 둘 때 폭 — 캔버스 폭의 %
   bgHeaderInset: false,         // 여백 안쪽에 둥글게 들여 놓는다
   bgHeaderGap: -1,              // 본문과의 간격 px. 0 보다 작으면 그쪽 여백을 따라간다.
+  bgHeaderLine: false,          // 헤더 띠 가장자리에 외곽선
+  bgZoom: 100,                  // 배경·헤더 사진 확대 % — 100 이 맞춤 그대로
 
   fg: '#1A1A1A',
   fnColor: '#8A8F98',           // 각주 글씨

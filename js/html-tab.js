@@ -3,8 +3,8 @@
    iframe 에 격리해 페이지 CSS 와 섞이지 않게 하고,
    캡쳐 대상은 iframe 안의 #__shot 요소로 잡는다. */
 
-import { state, DEFAULT_HTML } from './store.js?v=68';
-import * as U from './ui.js?v=68';
+import { state, DEFAULT_HTML } from './store.js?v=77';
+import * as U from './ui.js?v=77';
 
 let frame = null;
 let readyResolve = null;
@@ -12,7 +12,9 @@ let readyResolve = null;
 const PAGE = (userCode, css) => `<!doctype html>
 <html><head><meta charset="utf-8">
 <style>
-  html, body { margin: 0; padding: 0; background: transparent; }
+  /* 두 손가락 손짓은 브라우저 제 줌이 아니라 배율 미끄럼대가 받는다.
+     한 손가락 끌기는 그대로 둬야 미리보기를 스크롤할 수 있다. */
+  html, body { margin: 0; padding: 0; background: transparent; touch-action: pan-x pan-y; }
   #__shot { box-sizing: border-box; ${css} }
 </style>
 </head>
@@ -91,6 +93,12 @@ export function renderPreview(host) {
 
 export function getShotNode() {
   return frame?.contentDocument?.getElementById('__shot') || null;
+}
+
+/* 미리보기가 든 문서. 손가락 손짓은 이 문서가 먼저 받으므로 바깥에서
+   여기에 직접 걸어야 한다(main.js 의 bindPinchToFrame). */
+export function getShotDoc() {
+  return frame?.contentDocument || null;
 }
 
 /* ── 외부 폰트 점검 ──────────────────────────

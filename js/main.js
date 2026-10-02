@@ -1,19 +1,20 @@
 /* 부팅 · 탭 전환 · 미리보기 갱신 · 저장 */
 
-import { state, loadAll, saveSoon, fontById } from './store.js?v=68';
-import * as TextTab from './text-tab.js?v=68';
-import * as HtmlTab from './html-tab.js?v=68';
-import * as Capture from './capture.js?v=68';
-import { nodeToBlob, downloadMany, copyToClipboard, shareBlobs } from './capture.js?v=68';
-import { buildPayload } from './doc-io.js?v=68';
-import { ensureFont } from './fonts.js?v=68';
-import { initDrawer, initDrawerModes, isMobile } from './drawer.js?v=68';
-import { toast } from './ui.js?v=68';
+import { state, loadAll, saveSoon, fontById } from './store.js?v=77';
+import * as TextTab from './text-tab.js?v=77';
+import * as HtmlTab from './html-tab.js?v=77';
+import * as Capture from './capture.js?v=77';
+import { nodeToBlob, downloadMany, copyToClipboard, shareBlobs, buildName } from './capture.js?v=77';
+import { buildPayload } from './doc-io.js?v=77';
+import * as SaveDir from './savedir.js?v=77';
+import { ensureFont } from './fonts.js?v=77';
+import { initDrawer, initDrawerModes, isMobile } from './drawer.js?v=77';
+import { toast } from './ui.js?v=77';
 
 /* index.html 의 app-version 과 짝을 이룬다. 브라우저가 둘 중 하나만 새로
    받으면 화면은 새것인데 동작은 옛것인 상태가 되어 원인 찾기가 어렵다.
    어긋나면 하단에 알려 준다. 고칠 때 두 값을 같이 올릴 것. */
-const APP_VERSION = '68';
+const APP_VERSION = '77';
 
 const $ = (id) => document.getElementById(id);
 
@@ -131,8 +132,7 @@ function setFit() {
 /* 두 손가락으로 오므리고 펴서 배율을 바꾼다. 그냥 두면 브라우저 제 줌이
    끼어들어 화면 전체가 커져 버리므로, 이 손짓은 여기서 가로챈다.
    맞춤 배율에서 100% 까지 — 미끄럼대와 같은 범위 안에서만 움직인다. */
-function bindPinchZoom() {
-  const box = scroller();
+function bindPinchZoom(box) {
   const gap = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
   let base = 0;   // 손을 댄 순간의 두 손가락 사이
   let from = 1;   // 그때의 배율
@@ -162,6 +162,17 @@ function bindPinchZoom() {
   }
 }
 
+/* HTML 탭의 미리보기는 iframe 안에 있다. 손가락은 그 안쪽 문서가 먼저 받으므로
+   미리보기 칸에 걸어 둔 손짓이 닿지 않아, 브라우저 제 줌이 끼어들었다.
+   iframe 은 그릴 때마다 새로 만들어지니 새 문서마다 한 번씩 걸어 준다. */
+const pinched = new WeakSet();
+function bindPinchToFrame() {
+  const doc = HtmlTab.getShotDoc();
+  if (!doc || pinched.has(doc)) return;
+  pinched.add(doc);
+  bindPinchZoom(doc);
+}
+
 async function renderNow() {
   host().classList.toggle('is-checker', state.checker);
   applyScale(1);
@@ -174,6 +185,7 @@ async function renderNow() {
     $('statusMsg').className = 'status-msg';
   } else {
     const shot = await HtmlTab.renderPreview(host());
+    bindPinchToFrame();
     if (shot) {
       const r = shot.getBoundingClientRect();
       setDims(Math.ceil(r.width), Math.ceil(r.height), 1);
@@ -226,7 +238,11 @@ async function collectBlobs() {
     try {
       const parts = TextTab.buildExportStages();
       // 각주는 자리를 재야 앉으므로 판을 붙인 뒤에 부른다
-      parts.forEach((p) => { box.appendChild(p.stage); TextTab.layoutFootnotes(p.stage); });
+      parts.forEach((p) => {
+        box.appendChild(p.stage);
+        TextTab.layoutFootnotes(p.stage);
+        TextTab.sizeBgLayers(p.stage);
+      });
       const blobs = [];
       let s = scale;
       for (const p of parts) s = Math.min(s, Capture.fitScale(p.stage, scale));
@@ -273,6 +289,12 @@ function workingMessage() {
 }
 
 async function doSave() {
+  /* 폴더 권한을 다시 받는 창은 누른 직후에만 열린다. 이미지를 만드느라
+     시간이 흐르면 거절되므로 맨 먼저 묻는다. */
+  const wanted = SaveDir.current();
+  const dir = wanted && await SaveDir.ready() ? wanted : null;
+  if (wanted && !dir) toast('폴더를 쓸 수 없어 다운로드 폴더로 저장합니다');
+
   busy(true, workingMessage());
   try {
     const blobs = await collectBlobs();
@@ -280,7 +302,19 @@ async function doSave() {
 
     // 폰에서는 공유 시트가 먼저다. 사진첩 저장도 거기서 고른다.
     let msg;
-    if (isMobile() && await shareBlobs(blobs, state.output.filename, ext)) {
+    let wrote = null;
+    if (dir) {
+      const files = blobs.map((b, i) => ({
+        name: buildName(state.output.filename, ext, blobs.length > 1 ? i + 1 : null),
+        blob: b,
+      }));
+      // 폴더가 그새 지워졌거나 쓰지 못하면 다운로드로 돌아간다
+      try { wrote = await SaveDir.writeFiles(files); }
+      catch (e) { console.warn('폴더에 쓰지 못했습니다', e); toast('폴더에 쓰지 못해 다운로드 폴더로 저장합니다'); }
+    }
+    if (wrote) {
+      msg = `${dir.name} 폴더에 ${wrote.length}장 저장`;
+    } else if (isMobile() && await shareBlobs(blobs, state.output.filename, ext)) {
       msg = blobs.length > 1 ? `${blobs.length}장 저장했습니다` : '저장했습니다';
     } else {
       msg = await downloadMany(blobs, state.output.filename, ext);
@@ -352,10 +386,15 @@ function boot() {
   TextTab.bindBgDrag(host(), scheduleRender);
   TextTab.bindImageDrag(host(), scheduleRender);
   TextTab.bindPreviewJump(host());
-  bindPinchZoom();
+  bindPinchZoom(scroller());
   TextTab.bindDropImport(scheduleRender, () => TextTab.buildSettings($('textSettings'), scheduleRender));
   HtmlTab.bindEditor(scheduleRender);
   HtmlTab.buildSettings($('htmlSettings'), scheduleRender);
+
+  // 지난번에 고른 저장 폴더가 있으면 되살려 「출력」 칸에 보여 준다
+  SaveDir.load().then((dir) => {
+    if (dir) TextTab.buildSettings($('textSettings'), scheduleRender);
+  });
 
   // 사진을 통째로 담아 두던 시절의 저장물은 한 번 다시 담아 자리를 줄인다
   setTimeout(() => TextTab.compactPhotos(() => {

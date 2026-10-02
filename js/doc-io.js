@@ -11,7 +11,7 @@
 import {
   state, DEFAULT_STYLE, DEFAULT_FORMATS, DEFAULT_PROFILES,
   newProfile, normalizeSlots, MAX_SLOTS, RATIOS, normalizeColumns, migrateWeights,
-} from './store.js?v=68';
+} from './store.js?v=77';
 
 const APP = 'textshot-studio';
 const HEX = /^#[0-9a-fA-F]{6}$/;

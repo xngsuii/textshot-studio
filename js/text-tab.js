@@ -5,22 +5,25 @@ import {
   DEFAULT_OUTPUT, RATIOS, RATIO_ORDER, RATIO_LABEL, MAX_SLOTS, newProfile, NAME_COLOR,
   fontHasWeight, fontHasRealWeight,
   storedBytes, photoStats, photoUsage, dropTemplatePhotos, clearStored,
-} from './store.js?v=68';
+} from './store.js?v=77';
 import {
   splitChunks, hasSplit, renderChunk, renderWithSplitMarks, stripMarkers,
   imageOrder, removeImageMarker, chunkOffsets, setSpeakerAt, speakerNameAt,
   renameSpeaker, NAME_SEP, noteOrder, removeNoteMarker,
-} from './markup.js?v=68';
-import { ensureFont, isAvailable } from './fonts.js?v=68';
-import { SKINS, skinById, skinProfiles, skinStyle, resolve, CHIPS } from './skins.js?v=68';
-import { buildTemplateSection } from './templates.js?v=68';
-import { extract as extractMeta } from './png-meta.js?v=68';
+} from './markup.js?v=77';
+import { ensureFont, isAvailable } from './fonts.js?v=77';
+import { SKINS, skinById, skinProfiles, skinStyle, resolve, CHIPS } from './skins.js?v=77';
+import { buildTemplateSection } from './templates.js?v=77';
+import { extract as extractMeta } from './png-meta.js?v=77';
 import {
   isPayload, applyPayload, summarize, commonWarnings, textOnlyWarnings,
-} from './doc-io.js?v=68';
-import * as U from './ui.js?v=68';
+} from './doc-io.js?v=77';
+import * as SaveDir from './savedir.js?v=77';
+import * as U from './ui.js?v=77';
 
 const srcEl = () => document.getElementById('src');
+/* 미리보기를 다시 그려 달라고 부르는 손잡이. bindEditor 에서 받아 둔다. */
+let notify = () => {};
 const clone = (o) => JSON.parse(JSON.stringify(o));
 
 /* 탭마다 되돌릴 설정. 여기 없는 것(써 둔 글·사진·프로필·서명 글자)은
@@ -29,7 +32,7 @@ const TAB_RESET = {
   body: {
     label: '본문·간격',
     keys: ['font', 'fontSize', 'lineHeight', 'letterSpacing', 'align', 'paraGap', 'squeeze',
-      'breakMode', 'textIndent', 'dropCap', 'dropCapLines', 'dropCapWeight', 'dropCapFont', 'dropCapColor',
+      'breakMode', 'textIndent', 'imgLine', 'imgLineColor', 'imgLineW', 'dropCap', 'dropCapLines', 'dropCapWeight', 'dropCapFont', 'dropCapColor',
       'dropCapKind', 'dropCapScope',
       'dividerStyle', 'bqBar',
       'h1Font', 'h1Size', 'h1Align', 'h1Weight', 'h2Font', 'h2Size', 'h2Align', 'h2Weight'],
@@ -40,7 +43,8 @@ const TAB_RESET = {
     keys: ['width', 'ratio', 'autoSplit', 'columns', 'columnGap',
       'padTop', 'padRight', 'padBottom', 'padLeft', 'padLinked',
       'bgMode', 'bg', 'bg2', 'bgImage', 'bgFit', 'bgOpacity', 'bgX', 'bgY', 'bgBlur',
-      'bgAsHeader', 'bgHeaderH', 'bgHeaderSide', 'bgHeaderW', 'bgHeaderInset', 'bgHeaderGap', 'transparent',
+      'bgAsHeader', 'bgHeaderH', 'bgHeaderSide', 'bgHeaderW', 'bgHeaderInset', 'bgHeaderGap', 'bgHeaderLine',
+      'bgZoom', 'transparent',
       'signOn', 'signSep', 'signAlign', 'signSize', 'signGap', 'signColor'],
     note: '깔아 둔 배경 사진도 빠집니다. 서명에 적어 둔 이름은 그대로 둡니다.',
   },
@@ -308,6 +312,12 @@ function applyStyle(stage) {
     stage.style.setProperty(`--${h}-weight`, String(st[`${h}Weight`] ?? (h === 'h1' ? 700 : 400)));
   }
 
+  /* 사진 외곽선 — 본문 사진과 헤더가 같은 색·두께를 쓴다 */
+  stage.style.setProperty('--img-line', st.imgLineColor || '#D8D8D8');
+  stage.style.setProperty('--img-line-w', (st.imgLineW ?? 1) + 'px');
+  stage.classList.toggle('img-line', !!st.imgLine);
+  cutFilter(stage, st);
+
   stage.style.setProperty('--para-gap', st.paraGap + 'px');
   stage.style.setProperty('--indent', (st.textIndent ?? 0) + 'px');
   // 도트 글꼴은 매끄럽게 다듬으면 획이 뭉개진다. 다듬기를 끈다.
@@ -354,14 +364,55 @@ function bgLayer(st) {
   const layer = U.el('div', { class: 'stage-bg' });
   Object.assign(layer.style, {
     backgroundImage: `url("${st.bgImage}")`,
-    backgroundSize: st.bgFit === 'tile' ? 'auto' : st.bgFit,
+    backgroundSize: bgSize(st),
     backgroundRepeat: st.bgFit === 'tile' ? 'repeat' : 'no-repeat',
     backgroundPosition: `${st.bgX ?? 50}% ${st.bgY ?? 50}%`,
     opacity: String((st.bgOpacity ?? 100) / 100),
     filter: blur ? `blur(${blur}px)` : '',
-    inset: blur ? `${-blur * 2}px` : '',
+    inset: blurInset(blur),
   });
   return layer;
+}
+
+/* ── 사진 확대 ───────────────────────────────
+   판은 그대로 두고 사진만 키운다. 판을 같이 키우면 가로세로 비가 그대로라
+   원래 넘치던 쪽으로만 계속 넘쳐, 반대쪽은 끌어도 움직일 자리가 없다.
+   사진 크기를 직접 정하면 양쪽 모두 넘쳐 두 방향으로 자리를 고를 수 있다.
+
+   「꽉 채움·전체 보임」의 크기는 판을 재야 알 수 있어, 판이 붙은 뒤에
+   sizeBgLayers 가 정한다. 「반복」은 무늬 크기라 여기서 바로 정한다. */
+const bgZoomK = (st) => Math.max(1, (st.bgZoom ?? 100) / 100);
+
+const blurInset = (blur) => (blur ? `${-blur * 2}px` : '');
+
+function bgSize(st) {
+  const z = bgZoomK(st);
+  if (st.bgFit !== 'tile') return st.bgFit;
+  const nat = naturalSize(st.bgImage);
+  return nat.w ? `${Math.round(nat.w * z)}px auto` : 'auto';
+}
+
+/* 판에 깔린 사진의 크기를 확대 배율만큼 키운다. 배율이 100% 면 CSS 가 하던
+   대로 두어(cover·contain) 지금까지와 한 점도 달라지지 않게 한다. */
+export function sizeBgLayers(stage) {
+  const st = state.text.style;
+  const z = bgZoomK(st);
+  const layers = stage.querySelectorAll('.stage-bg, .stage-header-face');
+  if (!layers.length) return;
+  if (z === 1 || st.bgFit === 'tile') {
+    layers.forEach((n) => { n.style.backgroundSize = bgSize(st); });
+    return;
+  }
+  const nat = naturalSize(st.bgImage);
+  layers.forEach((n) => {
+    const w = n.offsetWidth, h = n.offsetHeight;
+    if (!nat.w || !nat.h || !w || !h) return;      // 아직 모르면 CSS 에 맡긴다
+    const head = n.classList.contains('stage-header-face');
+    const fit = head || st.bgFit === 'cover' ? Math.max(w / nat.w, h / nat.h)
+      : Math.min(w / nat.w, h / nat.h);
+    const k = fit * z;
+    n.style.backgroundSize = `${(nat.w * k).toFixed(2)}px ${(nat.h * k).toFixed(2)}px`;
+  });
 }
 
 /* 배경 대신 본문 위에 얹는 띠. 캔버스 좌우 끝까지 닿도록 여백만큼 밖으로 뺀다.
@@ -373,7 +424,7 @@ function headerBand(st) {
      그러면 사진만 흐려지고 띠의 네 변은 또렷하게 남는다. */
   const face = U.el('div', { class: 'stage-header-face' });
   Object.assign(face.style, {
-    inset: blur ? `${-blur * 2}px` : '0',
+    inset: blurInset(blur) || '0',
     backgroundImage: `url("${st.bgImage}")`,
     backgroundSize: 'cover',
     backgroundRepeat: 'no-repeat',
@@ -386,6 +437,7 @@ function headerBand(st) {
   const inset = !!st.bgHeaderInset;
   band.dataset.side = side;
   band.classList.toggle('is-inset', inset);
+  band.classList.toggle('is-lined', !!st.bgHeaderLine);
 
   if (side === 'top') {
     // 꽉 채우면 여백 밖 캔버스 끝까지, 들여 놓으면 여백 안쪽에 앉는다
@@ -673,6 +725,7 @@ export function layoutFootnotes(stage) {
 
 /* ── 미리보기 ───────────────────────────────── */
 export function renderPreview(host) {
+  ensureAlphaFlags();
   const src = state.text.source;
   const split = hasSplit(src);
   const auto = autoSplitOn();
@@ -699,6 +752,7 @@ export function renderPreview(host) {
   applyDropCap(stages);
   // 각주는 자리를 재야 하므로 판이 붙은 뒤에 앉힌다
   stages.forEach(layoutFootnotes);
+  stages.forEach(sizeBgLayers);
 
   return stages;
 }
@@ -788,8 +842,9 @@ export function bindBgDrag(host, onChange) {
     const nat = naturalSize(st.bgImage);
     if (!nat.w || !nat.h) return;
 
-    // cover 로 채운 사진의 실제 크기에서 넘치는 폭·높이를 구한다
-    const k = Math.max(box.width / nat.w, box.height / nat.h);
+    /* cover 로 채운 사진의 실제 크기에서 넘치는 폭·높이를 구한다.
+       확대해 두었으면 사진이 그만큼 커져 있으므로 배율을 함께 셈한다. */
+    const k = Math.max(box.width / nat.w, box.height / nat.h) * bgZoomK(st);
     const overX = Math.max(0, nat.w * k - box.width);
     const overY = Math.max(0, nat.h * k - box.height);
     if (!overX && !overY) return;
@@ -1265,6 +1320,7 @@ function panelFormat(container, onChange) {
 function panelBody(container, onChange) {
   const st = state.text.style;
   const touch = () => { state.activeTemplate = null; onChange(); };
+  const rebuild = () => buildSettings(container, onChange);
 
   const fontSel = U.select(st.font, FONTS.map(f => [f.id, f.label]), (v) => { st.font = v; touch(); });
   FONTS.filter(f => f.source === 'local').forEach(async (f) => {
@@ -1313,7 +1369,10 @@ function panelBody(container, onChange) {
       headGroup('h2', '부제목', st, touch, () => buildSettings(container, onChange)),
     ]),
     group('각주', [noteList(container, onChange)]),
-    group('본문 사진', [photoList(container, onChange)]),
+    group('본문 사진', [
+      photoList(container, onChange),
+      st.imgLine ? lineFields(st, touch) : null,
+    ], U.check('외곽선', !!st.imgLine, (v) => { st.imgLine = v; rebuild(); touch(); })),
     tabReset('body', container, onChange),
   ]);
 }
@@ -1453,6 +1512,36 @@ function noteList(container, onChange) {
   return U.el('div', { class: 'fn-list' }, rows);
 }
 
+/* 외곽선 색·두께 — 본문 사진과 헤더가 하나의 값을 함께 쓴다.
+   따로 놀면 한 장 안에서 사진마다 테두리가 달라 보여 어수선하다.
+   그래서 두 자리 어디서 고쳐도 같이 바뀌고, 그 말을 밑에 적어 둔다. */
+function lineFields(st, touch) {
+  return U.el('div', { class: 'grp' }, [
+    U.fieldGrid([
+      U.field('선 색', U.color(st.imgLineColor || '#D8D8D8', (v) => { st.imgLineColor = v; touch(); })),
+      U.field('선 두께', U.stepper(st.imgLineW ?? 1, {
+        min: 1, max: 12, step: 1, unit: 'px', onChange: (v) => { st.imgLineW = v; touch(); },
+      })),
+    ]),
+    U.el('div', { class: 'hint', text: '본문 사진과 헤더 사진이 같은 색·두께를 씁니다.' }),
+  ]);
+}
+
+/* 썸네일을 눌러 그 자리의 사진만 갈아 끼운다. 글 속 [[img:…]] 자리와
+   크기·둥글기는 그대로 두고 그림만 바뀐다. */
+function replacePhoto(im, onChange, rebuild) {
+  pickPhoto((file) => {
+    const fr = new FileReader();
+    fr.onload = async () => {
+      const data = await shrinkPhoto(fr.result, BIG_MAX, 0.95);
+      im.data = data;
+      im.alpha = await hasAlpha(data);
+      rebuild(); onChange();
+    };
+    fr.readAsDataURL(file);
+  });
+}
+
 /* 각주가 몇 장의 몇 번인지 — 저장할 때 나뉘는 장을 그대로 따른다. */
 function notePlaces() {
   const parts = pageParts();
@@ -1477,7 +1566,12 @@ function photoList(container, onChange) {
 
   const list = U.el('div', { class: 'photo-list' }, rows.map((im, i) => U.el('div', { class: 'photo-row' }, [
     U.el('span', { class: 'photo-no', text: String(i + 1) }),
-    (() => { const t = U.el('img', { class: 'photo-thumb', alt: '' }); t.src = im.data; return t; })(),
+    (() => {
+      const t = U.el('img', { class: 'photo-thumb', alt: '', title: '눌러서 다른 사진으로 바꿉니다' });
+      t.src = im.data;
+      t.addEventListener('click', () => replacePhoto(im, onChange, rebuild));
+      return t;
+    })(),
     U.el('div', { class: 'photo-w' }, [
       U.slider(im.width ?? 100, {
         min: 10, max: 100, step: 5, unit: '%',
@@ -1598,12 +1692,22 @@ function panelCanvas(container, onChange) {
         U.field('여백', U.seg(st.bgHeaderInset ? 'inset' : 'full', [['full', '꽉 채움'], ['inset', '여백 두기']],
           (v) => { st.bgHeaderInset = v === 'inset'; touch(); })),
       ]) : null,
+      st.bgImage && st.bgAsHeader
+        ? U.el('div', { class: 'field-row' }, [
+          U.check('외곽선', !!st.bgHeaderLine, (v) => { st.bgHeaderLine = v; rebuild(); touch(); }),
+        ])
+        : null,
+      st.bgImage && st.bgAsHeader && st.bgHeaderLine ? lineFields(st, touch) : null,
       st.bgImage && !st.bgAsHeader
         ? U.field('맞춤', U.seg(st.bgFit, [['cover', '꽉 채움'], ['contain', '전체 보임'], ['tile', '반복']], (v) => { st.bgFit = v; touch(); }))
         : null,
       // 슬라이더는 값 글자와 옆 칸이 붙어 보여 한 줄에 하나씩 둔다
       st.bgImage ? U.field('불투명도', U.slider(st.bgOpacity, { min: 0, max: 100, step: 5, unit: '%', onChange: (v) => { st.bgOpacity = v; touch(); } })) : null,
       st.bgImage ? U.field('흐림', U.slider(st.bgBlur ?? 0, { min: 0, max: 60, step: 1, unit: 'px', onChange: (v) => { st.bgBlur = v; touch(); } })) : null,
+      st.bgImage ? U.field('사진 확대', U.slider(st.bgZoom ?? 100, {
+        min: 100, max: 400, step: 5, unit: '%', reset: 100,
+        onChange: (v) => { st.bgZoom = v; touch(); },
+      })) : null,
       // 헤더 크기는 불투명도·흐림 아래에
       st.bgImage && st.bgAsHeader
         ? (headerSide(st) === 'top'
@@ -1632,7 +1736,8 @@ function panelCanvas(container, onChange) {
           class: 'btn btn-ghost btn-sm', type: 'button', text: '원래 위치로',
           onClick: () => { st.bgX = 50; st.bgY = 50; touch(); },
         }),
-        U.el('div', { class: 'hint', text: '미리보기 창에서 여백을 드래그하면 사진의 위치를 조정할 수 있습니다.' }),
+        U.el('div', { class: 'hint', text: '미리보기 창에서 여백을 드래그하면 사진의 위치를 조정할 수 있습니다. '
+          + '확대한 사진도 같은 방법으로 보일 자리를 고릅니다.' }),
       ]) : null,
     ]),
     signGroup(st, touch, rebuild),
@@ -1820,6 +1925,7 @@ function panelOutput(container, onChange) {
       U.field('파일 이름', U.el('input', { type: 'text', value: out.filename, onInput: (e) => { out.filename = e.target.value; saveSoon(); } })),
       U.el('div', { class: 'hint', text: '저장 시 날짜·시각이 자동으로 붙습니다. 여러 장이면 뒤에 번호가 붙습니다.' }),
     ]),
+    group('저장 위치', saveDirRows(rebuild)),
     group('원본 정보', [
       U.el('div', { class: 'tgl-row tgl-boxed cols-1' }, [
         U.toggle('PNG 에 원문 심기', out.embedSource, (v) => { out.embedSource = v; saveSoon(); }, null,
@@ -1838,6 +1944,38 @@ function panelOutput(container, onChange) {
       U.el('div', { class: 'hint', text: '사진은 담기지 않습니다. 프로필 사진은 이름이 같은 프로필이 지금 설정에 있으면 그 사진을 그대로 씁니다.' }),
     ]),
   ]);
+}
+
+/* 저장 위치 — 폴더를 미리 받아 두면 저장할 때 그 안에 바로 쓴다.
+   받아 두지 않으면 지금까지처럼 브라우저가 정한 다운로드 폴더로 간다. */
+function saveDirRows(rebuild) {
+  if (!SaveDir.supported()) {
+    return [U.el('div', { class: 'hint', text: '이 브라우저는 폴더를 지정할 수 없어 다운로드 폴더로 저장됩니다. '
+      + '폴더 지정은 PC 크롬·엣지에서만 됩니다. 폰에서는 공유 시트로 보냅니다.' })];
+  }
+
+  const dir = SaveDir.current();
+  return [
+    U.field('폴더', U.el('div', { class: 'field-row' }, [
+      U.el('span', { class: 'dir-name', text: dir ? dir.name : '지정 안 함 — 다운로드 폴더', title: dir ? dir.name : null }),
+      U.el('button', {
+        class: 'btn btn-ghost btn-sm', type: 'button', text: dir ? '바꾸기' : '폴더 고르기',
+        onClick: async () => {
+          try { await SaveDir.pick(); rebuild(); }
+          catch (e) { if (e.name !== 'AbortError') U.toast('폴더를 고르지 못했습니다'); }
+        },
+      }),
+      dir ? U.el('button', {
+        class: 'btn btn-ghost btn-sm', type: 'button', text: '지정 해제',
+        onClick: async () => { await SaveDir.forget(); rebuild(); },
+      }) : null,
+    ])),
+    U.el('div', { class: 'hint', text: dir
+      ? '저장하면 이 폴더에 바로 들어갑니다. 여러 장이어도 ZIP 으로 묶지 않고 낱장으로 씁니다. '
+        + '같은 이름이 있으면 덮어쓰지 않고 뒤에 번호를 붙입니다.'
+      : '폴더를 고르면 저장할 때마다 묻지 않고 그 안에 바로 씁니다. 고르지 않으면 브라우저의 다운로드 폴더로 갑니다.' }),
+    dir ? U.el('div', { class: 'hint', text: '브라우저를 다시 켠 뒤 처음 저장할 때는 폴더를 쓸지 한 번 묻습니다.' }) : null,
+  ];
 }
 
 /* 템플릿 */
@@ -1917,6 +2055,65 @@ function storagePanel(container, onChange) {
   return group('저장 공간', rows);
 }
 
+/* ── 오려 낸 사진의 윤곽선 ───────────────────
+   배경이 비치는 사진(PNG·WebP)은 네모 테두리를 둘러 봐야 그림과 상관없는
+   네모가 생긴다. 알파를 두께만큼 불려(dilate) 그 색으로 칠한 판을 만들고
+   원래 그림을 그 위에 얹으면, 그림 윤곽을 따라가는 선이 된다. */
+function cutFilter(stage, st) {
+  stage.querySelector('.mk-line-def')?.remove();
+  if (!st.imgLine) { stage.style.setProperty('--img-cut', 'none'); return; }
+  const w = st.imgLineW ?? 1;
+  const c = st.imgLineColor || '#D8D8D8';
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'mk-line-def');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.innerHTML = `<filter id="ts-cutline" x="-50%" y="-50%" width="200%" height="200%"`
+    + ` color-interpolation-filters="sRGB">`
+    + `<feMorphology in="SourceAlpha" operator="dilate" radius="${w}" result="fat"/>`
+    + `<feFlood flood-color="${c}" result="ink"/>`
+    + `<feComposite in="ink" in2="fat" operator="in" result="line"/>`
+    + `<feMerge><feMergeNode in="line"/><feMergeNode in="SourceGraphic"/></feMerge>`
+    + `</filter>`;
+  stage.appendChild(svg);
+  stage.style.setProperty('--img-cut', 'url(#ts-cutline)');
+}
+
+/* 배경이 비치는 사진인지 — 반투명한 점이 하나라도 있으면 그렇게 본다.
+   한 장을 통째로 훑으면 느리므로 200px 로 줄여서 본다. */
+function hasAlpha(dataUrl) {
+  return new Promise((done) => {
+    const im = new Image();
+    im.onload = () => {
+      const k = Math.min(1, 200 / Math.max(im.naturalWidth, im.naturalHeight));
+      const cv = document.createElement('canvas');
+      cv.width = Math.max(1, Math.round(im.naturalWidth * k));
+      cv.height = Math.max(1, Math.round(im.naturalHeight * k));
+      const g = cv.getContext('2d', { willReadFrequently: true });
+      g.drawImage(im, 0, 0, cv.width, cv.height);
+      let d;
+      try { d = g.getImageData(0, 0, cv.width, cv.height).data; } catch { done(false); return; }
+      for (let i = 3; i < d.length; i += 4) if (d[i] < 240) { done(true); return; }
+      done(false);
+    };
+    im.onerror = () => done(false);
+    im.src = dataUrl;
+  });
+}
+
+/* 예전에 넣어 둔 사진에는 이 표가 없다. 한 번 훑어 달아 주고 다시 그린다. */
+let alphaBusy = false;
+function ensureAlphaFlags() {
+  if (alphaBusy) return;
+  const todo = state.text.images.filter(im => im.alpha === undefined);
+  if (!todo.length) return;
+  alphaBusy = true;
+  Promise.all(todo.map(async (im) => { im.alpha = await hasAlpha(im.data); }))
+    .then(() => {
+      alphaBusy = false;
+      if (todo.some(im => im.alpha)) notify();
+    });
+}
+
 /* ── 사진 넣기 ──────────────────────────────── */
 let pickerEl = null;
 
@@ -1928,7 +2125,7 @@ export function addImageFile(file, onChange, afterAdd) {
     const id = Math.random().toString(36).slice(2, 9);
     // 크기는 그대로 두고 webp 로 다시 담는다. 눈에는 그대로고 자리는 확 준다.
     const data = await shrinkPhoto(fr.result, BIG_MAX, 0.95);
-    state.text.images.push({ id, data, width: 100 });
+    state.text.images.push({ id, data, width: 100, alpha: await hasAlpha(data) });
 
     const ta = srcEl();
     const pos = ta.selectionStart;
@@ -1943,7 +2140,8 @@ export function addImageFile(file, onChange, afterAdd) {
   fr.readAsDataURL(file);
 }
 
-export function pickImage(onChange, afterAdd) {
+/* 숨겨 둔 파일 고르는 칸 하나를 돌려 쓴다 */
+function pickPhoto(use) {
   if (!pickerEl) {
     pickerEl = U.el('input', { type: 'file', accept: 'image/*', style: 'display:none' });
     document.body.appendChild(pickerEl);
@@ -1951,9 +2149,13 @@ export function pickImage(onChange, afterAdd) {
   pickerEl.onchange = () => {
     const file = pickerEl.files?.[0];
     pickerEl.value = '';
-    addImageFile(file, onChange, afterAdd);
+    if (file && file.type.startsWith('image/')) use(file);
   };
   pickerEl.click();
+}
+
+export function pickImage(onChange, afterAdd) {
+  pickPhoto((file) => addImageFile(file, onChange, afterAdd));
 }
 
 /* ── 프로필 사진 줄이기 ─────────────────────── */
@@ -2457,6 +2659,7 @@ function insertFence(onChange) {
 
 export function bindEditor(onChange) {
   const ta = srcEl();
+  notify = onChange;
   ta.value = state.text.source;
 
   ta.addEventListener('input', () => { state.text.source = ta.value; onChange(); });
