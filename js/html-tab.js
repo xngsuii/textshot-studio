@@ -3,8 +3,8 @@
    iframe 에 격리해 페이지 CSS 와 섞이지 않게 하고,
    캡쳐 대상은 iframe 안의 #__shot 요소로 잡는다. */
 
-import { state, DEFAULT_HTML } from './store.js?v=77';
-import * as U from './ui.js?v=77';
+import { state, DEFAULT_HTML } from './store.js?v=79';
+import * as U from './ui.js?v=79';
 
 let frame = null;
 let readyResolve = null;
@@ -57,6 +57,15 @@ export function renderPreview(host) {
   stage.style.background = 'transparent';
   stage.style.boxShadow = 'none';
   stage.appendChild(frame);
+
+  /* 두 손가락 손짓을 받을 투명한 덮개.
+
+     미리보기가 iframe 안에 있으면 손가락은 그 안쪽 문서가 먼저 가져간다.
+     안쪽에서 손짓을 막아 봐야 브라우저의 제 줌은 바깥(맨 위) 문서가 쥐고
+     있어서, 폰에서는 화면 전체가 확대돼 버린다. 덮개를 씌워 바깥 문서가
+     손가락을 받게 하면 텍스트 발췌 탭과 똑같은 길로 흘러간다.
+     미리보기는 눌러 쓰는 것이 아니라 찍어 낼 그림이라 덮어도 잃는 게 없다. */
+  stage.appendChild(U.el('div', { class: 'shot-touch' }));
 
   const wrap = U.el('div', { class: 'stage-wrap' }, [stage]);
   host.appendChild(wrap);

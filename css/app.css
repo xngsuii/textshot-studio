@@ -1064,6 +1064,12 @@ input[type="checkbox"] { accent-color: var(--accent); }
 /* ─── html tab frame ────────────────────────── */
 .frame-wrap { border: 0; display: block; }
 iframe.shot-frame { border: 0; display: block; background: transparent; }
+/* iframe 위에 씌우는 투명한 덮개 — 손가락 손짓을 바깥 문서가 받게 한다.
+   한 손가락 끌기는 그대로 흘려보내 미리보기를 스크롤할 수 있게 둔다. */
+.stage > .shot-touch {
+  position: absolute; inset: 0; z-index: 2;
+  background: transparent; touch-action: pan-x pan-y;
+}
 
 /* ─── toast ─────────────────────────────────── */
 .toast {

@@ -3,9 +3,9 @@
 
 import {
   state, templates, persistTemplates, DEFAULT_STYLE, templatePhotoCount, normalizeColumns, migrateWeights,
-} from './store.js?v=77';
-import { el, toast } from './ui.js?v=77';
-import { downloadBlob } from './capture.js?v=77';
+} from './store.js?v=79';
+import { el, toast } from './ui.js?v=79';
+import { downloadBlob } from './capture.js?v=79';
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
 
