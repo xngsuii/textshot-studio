@@ -1,20 +1,20 @@
 /* 부팅 · 탭 전환 · 미리보기 갱신 · 저장 */
 
-import { state, loadAll, saveSoon, fontById } from './store.js?v=79';
-import * as TextTab from './text-tab.js?v=79';
-import * as HtmlTab from './html-tab.js?v=79';
-import * as Capture from './capture.js?v=79';
-import { nodeToBlob, downloadMany, copyToClipboard, shareBlobs, buildName } from './capture.js?v=79';
-import { buildPayload } from './doc-io.js?v=79';
-import * as SaveDir from './savedir.js?v=79';
-import { ensureFont } from './fonts.js?v=79';
-import { initDrawer, initDrawerModes, isMobile } from './drawer.js?v=79';
-import { toast } from './ui.js?v=79';
+import { state, loadAll, saveSoon, fontById } from './store.js?v=84';
+import * as TextTab from './text-tab.js?v=84';
+import * as HtmlTab from './html-tab.js?v=84';
+import * as Capture from './capture.js?v=84';
+import { nodeToBlob, downloadMany, copyToClipboard, shareBlobs, buildName } from './capture.js?v=84';
+import { buildPayload } from './doc-io.js?v=84';
+import * as SaveDir from './savedir.js?v=84';
+import { ensureFont } from './fonts.js?v=84';
+import { initDrawer, initDrawerModes, isMobile } from './drawer.js?v=84';
+import { toast } from './ui.js?v=84';
 
 /* index.html 의 app-version 과 짝을 이룬다. 브라우저가 둘 중 하나만 새로
    받으면 화면은 새것인데 동작은 옛것인 상태가 되어 원인 찾기가 어렵다.
    어긋나면 하단에 알려 준다. 고칠 때 두 값을 같이 올릴 것. */
-const APP_VERSION = '79';
+const APP_VERSION = '84';
 
 const $ = (id) => document.getElementById(id);
 
@@ -42,7 +42,7 @@ let renderTimer = null;
 
 /* ── 미리보기 ───────────────────────────────── */
 function setDims(w, h, count = 1) {
-  const s = state.output.scale;
+  const s = outOpts().scale;
   const label = `${Math.round(w * s)} × ${Math.round(h * s)} px`;
   $('dims').textContent = count > 1 ? `${label} · ${count}장` : label;
 }
@@ -214,6 +214,18 @@ function scheduleRender() {
 }
 
 /* ── 내보내기 ───────────────────────────────── */
+
+/* 저장 설정 — 배율·포맷·품질은 탭마다 따로다. 파일 이름과 저장 폴더는
+   「어디에 어떤 이름으로」의 문제라 두 탭이 함께 쓴다. */
+function outOpts() {
+  if (state.tab === 'text') {
+    const o = state.output;
+    return { scale: o.scale, format: o.format, quality: o.quality };
+  }
+  const o = state.html.opts;
+  return { scale: o.scale ?? 2, format: o.format || 'png', quality: o.quality ?? 0.92 };
+}
+
 function offscreen() {
   const box = document.createElement('div');
   box.style.cssText = 'position:fixed;left:-100000px;top:0;z-index:-1;';
@@ -228,8 +240,8 @@ function safeScale(node, wanted) {
   return s;
 }
 
-async function collectBlobs() {
-  const { scale, format, quality } = state.output;
+async function collectBlobs(over = {}) {
+  const { scale, format, quality } = { ...outOpts(), ...over };
 
   if (state.tab === 'text') {
     const st = state.text.style;
@@ -298,7 +310,8 @@ async function doSave() {
   busy(true, workingMessage());
   try {
     const blobs = await collectBlobs();
-    const ext = state.output.format === 'jpg' ? 'jpg' : state.output.format;
+    const fmt = outOpts().format;
+    const ext = fmt === 'jpg' ? 'jpg' : fmt;
 
     // 폰에서는 공유 시트가 먼저다. 사진첩 저장도 거기서 고른다.
     let msg;
@@ -336,10 +349,8 @@ async function doSave() {
 async function doCopy() {
   busy(true, workingMessage());
   try {
-    const saved = state.output.format;
-    state.output.format = 'png';           // 클립보드는 PNG 만 안정적
-    const blobs = await collectBlobs();
-    state.output.format = saved;
+    // 클립보드는 PNG 만 안정적이라 그 한 번만 포맷을 덮어쓴다
+    const blobs = await collectBlobs({ format: 'png' });
     await copyToClipboard(blobs[0]);
     toast(blobs.length > 1 ? '첫 장을 클립보드에 복사했습니다' : '클립보드에 복사했습니다');
     busy(false, '');

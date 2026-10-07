@@ -165,6 +165,7 @@ export const DEFAULT_STYLE = {
   headingColor: '#111417',
   bqColor: '#14746F',
   hlColor: '#FFE9A3',
+  hlColor2: '#BFE7D8',         // 형광펜2 — ===글자===
   codeBg: '#23282D',
   codeFg: '#E6E9EC',
   codeTitleColor: '#8FA0AE',
@@ -176,6 +177,7 @@ export const DEFAULT_STYLE = {
   ],
 
   // 말풍선 공통 모양 (이름·사진 표시 여부는 프로필마다 따로)
+  chatOn: true,                // 「이름 | 내용」을 말풍선으로 읽을지
   bqBar: 3,                    // 인용구 왼쪽 막대 두께 px
 
   bubbleStyle: 'round',        // round 기본 / tail 꼬리 / corner 모서리만 뾰족
@@ -203,6 +205,7 @@ export const DEFAULT_STYLE = {
   signAlign: 'right',
   signSize: 12,
   signGap: 32,
+  signPin: 'text',             // text 글 바로 아래 / bottom 캔버스 맨 아래
   signColor: '#9AA0A6',
 };
 
@@ -264,7 +267,13 @@ export function newProfile(n = 1) {
 export const DEFAULT_FORMATS = {
   bold: true, action: true, italic: true, quote: true, paren: true,
   highlight: true, divider: true, heading: true, blockquote: true, code: true,
+  // 바꿔 쓰기 — 써 둔 글은 그대로 두고 그릴 때만 바꾼다. 기본은 끔.
+  smartQuotes: false, ellipsis: false,
 };
+
+/* 「모두 켜기」가 켜는 것들 — 바꿔 쓰기는 글 모양을 바꾸므로 여기서 뺀다 */
+export const MARKER_FORMATS = ['bold', 'action', 'italic', 'quote', 'paren',
+  'highlight', 'divider', 'heading', 'blockquote', 'code'];
 
 export const DEFAULT_OUTPUT = {
   scale: 2,
@@ -275,6 +284,11 @@ export const DEFAULT_OUTPUT = {
 };
 
 export const DEFAULT_HTML = {
+  // 저장 설정은 텍스트 발췌 탭과 따로 둔다. 캔버스 크기가 아주 달라
+  // 같은 배율을 쓰면 한쪽은 지나치게 크고 한쪽은 모자란다.
+  scale: 2,
+  format: 'png',          // png | jpg | webp
+  quality: 0.92,
   widthMode: 'auto',      // auto | manual
   width: 800,
   padOn: false,

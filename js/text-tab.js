@@ -1,25 +1,25 @@
 /* 텍스트 발췌 탭 */
 
 import {
-  state, saveSoon, FONTS, fontById, DEFAULT_FORMATS, DEFAULT_STYLE,
+  state, saveSoon, FONTS, fontById, DEFAULT_FORMATS, MARKER_FORMATS, DEFAULT_STYLE,
   DEFAULT_OUTPUT, RATIOS, RATIO_ORDER, RATIO_LABEL, MAX_SLOTS, newProfile, NAME_COLOR,
   fontHasWeight, fontHasRealWeight,
   storedBytes, photoStats, photoUsage, dropTemplatePhotos, clearStored,
-} from './store.js?v=79';
+} from './store.js?v=84';
 import {
   splitChunks, hasSplit, renderChunk, renderWithSplitMarks, stripMarkers,
   imageOrder, removeImageMarker, chunkOffsets, setSpeakerAt, speakerNameAt,
   renameSpeaker, NAME_SEP, noteOrder, removeNoteMarker,
-} from './markup.js?v=79';
-import { ensureFont, isAvailable } from './fonts.js?v=79';
-import { SKINS, skinById, skinProfiles, skinStyle, resolve, CHIPS } from './skins.js?v=79';
-import { buildTemplateSection } from './templates.js?v=79';
-import { extract as extractMeta } from './png-meta.js?v=79';
+} from './markup.js?v=84';
+import { ensureFont, isAvailable } from './fonts.js?v=84';
+import { SKINS, skinById, skinProfiles, skinStyle, resolve, CHIPS } from './skins.js?v=84';
+import { buildTemplateSection } from './templates.js?v=84';
+import { extract as extractMeta } from './png-meta.js?v=84';
 import {
   isPayload, applyPayload, summarize, commonWarnings, textOnlyWarnings,
-} from './doc-io.js?v=79';
-import * as SaveDir from './savedir.js?v=79';
-import * as U from './ui.js?v=79';
+} from './doc-io.js?v=84';
+import * as SaveDir from './savedir.js?v=84';
+import * as U from './ui.js?v=84';
 
 const srcEl = () => document.getElementById('src');
 /* 미리보기를 다시 그려 달라고 부르는 손잡이. bindEditor 에서 받아 둔다. */
@@ -45,18 +45,18 @@ const TAB_RESET = {
       'bgMode', 'bg', 'bg2', 'bgImage', 'bgFit', 'bgOpacity', 'bgX', 'bgY', 'bgBlur',
       'bgAsHeader', 'bgHeaderH', 'bgHeaderSide', 'bgHeaderW', 'bgHeaderInset', 'bgHeaderGap', 'bgHeaderLine',
       'bgZoom', 'transparent',
-      'signOn', 'signSep', 'signAlign', 'signSize', 'signGap', 'signColor'],
+      'signOn', 'signSep', 'signAlign', 'signSize', 'signGap', 'signColor', 'signPin'],
     note: '깔아 둔 배경 사진도 빠집니다. 서명에 적어 둔 이름은 그대로 둡니다.',
   },
   color: {
     label: '색상',
     keys: ['fg', 'actionColor', 'quoteColor', 'parenColor', 'dividerColor', 'fnColor', 'headingColor',
-      'bqColor', 'hlColor', 'codeBg', 'codeFg', 'codeTitleColor', 'slots'],
+      'bqColor', 'hlColor', 'hlColor2', 'codeBg', 'codeFg', 'codeTitleColor', 'slots'],
     note: '색 슬롯의 이름과 색도 기본값으로 돌아갑니다.',
   },
   chat: {
     label: '말풍선',
-    keys: ['skin', 'bubbleStyle', 'avatarShape', 'avatarSize', 'bubbleRadius', 'bubbleAlpha',
+    keys: ['chatOn', 'skin', 'bubbleStyle', 'avatarShape', 'avatarSize', 'bubbleRadius', 'bubbleAlpha',
       'bubbleGap', 'bubbleInGap', 'nameGap', 'nameBold', 'bubbleMaxWidth', 'bubblePadV', 'bubblePadH',
       'hideQuotesInBubble', 'parenBreakInBubble'],
     note: '프로필의 이름·색·사진은 그대로 둡니다.',
@@ -208,8 +208,13 @@ function skinPicker(st, after) {
 }
 
 /* 그릴 때만 스킨의 말풍선 색을 얹는다. 설정에 저장된 색은 그대로 두므로
-   스킨을 끄면 원래 색이 돌아온다. 스타일(배경·지문·모양)은 손대지 않는다. */
-const drawProfiles = () => skinProfiles(state.text.profiles, state.text.style.skin);
+   스킨을 끄면 원래 색이 돌아온다. 스타일(배경·지문·모양)은 손대지 않는다.
+
+   말풍선 인식을 끄면 프로필을 아예 넘기지 않는다. 그러면 「이름 | 내용」도
+   여느 글처럼 그려진다 — 써 둔 글도 프로필도 그대로 남는다. */
+const drawProfiles = () => (state.text.style.chatOn === false
+  ? []
+  : skinProfiles(state.text.profiles, state.text.style.skin));
 /* 그릴 때 쓰는 설정 — 스킨이 몇 가지 모양값을 잠깐 덮는다. 저장된 값은 그대로다. */
 const drawStyle = () => skinStyle(state.text.style, state.text.style.skin);
 
@@ -277,6 +282,7 @@ function applyStyle(stage) {
     '--c-heading': st.headingColor,
     '--c-bq': st.bqColor,
     '--c-hl': st.hlColor,
+    '--c-hl2': st.hlColor2 || '#BFE7D8',
     '--c-code-bg': st.codeBg,
     '--c-code-fg': st.codeFg,
     '--c-code-title': st.codeTitleColor,
@@ -346,8 +352,14 @@ function applyStyle(stage) {
   const sign = signLine(st);
   if (sign) {
     stage.appendChild(sign);
-    // 아래쪽 auto 여백은 맨 끝에 있는 것이 맡아야 한다
-    if (r) { inner.style.marginBottom = ''; sign.style.marginBottom = 'auto'; }
+    /* 비율을 정해 캔버스가 글보다 길면 남는 자리를 누가 가질지 정해야 한다.
+       글 아래에 붙이려면 남는 자리를 서명 밑에, 캔버스 맨 아래에 붙이려면
+       서명 위에 둔다. 자유 비율이면 캔버스가 글만큼이라 차이가 없다. */
+    if (r) {
+      inner.style.marginBottom = '';
+      if (st.signPin === 'bottom') sign.style.marginTop = 'auto';
+      else sign.style.marginBottom = 'auto';
+    }
   }
 
   if (st.bgImage) stage.prepend(st.bgAsHeader ? headerBand(st) : bgLayer(st));
@@ -1223,7 +1235,15 @@ function panelChat(container, onChange) {
     buildProfileBar(onChange); rebuild(); touch();
   }, { axis: isList ? 'y' : 'both' });
 
+  const on = st.chatOn !== false;
+
   return U.el('div', { class: 'panel' }, [
+    U.el('div', { class: 'tgl-row tgl-boxed cols-1' }, [
+      U.toggle('말풍선 인식', on, (v) => { st.chatOn = v; rebuild(); touch(); }, null,
+        '「이름 | 내용」을 말풍선으로 읽습니다. 끄면 그냥 글로 그립니다'),
+    ]),
+    !on ? U.el('div', { class: 'hint', text: '끄면 「이름 | 내용」 줄도 여느 글처럼 그립니다. '
+      + '써 둔 글과 프로필은 그대로 남아 있어, 다시 켜면 말풍선으로 돌아옵니다.' }) : null,
     // 세 칸에 나눠 담느라 이름표를 줄였다. 무슨 뜻인지는 툴팁에 적어 둔다.
     U.el('div', { class: 'tgl-row tgl-boxed cols-3' }, [
       U.toggle('이름 볼드', st.nameBold, (v) => { st.nameBold = v; touch(); }, null, '이름을 굵게'),
@@ -1308,11 +1328,20 @@ function panelFormat(container, onChange) {
     ]),
     U.el('div', { class: 'field-row' }, [
       U.el('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: '모두 켜기',
-        onClick: () => { Object.assign(fm, DEFAULT_FORMATS); rebuild(); onChange(); } }),
+        onClick: () => { for (const k of MARKER_FORMATS) fm[k] = true; rebuild(); onChange(); } }),
       U.el('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: '모두 끄기',
-        onClick: () => { for (const k of Object.keys(fm)) fm[k] = false; rebuild(); onChange(); } }),
+        onClick: () => { for (const k of MARKER_FORMATS) fm[k] = false; rebuild(); onChange(); } }),
     ]),
-    U.el('div', { class: 'hint', text: '분할선 === 은 이 설정과 무관하게 늘 동작합니다. 코드블럭은 제목 없이 열고 안에 HTML/CSS를 넣으면 그려서 보여줍니다.' }),
+    U.el('div', { class: 'hint', text: '형광펜은 ==글자== 가 1, ===글자=== 가 2입니다. 두 색은 색상 탭에서 따로 고릅니다.' }),
+    U.el('div', { class: 'hint', text: '분할선 === 은 글자 없이 한 줄에만 쓰며, 이 설정과 무관하게 늘 동작합니다. 코드블럭은 제목 없이 열고 안에 HTML/CSS를 넣으면 그려서 보여줍니다.' }),
+    group('바꿔 쓰기', [
+      U.el('div', { class: 'tgl-grid tgl-boxed' }, [
+        U.toggle('따옴표', !!fm.smartQuotes, (v) => { fm.smartQuotes = v; onChange(); }, '" " → \u201C \u201D'),
+        U.toggle('말줄임표', !!fm.ellipsis, (v) => { fm.ellipsis = v; onChange(); }, '... → \u22EF'),
+      ]),
+      U.el('div', { class: 'hint', text: '그릴 때만 바꿉니다. 편집기에 써 둔 글자는 그대로 남습니다. '
+        + '따옴표는 짝이 맞는 것만, 말줄임표는 점 셋마다 한 자씩 바꿉니다.' }),
+    ]),
   ]);
 }
 
@@ -1785,6 +1814,8 @@ function signFields(st, touch) {
           U.seg(st.signAlign || 'right', [['left', '왼쪽'], ['center', '가운데'], ['right', '오른쪽']], (v) => { st.signAlign = v; touch(); }),
         ]),
       ]),
+      U.field('자리', U.seg(st.signPin === 'bottom' ? 'bottom' : 'text',
+        [['text', '글 아래'], ['bottom', '캔버스 아래']], (v) => { st.signPin = v; touch(); })),
       U.fieldGrid([
         U.field('크기', U.stepper(st.signSize ?? 12, { min: 6, max: 60, step: 1, unit: 'px', onChange: (v) => { st.signSize = v; touch(); } })),
         U.field('본문과 간격', U.stepper(st.signGap ?? 28, { min: 0, max: 200, step: 2, unit: 'px', onChange: (v) => { st.signGap = v; touch(); } })),
@@ -1878,8 +1909,9 @@ function panelColor(container, onChange) {
         U.colorCell('행동지문', st.actionColor, (v) => { st.actionColor = v; touch(); }),
         U.colorCell('대사', st.quoteColor, (v) => { st.quoteColor = v; touch(); }),
         U.colorCell('괄호', st.parenColor, (v) => { st.parenColor = v; touch(); }),
-        U.colorCell('형광펜', st.hlColor, (v) => { st.hlColor = v; touch(); }),
         U.colorCell('인용구', st.bqColor, (v) => { st.bqColor = v; touch(); }),
+        U.colorCell('형광펜1', st.hlColor, (v) => { st.hlColor = v; touch(); }),
+        U.colorCell('형광펜2', st.hlColor2 || '#BFE7D8', (v) => { st.hlColor2 = v; touch(); }),
         U.colorCell('구분선', st.dividerColor, (v) => { st.dividerColor = v; touch(); }),
         U.colorCell('각주', st.fnColor, (v) => { st.fnColor = v; touch(); }),
       ]),
@@ -1924,6 +1956,8 @@ function panelOutput(container, onChange) {
         : U.field('품질', U.stepper(out.quality, { min: 0.4, max: 1, step: 0.05, decimals: 2, onChange: (v) => { out.quality = v; onChange(); } })),
       U.field('파일 이름', U.el('input', { type: 'text', value: out.filename, onInput: (e) => { out.filename = e.target.value; saveSoon(); } })),
       U.el('div', { class: 'hint', text: '저장 시 날짜·시각이 자동으로 붙습니다. 여러 장이면 뒤에 번호가 붙습니다.' }),
+      U.el('div', { class: 'hint', text: '배율·포맷·품질은 이 탭(텍스트 발췌)에만 걸립니다. HTML 탭은 그쪽 설정의 「출력」에서 따로 정합니다. '
+        + '파일 이름과 저장 폴더는 두 탭이 함께 씁니다.' }),
     ]),
     group('저장 위치', saveDirRows(rebuild)),
     group('원본 정보', [

@@ -47,11 +47,26 @@ export function withAlpha(hex, pct) {
 function inline(raw, f, o = {}) {
   let s = esc(raw);
 
+  /* 바꿔 쓰기 — 글자만 있을 때, 태그를 하나도 만들기 전에 해야 한다.
+     태그를 만든 뒤에 하면 class='…' data-fn='…' 처럼 따옴표로 묶어 둔
+     속성까지 굽은 따옴표로 바꿔 버려 태그가 깨진다(각주가 사라졌던 까닭). */
+  if (f.smartQuotes) {
+    s = s.replace(/"([^"]*)"/g, '\u201C$1\u201D').replace(/'([^']*)'/g, '\u2018$1\u2019');
+  }
+  // 점 셋이 한 자리를 차지한다. 넷째부터는 남겨 둔다(…… 처럼 길게 쓴 것 보존).
+  if (f.ellipsis) {
+    s = s.replace(/\.{3,}/g, (m) => '\u22EF'.repeat(Math.floor(m.length / 3)) + '.'.repeat(m.length % 3));
+  }
+
   s = s.replace(/\{c([1-5])\s+([^{}]*)\}/g, (_m, n, inner) => `<span class='mk-c${n}'>${inner}</span>`);
   // 각주 표. 번호는 장마다 다시 매기므로 여기서는 자리만 잡아 둔다.
   s = s.replace(FN_RE, (_m, id) => `<sup class='mk-fn-mark' data-fn='${id}'></sup>`);
 
-  if (f.highlight) s = s.replace(/==([^=]+)==/g, "<mark class='mk-hl'>$1</mark>");
+  // 형광펜2(===글자===)를 먼저 본다. 뒤에 보면 바깥 = 가 하나씩 남는다.
+  if (f.highlight) {
+    s = s.replace(/===([^=]+)===/g, "<mark class='mk-hl2'>$1</mark>");
+    s = s.replace(/==([^=]+)==/g, "<mark class='mk-hl'>$1</mark>");
+  }
   // 말풍선 안에서는 따옴표 기호를 감출 수 있다. 색은 그대로 입힌다.
   if (f.quote) {
     s = o.stripQuotes
@@ -368,6 +383,7 @@ export function stripMarkers(text) {
       .replace(/^\s*>[1-5]?\s?/, '')
       .replace(/\[\[fn:[a-z0-9]+\]\]/g, '')
       .replace(/\{c[1-5]\s+([^{}]*)\}/g, '$1')
+      .replace(/===([^=]+)===/g, '$1')
       .replace(/==([^=]+)==/g, '$1')
       .replace(/\*\*([^*]+)\*\*/g, '$1')
       .replace(/\*([^*]+)\*/g, '$1')

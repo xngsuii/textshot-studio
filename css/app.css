@@ -150,6 +150,7 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .s-action { color: #8A8F98; }
 .s-quote { color: #1F5D8C; }
 .s-hl { background: #FFE9A3; padding: 0 3px; border-radius: 2px; }
+.s-hl2 { background: #BFE7D8; padding: 0 3px; border-radius: 2px; }
 
 /* textarea — 아래 모서리를 끌어 높이를 조절할 수 있다 */
 .src {
@@ -223,7 +224,7 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .grp { display: flex; flex-direction: column; gap: 9px; }
 .grp-t {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  font-size: 10.5px; font-weight: 700; letter-spacing: .07em;
+  font-size: 11.5px; font-weight: 700; letter-spacing: .07em;
   color: var(--fg-2); text-transform: uppercase;
   padding-bottom: 5px; border-bottom: 1px solid var(--line);
 }
@@ -903,13 +904,14 @@ input[type="checkbox"] { accent-color: var(--accent); }
    문단이 제 드롭캡을 품게 해서 높이를 함께 세게 한다. */
 .mk-p.has-dropcap { display: flow-root; }
 
-/* 형광펜 */
-.mk-hl {
-  background: var(--c-hl, #FFE9A3);
+/* 형광펜 — 한 캔버스에서 두 가지를 쓴다 */
+.mk-hl, .mk-hl2 {
   color: inherit;
   padding: .05em .15em;
   border-radius: 2px;
 }
+.mk-hl { background: var(--c-hl, #FFE9A3); }
+.mk-hl2 { background: var(--c-hl2, #BFE7D8); }
 
 /* 코드블럭을 그려서 보여줄 때 */
 .mk-view { text-align: left; }

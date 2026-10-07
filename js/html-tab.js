@@ -3,8 +3,8 @@
    iframe 에 격리해 페이지 CSS 와 섞이지 않게 하고,
    캡쳐 대상은 iframe 안의 #__shot 요소로 잡는다. */
 
-import { state, DEFAULT_HTML } from './store.js?v=79';
-import * as U from './ui.js?v=79';
+import { state, DEFAULT_HTML } from './store.js?v=84';
+import * as U from './ui.js?v=84';
 
 let frame = null;
 let readyResolve = null;
@@ -179,6 +179,25 @@ export function buildSettings(container, onChange) {
       class: 'hint',
       text: '코드가 바깥 여백(margin)을 쓰면 캡쳐 결과에 투명한 테두리가 남습니다. 저장할 때 그만큼 잘라냅니다. 위에서 정한 여백이나 배경색은 건드리지 않습니다.',
     }),
+  ]));
+
+  /* 출력 — 텍스트 발췌 탭의 출력 설정과 따로다. 저장할 때 이 값을 쓴다. */
+  panel.appendChild(group('출력', [
+    U.field('배율', U.seg(String(o.scale ?? 2), [['1', '1x'], ['2', '2x'], ['3', '3x']], (v) => {
+      o.scale = parseInt(v, 10); onChange();
+    })),
+    U.field('포맷', U.seg(o.format || 'png', [['png', 'PNG'], ['jpg', 'JPG'], ['webp', 'WebP']], (v) => {
+      o.format = v; rebuild(); onChange();
+    })),
+    (o.format || 'png') === 'png' ? null
+      : U.field('품질', U.stepper(o.quality ?? 0.92, {
+        min: 0.4, max: 1, step: 0.05, decimals: 2, onChange: (v) => { o.quality = v; onChange(); },
+      })),
+    U.el('div', { class: 'hint', text: '파일 이름과 저장 폴더는 텍스트 발췌 탭의 「출력」에서 함께 정합니다.' }),
+    (o.format || 'png') === 'webp'
+      ? U.el('div', { class: 'hint hint-warn', text: 'WebP 는 같은 그림을 굽는 데 PNG 보다 5~7배 오래 걸립니다. '
+        + '폰에서 저장이 느리면 PNG 나 JPG 로, 배율도 낮춰 보세요.' })
+      : null,
   ]));
 
   const status = U.el('div', { class: 'hint', text: '아직 확인하지 않았습니다.' });
