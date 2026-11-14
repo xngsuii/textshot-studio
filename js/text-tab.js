@@ -5,21 +5,22 @@ import {
   DEFAULT_OUTPUT, RATIOS, RATIO_ORDER, RATIO_LABEL, MAX_SLOTS, newProfile, NAME_COLOR,
   fontHasWeight, fontHasRealWeight,
   storedBytes, photoStats, photoUsage, dropTemplatePhotos, clearStored,
-} from './store.js?v=84';
+} from './store.js?v=85';
 import {
   splitChunks, hasSplit, renderChunk, renderWithSplitMarks, stripMarkers,
   imageOrder, removeImageMarker, chunkOffsets, setSpeakerAt, speakerNameAt,
   renameSpeaker, NAME_SEP, noteOrder, removeNoteMarker,
-} from './markup.js?v=84';
-import { ensureFont, isAvailable } from './fonts.js?v=84';
-import { SKINS, skinById, skinProfiles, skinStyle, resolve, CHIPS } from './skins.js?v=84';
-import { buildTemplateSection } from './templates.js?v=84';
-import { extract as extractMeta } from './png-meta.js?v=84';
+} from './markup.js?v=85';
+import { ensureFont, isAvailable } from './fonts.js?v=85';
+import { SKINS, skinById, skinProfiles, skinStyle, resolve, CHIPS } from './skins.js?v=85';
+import { buildTemplateSection } from './templates.js?v=85';
+import { extract as extractMeta } from './png-meta.js?v=85';
 import {
   isPayload, applyPayload, summarize, commonWarnings, textOnlyWarnings,
-} from './doc-io.js?v=84';
-import * as SaveDir from './savedir.js?v=84';
-import * as U from './ui.js?v=84';
+} from './doc-io.js?v=85';
+import * as SaveDir from './savedir.js?v=85';
+import * as U from './ui.js?v=85';
+import * as HtmlBg from './html-bg.js?v=85';
 
 const srcEl = () => document.getElementById('src');
 /* 미리보기를 다시 그려 달라고 부르는 손잡이. bindEditor 에서 받아 둔다. */
@@ -42,11 +43,11 @@ const TAB_RESET = {
     label: '캔버스',
     keys: ['width', 'ratio', 'autoSplit', 'columns', 'columnGap',
       'padTop', 'padRight', 'padBottom', 'padLeft', 'padLinked',
-      'bgMode', 'bg', 'bg2', 'bgImage', 'bgFit', 'bgOpacity', 'bgX', 'bgY', 'bgBlur',
+      'bgMode', 'bg', 'bg2', 'bgImage', 'bgHtml', 'bgTab', 'bgFit', 'bgOpacity', 'bgX', 'bgY', 'bgBlur',
       'bgAsHeader', 'bgHeaderH', 'bgHeaderSide', 'bgHeaderW', 'bgHeaderInset', 'bgHeaderGap', 'bgHeaderLine',
       'bgZoom', 'transparent',
       'signOn', 'signSep', 'signAlign', 'signSize', 'signGap', 'signColor', 'signPin'],
-    note: '깔아 둔 배경 사진도 빠집니다. 서명에 적어 둔 이름은 그대로 둡니다.',
+    note: '깔아 둔 배경 사진과 HTML도 빠집니다. 서명에 적어 둔 이름은 그대로 둡니다.',
   },
   color: {
     label: '색상',
@@ -363,6 +364,8 @@ function applyStyle(stage) {
   }
 
   if (st.bgImage) stage.prepend(st.bgAsHeader ? headerBand(st) : bgLayer(st));
+  // HTML 배경은 배경색 바로 위, 헤더 사진보다 아래 — 판 맨 앞에 끼운다
+  if (HtmlBg.hasHtmlBg(st)) stage.prepend(HtmlBg.htmlBgLayer(st));
   if (st.bgImage && st.bgAsHeader && headerSide(st) !== 'top') {
     const { side, px } = sidePadding(st);
     stage.style[side === 'left' ? 'paddingLeft' : 'paddingRight'] = px + 'px';
@@ -505,6 +508,17 @@ function signLine(st) {
   const org = (st.signOrg || '').trim();
   if (!name && !org) return null;
 
+  // 줄바꿈이면 이름 아래 줄에 제작자. 두 줄 사이는 본문 행간을 따라간다.
+  if (st.signSep === 'br') {
+    const el = U.el('div', { class: 'stage-sign is-br', text: [name, org].filter(Boolean).join('\n') });
+    Object.assign(el.style, {
+      marginTop: (st.signGap ?? 28) + 'px',
+      fontSize: (st.signSize ?? 12) + 'px',
+      color: st.signColor || '#9AA0A6',
+      textAlign: st.signAlign || 'center',
+    });
+    return el;
+  }
   const sep = st.signSep === 'bar' ? '|' : '·';
   // 보통 빈칸은 여러 개를 써도 화면에서 하나로 줄어든다. 줄지 않는 빈칸으로 사이를 벌린다.
   const gap = '  ';
@@ -765,8 +779,17 @@ export function renderPreview(host) {
   // 각주는 자리를 재야 하므로 판이 붙은 뒤에 앉힌다
   stages.forEach(layoutFootnotes);
   stages.forEach(sizeBgLayers);
+  paintHtmlBg(stages);
 
   return stages;
+}
+
+/* HTML 배경은 판이 붙어 크기를 잴 수 있게 된 뒤에 찍어 채운다.
+   저장할 때는 이 약속을 기다렸다가 찍는다. */
+export function paintHtmlBg(stages) {
+  const st = state.text.style;
+  if (!HtmlBg.hasHtmlBg(st)) return Promise.resolve();
+  return HtmlBg.paint(stages, st.bgHtml, state.output.scale || 2);
 }
 
 /* 미리보기에서 말풍선을 누르면 다음 프로필로 넘어간다.
@@ -1650,7 +1673,13 @@ function panelCanvas(container, onChange) {
       fr.onload = async () => {
         // 크기는 그대로 두고 webp 로 다시 담는다
         st.bgImage = await shrinkPhoto(fr.result, BIG_MAX, 0.95);
-        st.bgX = 50; st.bgY = 50; rebuild(); touch();
+        st.bgX = 50; st.bgY = 50;
+        // HTML 배경을 쓰는 중이면 사진은 헤더 자리로만 들어간다
+        if (HtmlBg.hasHtmlBg(st) && !st.bgAsHeader) {
+          st.bgAsHeader = true;
+          previewToast('HTML 배경을 쓰는 중이라 사진은 헤더로 넣었습니다');
+        }
+        rebuild(); touch();
       };
       fr.readAsDataURL(file);
       e.target.value = '';
@@ -1688,6 +1717,8 @@ function panelCanvas(container, onChange) {
     group('배경', [
       // 단색·그라데이션·투명 칸만으로 무엇을 고르는지 알 수 있어 이름표는 두지 않는다
       bgPicker(st, touch, rebuild),
+      bgSourceSeg(st, rebuild),
+      ...(bgTab(st) === 'html' ? htmlBgFields(st, touch, rebuild) : [
       // 썸네일 칸이 곧 사진을 넣는 칸이다. 비어 있으면 눌러서 고른다.
       st.bgImage
         ? (() => {
@@ -1704,12 +1735,18 @@ function panelCanvas(container, onChange) {
         st.bgImage ? U.el('button', { class: 'btn btn-danger btn-sm', type: 'button', text: '이미지 빼기',
           onClick: () => { st.bgImage = ''; rebuild(); touch(); } }) : null,
         fileInput,
-        st.bgImage ? U.el('button', {
-          class: 'btn btn-ghost btn-sm push-right', type: 'button',
-          text: st.bgAsHeader ? '배경으로 사용' : '헤더로 사용',
-          title: st.bgAsHeader ? '본문 위 띠 대신 캔버스 배경으로 씁니다' : '캔버스 배경 대신 본문 위 띠로 씁니다',
-          onClick: () => { st.bgAsHeader = !st.bgAsHeader; rebuild(); touch(); },
-        }) : null,
+        st.bgImage ? (() => {
+          // HTML 배경이 깔려 있으면 캔버스 배경 자리는 그쪽 몫이다
+          const locked = st.bgAsHeader && HtmlBg.hasHtmlBg(st);
+          return U.el('button', {
+            class: 'btn btn-ghost btn-sm push-right', type: 'button',
+            text: st.bgAsHeader ? '배경으로 사용' : '헤더로 사용',
+            disabled: locked,
+            title: locked ? 'HTML 배경을 쓰는 중에는 헤더로만 쓸 수 있습니다'
+              : (st.bgAsHeader ? '본문 위 띠 대신 캔버스 배경으로 씁니다' : '캔버스 배경 대신 본문 위 띠로 씁니다'),
+            onClick: () => { st.bgAsHeader = !st.bgAsHeader; rebuild(); touch(); },
+          });
+        })() : null,
       ]),
       st.bgImage && st.bgAsHeader ? U.fieldGrid([
         U.field('위치', (() => {
@@ -1760,14 +1797,20 @@ function panelCanvas(container, onChange) {
         });
         return U.field('본문과 간격', U.el('div', { class: 'field-row' }, [sp, chk]));
       })() : null,
-      st.bgImage && (st.bgAsHeader || st.bgFit === 'cover') ? U.el('div', { class: 'field-row is-loose' }, [
+      st.bgImage && (st.bgAsHeader || st.bgFit === 'cover') ? U.el('div', { class: 'field-row' }, [
         U.el('button', {
           class: 'btn btn-ghost btn-sm', type: 'button', text: '원래 위치로',
+          title: '미리보기 창에서 여백을 드래그하면 사진의 위치를 조정할 수 있습니다. '
+            + '확대한 사진도 같은 방법으로 보일 자리를 고릅니다.',
           onClick: () => { st.bgX = 50; st.bgY = 50; touch(); },
         }),
-        U.el('div', { class: 'hint', text: '미리보기 창에서 여백을 드래그하면 사진의 위치를 조정할 수 있습니다. '
-          + '확대한 사진도 같은 방법으로 보일 자리를 고릅니다.' }),
+        st.bgAsHeader ? U.el('button', {
+          class: 'btn btn-ghost btn-sm', type: 'button', text: '원본 크기로',
+          title: '사진이 잘리지 않는 크기로 헤더를 맞춥니다',
+          onClick: () => { if (fitHeaderToPhoto(st)) { rebuild(); touch(); } },
+        }) : null,
       ]) : null,
+      ]),
     ]),
     signGroup(st, touch, rebuild),
     tabReset('canvas', container, onChange),
@@ -1807,11 +1850,16 @@ function signFields(st, touch) {
         U.el('label', { text: '구분·위치' }),
         U.el('div', { class: 'field-row' }, [
           (() => {
-            const g = U.seg(st.signSep || 'dot', [['dot', '·'], ['bar', '|']], (v) => { st.signSep = v; touch(); });
+            const g = U.seg(st.signSep || 'dot', [['dot', '·'], ['bar', '|'], ['br', '↵']], (v) => { st.signSep = v; touch(); });
             g.classList.add('seg-narrow');
+            ['가운데점으로 잇습니다', '세로줄로 잇습니다', '이름 아래 줄에 제작자를 씁니다'].forEach((t, i) => { g.children[i].title = t; });
             return g;
           })(),
-          U.seg(st.signAlign || 'right', [['left', '왼쪽'], ['center', '가운데'], ['right', '오른쪽']], (v) => { st.signAlign = v; touch(); }),
+          (() => {
+            const g = U.seg(st.signAlign || 'right', [['left', '←'], ['center', '↔'], ['right', '→']], (v) => { st.signAlign = v; touch(); });
+            ['왼쪽에 둡니다', '가운데에 둡니다', '오른쪽에 둡니다'].forEach((t, i) => { g.children[i].title = t; });
+            return g;
+          })(),
         ]),
       ]),
       U.field('자리', U.seg(st.signPin === 'bottom' ? 'bottom' : 'text',
@@ -1821,8 +1869,120 @@ function signFields(st, touch) {
         U.field('본문과 간격', U.stepper(st.signGap ?? 28, { min: 0, max: 200, step: 2, unit: 'px', onChange: (v) => { st.signGap = v; touch(); } })),
       ]),
       U.field('색상', U.color(st.signColor || '#9AA0A6', (v) => { st.signColor = v; touch(); })),
-      U.el('div', { class: 'hint', text: '「사용」을 꺼 두거나 이름·제작자를 둘 다 비워 두면 아무것도 그리지 않습니다. 분할하면 각 장에 함께 들어갑니다.' }),
   ];
+}
+
+/* ── 배경 사진 · HTML ────────────────────────
+   [ 이미지 | HTML ] 은 어느 쪽 칸을 볼지 고르는 탭이다. 둘은 따로 담겨 있어
+   탭을 바꾼다고 다른 쪽이 지워지지 않는다. 내용이 든 쪽에는 점을 찍는다. */
+const bgTab = (st) => (st.bgTab === 'html' ? 'html' : 'image');
+
+function bgSourceSeg(st, rebuild) {
+  const dot = (on, label) => (on ? `${label} •` : label);
+  const g = U.seg(bgTab(st), [
+    ['image', dot(!!st.bgImage, '이미지')],
+    ['html', dot(HtmlBg.hasHtmlBg(st), 'HTML')],
+  ], (v) => { st.bgTab = v; rebuild(); saveSoon(); });
+  g.classList.add('bgsrc');
+  return g;
+}
+
+/* 미리보기 창 아래쪽에 잠깐 띄우는 알림 */
+function previewToast(msg) {
+  U.toast(msg, 2600, null, document.getElementById('previewScroll'));
+}
+
+/* HTML 이 새로 들어왔을 때 — 사진이 캔버스 배경이면 헤더로 옮긴다 */
+function setHtmlBg(st, code) {
+  const had = HtmlBg.hasHtmlBg(st);
+  st.bgHtml = code;
+  if (!had && HtmlBg.hasHtmlBg(st) && st.bgImage && !st.bgAsHeader) {
+    st.bgAsHeader = true;
+    previewToast('사진은 헤더로 옮겼습니다');
+    return true;
+  }
+  return had !== HtmlBg.hasHtmlBg(st);        // 점·버튼 상태가 바뀌면 다시 그린다
+}
+
+function htmlBgFields(st, touch, rebuild) {
+  let timer = 0;
+  const ta = U.el('textarea', {
+    class: 'bghtml-code', spellcheck: 'false', rows: 8,
+    placeholder: 'HTML 코드를 붙여 넣거나 .html 파일을 끌어다 놓으세요.\n100vw · 100vh · % 로 짜면 캔버스 크기에 맞춰 그려집니다.',
+    /* 쓰는 중에 칸을 새로 그리면 커서가 날아간다. 미리보기만 고치고,
+       점·버튼 같은 칸 모양은 칸을 떠날 때 맞춘다. */
+    onInput: (e) => {
+      if (setHtmlBg(st, e.target.value)) dirty = true;
+      // 타자마다 다시 찍지 않도록 잠깐 쉬었다가 그린다
+      clearTimeout(timer);
+      timer = setTimeout(touch, 500);
+    },
+    onChange: () => { if (dirty) { dirty = false; rebuild(); } },
+  });
+  let dirty = false;
+  ta.value = st.bgHtml || '';
+
+  /* 파일을 끌어다 놓으면 그 내용이 글로 들어간다. 편집기 쪽 끌어 놓기(사진·불러오기)로
+     번지지 않게 여기서 막는다. */
+  const isFile = (e) => [...(e.dataTransfer?.types || [])].includes('Files');
+  ta.addEventListener('dragover', (e) => {
+    if (!isFile(e)) return;
+    e.preventDefault(); e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy';
+    ta.classList.add('is-drop');
+  });
+  ta.addEventListener('dragleave', () => ta.classList.remove('is-drop'));
+  ta.addEventListener('drop', async (e) => {
+    if (!isFile(e)) return;
+    e.preventDefault(); e.stopPropagation();
+    ta.classList.remove('is-drop');
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    if (!/\.html?$/i.test(file.name) && !/^text\//.test(file.type)) {
+      U.toast('HTML 파일만 놓을 수 있습니다');
+      return;
+    }
+    setHtmlBg(st, await file.text());
+    rebuild(); touch();
+  });
+
+  return [
+    ta,
+    HtmlBg.hasHtmlBg(st) ? U.el('div', { class: 'field-row' }, [
+      U.el('button', {
+        class: 'btn btn-danger btn-sm', type: 'button', text: 'HTML 빼기',
+        onClick: () => { st.bgHtml = ''; rebuild(); touch(); },
+      }),
+    ]) : null,
+  ];
+}
+
+/* 「원본 크기로」 — 사진이 잘리지 않게 헤더를 사진 비율에 맞춘다.
+   위 헤더는 높이를, 옆 헤더는 지금 캔버스 높이를 기준으로 폭을 정한다.
+   칸이 받는 범위를 넘으면 끝값에서 멈추고 잘린다고 알린다. */
+function fitHeaderToPhoto(st) {
+  const nat = naturalSize(st.bgImage);
+  if (!nat.w || !nat.h) { U.toast('사진을 아직 읽는 중입니다. 잠시 뒤 다시 눌러 주세요'); return false; }
+  st.bgZoom = 100; st.bgX = 50; st.bgY = 50;
+  let clipped = false;
+
+  if (headerSide(st) === 'top') {
+    const w = st.bgHeaderInset ? st.width - st.padLeft - st.padRight : st.width;
+    const h = Math.round(w * nat.h / nat.w);
+    st.bgHeaderH = Math.max(40, Math.min(1200, h));
+    clipped = st.bgHeaderH !== h;
+    if (clipped) previewToast('최대 높이(1200px)에 맞춰 일부가 잘립니다');
+    return true;
+  }
+
+  const band = document.querySelector('#previewScroll .stage-header');
+  const bh = band?.offsetHeight || 0;
+  if (!bh) return true;
+  const pct = Math.round(bh * nat.w / nat.h / st.width * 100);
+  st.bgHeaderW = Math.max(10, Math.min(80, pct));
+  clipped = st.bgHeaderW !== pct;
+  if (clipped) previewToast(`헤더 폭(10~80%) 안에서 맞춰 일부가 잘립니다`);
+  return true;
 }
 
 /* 배경 방식 — 예전 저장물은 bgMode 가 없고 transparent 만 있었다 */

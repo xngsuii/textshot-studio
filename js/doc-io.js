@@ -11,7 +11,7 @@
 import {
   state, DEFAULT_STYLE, DEFAULT_FORMATS, DEFAULT_PROFILES,
   newProfile, normalizeSlots, MAX_SLOTS, RATIOS, normalizeColumns, migrateWeights,
-} from './store.js?v=84';
+} from './store.js?v=85';
 
 const APP = 'textshot-studio';
 const HEX = /^#[0-9a-fA-F]{6}$/;
@@ -25,6 +25,7 @@ const appVersion = () => document.querySelector('meta[name="app-version"]')?.con
 export function buildPayload(source) {
   const style = { ...state.text.style };
   delete style.bgImage;
+  delete style.bgHtml;            // 배경 사진처럼 HTML 배경도 담지 않는다 — 크고 그림에 이미 찍혀 있다
   return {
     app: APP,
     v: 1,
@@ -149,8 +150,12 @@ function cleanProfiles(raw, current) {
 export function applyPayload(p, mode) {
   if (mode === 'all') {
     const keepBg = state.text.style.bgImage;
+    const keepHtml = state.text.style.bgHtml;
     Object.assign(state.text.style, cleanStyle(p.style));
     state.text.style.bgImage = keepBg;
+    state.text.style.bgHtml = keepHtml;
+    // HTML 배경이 깔려 있으면 사진은 헤더 자리로만 쓴다
+    if (keepHtml?.trim() && keepBg) state.text.style.bgAsHeader = true;
     Object.assign(state.text.formats, cleanFormats(p.formats));
     state.text.profiles = cleanProfiles(p.profiles, state.text.profiles);
     state.activeTemplate = null;

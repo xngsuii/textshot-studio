@@ -1,20 +1,20 @@
 /* 부팅 · 탭 전환 · 미리보기 갱신 · 저장 */
 
-import { state, loadAll, saveSoon, fontById } from './store.js?v=84';
-import * as TextTab from './text-tab.js?v=84';
-import * as HtmlTab from './html-tab.js?v=84';
-import * as Capture from './capture.js?v=84';
-import { nodeToBlob, downloadMany, copyToClipboard, shareBlobs, buildName } from './capture.js?v=84';
-import { buildPayload } from './doc-io.js?v=84';
-import * as SaveDir from './savedir.js?v=84';
-import { ensureFont } from './fonts.js?v=84';
-import { initDrawer, initDrawerModes, isMobile } from './drawer.js?v=84';
-import { toast } from './ui.js?v=84';
+import { state, loadAll, saveSoon, fontById } from './store.js?v=85';
+import * as TextTab from './text-tab.js?v=85';
+import * as HtmlTab from './html-tab.js?v=85';
+import * as Capture from './capture.js?v=85';
+import { nodeToBlob, downloadMany, copyToClipboard, shareBlobs, buildName } from './capture.js?v=85';
+import { buildPayload } from './doc-io.js?v=85';
+import * as SaveDir from './savedir.js?v=85';
+import { ensureFont } from './fonts.js?v=85';
+import { initDrawer, initDrawerModes, isMobile } from './drawer.js?v=85';
+import { toast } from './ui.js?v=85';
 
 /* index.html 의 app-version 과 짝을 이룬다. 브라우저가 둘 중 하나만 새로
    받으면 화면은 새것인데 동작은 옛것인 상태가 되어 원인 찾기가 어렵다.
    어긋나면 하단에 알려 준다. 고칠 때 두 값을 같이 올릴 것. */
-const APP_VERSION = '84';
+const APP_VERSION = '85';
 
 const $ = (id) => document.getElementById(id);
 
@@ -255,6 +255,8 @@ async function collectBlobs(over = {}) {
         TextTab.layoutFootnotes(p.stage);
         TextTab.sizeBgLayers(p.stage);
       });
+      // HTML 배경은 판 크기대로 찍어 깔아야 하므로 다 채워질 때까지 기다린다
+      await TextTab.paintHtmlBg(parts.map(p => p.stage));
       const blobs = [];
       let s = scale;
       for (const p of parts) s = Math.min(s, Capture.fitScale(p.stage, scale));

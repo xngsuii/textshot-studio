@@ -3,8 +3,8 @@
    iframe 에 격리해 페이지 CSS 와 섞이지 않게 하고,
    캡쳐 대상은 iframe 안의 #__shot 요소로 잡는다. */
 
-import { state, DEFAULT_HTML } from './store.js?v=84';
-import * as U from './ui.js?v=84';
+import { state, DEFAULT_HTML } from './store.js?v=85';
+import * as U from './ui.js?v=85';
 
 let frame = null;
 let readyResolve = null;

@@ -368,10 +368,18 @@ export function padGrid(obj, keys, getLinked, onChange) {
 }
 
 let toastTimer = null;
-/* action 을 주면 「되돌리기」 같은 단추가 하나 붙는다. 그때는 좀 더 오래 둔다. */
-export function toast(msg, ms = 2200, action = null) {
+/* action 을 주면 「되돌리기」 같은 단추가 하나 붙는다. 그때는 좀 더 오래 둔다.
+   anchor 를 주면 화면 아래 가운데가 아니라 그 칸의 아래 가운데에 띄운다. */
+export function toast(msg, ms = 2200, action = null, anchor = null) {
   const t = document.getElementById('toast');
   t.textContent = msg;
+  t.style.left = '';
+  t.style.bottom = '';
+  const r = anchor?.getBoundingClientRect();
+  if (r && r.width && r.height) {
+    t.style.left = `${r.left + r.width / 2}px`;
+    t.style.bottom = `${Math.max(0, window.innerHeight - r.bottom) + 16}px`;
+  }
   clearTimeout(toastTimer);
   if (action) {
     t.appendChild(el('button', {

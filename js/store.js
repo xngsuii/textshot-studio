@@ -141,7 +141,9 @@ export const DEFAULT_STYLE = {
   bgOpacity: 100,
   bgX: 50, bgY: 50,             // 꽉 채움일 때 보이는 자리 (%). 미리보기에서 끌어 옮긴다.
   bgBlur: 0,
-  bgAsHeader: false,            // 배경 대신 본문 위 띠로 쓴다
+  bgHtml: '',                   // 캔버스 배경에 까는 HTML 코드 — 판 크기대로 찍어 깐다
+  bgTab: 'image',               // 배경 설정에서 보고 있는 칸 — image 사진 / html 코드
+  bgAsHeader: false,            // 배경 대신 본문 위 띠로 쓴다. HTML 배경이 있으면 늘 헤더.
   bgHeaderH: 220,               // 위에 둘 때 높이 px
   bgHeaderSide: 'top',          // top 위 / left 왼쪽 / right 오른쪽
   bgHeaderW: 38,                // 옆에 둘 때 폭 — 캔버스 폭의 %
@@ -201,7 +203,7 @@ export const DEFAULT_STYLE = {
   signOn: true,                // 꺼 두면 적어 두었어도 그리지 않는다
   signName: '',
   signOrg: '',
-  signSep: 'dot',              // dot 가운데점 / bar 세로줄
+  signSep: 'dot',              // dot 가운데점 / bar 세로줄 / br 줄바꿈
   signAlign: 'right',
   signSize: 12,
   signGap: 32,
