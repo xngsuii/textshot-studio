@@ -1497,12 +1497,19 @@ span.bgcell-hex { display: block; }
 .bgpick:not(.is-clear) .bgpick-cell:nth-child(3) { opacity: .42; }
 
 /* ─── 배경 사진 · HTML ────────────────────── */
+/* 위쪽 편집기(코드 모드)와 같은 글자 모양에, 테두리는 다른 입력칸과 같게 */
 .bghtml-code {
-  width: 100%; min-height: 140px; resize: vertical;
-  font-family: var(--mono); font-size: 11.5px; line-height: 1.5;
-  white-space: pre; overflow: auto; tab-size: 2;
+  display: block; width: 100%; height: 180px; min-height: 96px; max-height: 60vh;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+  background: var(--bg);
+  resize: vertical; overflow-y: auto;
+  font-family: var(--mono); font-size: 12px; line-height: 1.7;
+  white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 2;
 }
-.bghtml-code.is-drop { outline: 2px dashed var(--accent); outline-offset: -2px; background: var(--accent-soft); }
+.bghtml-code::placeholder { color: var(--fg-3); font-family: var(--ui); font-size: 12.5px; }
+.bghtml-code:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.bghtml-code.is-drop { border-color: var(--accent); border-style: dashed; background: var(--accent-soft); }
 
 /* ─── 제목을 눌러 접는 묶음 ─────────────────── */
 .fold-grp > summary { cursor: pointer; list-style: none; }

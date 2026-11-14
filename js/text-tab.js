@@ -5,22 +5,22 @@ import {
   DEFAULT_OUTPUT, RATIOS, RATIO_ORDER, RATIO_LABEL, MAX_SLOTS, newProfile, NAME_COLOR,
   fontHasWeight, fontHasRealWeight,
   storedBytes, photoStats, photoUsage, dropTemplatePhotos, clearStored,
-} from './store.js?v=85';
+} from './store.js?v=86';
 import {
   splitChunks, hasSplit, renderChunk, renderWithSplitMarks, stripMarkers,
   imageOrder, removeImageMarker, chunkOffsets, setSpeakerAt, speakerNameAt,
   renameSpeaker, NAME_SEP, noteOrder, removeNoteMarker,
-} from './markup.js?v=85';
-import { ensureFont, isAvailable } from './fonts.js?v=85';
-import { SKINS, skinById, skinProfiles, skinStyle, resolve, CHIPS } from './skins.js?v=85';
-import { buildTemplateSection } from './templates.js?v=85';
-import { extract as extractMeta } from './png-meta.js?v=85';
+} from './markup.js?v=86';
+import { ensureFont, isAvailable } from './fonts.js?v=86';
+import { SKINS, skinById, skinProfiles, skinStyle, resolve, CHIPS } from './skins.js?v=86';
+import { buildTemplateSection } from './templates.js?v=86';
+import { extract as extractMeta } from './png-meta.js?v=86';
 import {
   isPayload, applyPayload, summarize, commonWarnings, textOnlyWarnings,
-} from './doc-io.js?v=85';
-import * as SaveDir from './savedir.js?v=85';
-import * as U from './ui.js?v=85';
-import * as HtmlBg from './html-bg.js?v=85';
+} from './doc-io.js?v=86';
+import * as SaveDir from './savedir.js?v=86';
+import * as U from './ui.js?v=86';
+import * as HtmlBg from './html-bg.js?v=86';
 
 const srcEl = () => document.getElementById('src');
 /* 미리보기를 다시 그려 달라고 부르는 손잡이. bindEditor 에서 받아 둔다. */

@@ -8,7 +8,7 @@
    iframe 은 sandbox 에 allow-scripts 를 주지 않아 코드 안 <script> 는 돌지 않는다. */
 
 import { domToCanvas } from '../vendor/modern-screenshot.js';
-import { CANVAS_BUDGET } from './capture.js?v=85';
+import { CANVAS_BUDGET } from './capture.js?v=86';
 
 /* 코드 앞에 바탕 규칙을 먼저 깐다. 코드 쪽 규칙이 뒤에 오므로 그쪽이 이긴다. */
 const BASE = '<style>html,body{margin:0;width:100%;height:100%;background:transparent;}</style>';
