@@ -11,7 +11,7 @@
 import {
   state, DEFAULT_STYLE, DEFAULT_FORMATS, DEFAULT_PROFILES,
   newProfile, normalizeSlots, MAX_SLOTS, RATIOS, normalizeColumns, migrateWeights,
-} from './store.js?v=88';
+} from './store.js?v=95';
 
 const APP = 'textshot-studio';
 const HEX = /^#[0-9a-fA-F]{6}$/;
@@ -56,7 +56,7 @@ const RANGE = {
   bgOpacity: [0, 100], bgX: [0, 100], bgY: [0, 100], bgBlur: [0, 80], bgHeaderH: [0, 2000],
   bubbleRadius: [0, 200], bubbleAlpha: [0, 100], bubbleGap: [0, 400], nameGap: [0, 200],
   bubbleMaxWidth: [10, 100], bubblePadV: [0, 200], bubblePadH: [0, 200],
-  signSize: [6, 200], signGap: [0, 600],
+  signSize: [6, 200], signGap: [0, 600], signLetterSpacing: [-20, 40],
   columns: [1, 4], columnGap: [0, 400], bqBar: [0, 40],
   h1Size: [0.5, 8], h2Size: [0.5, 8],
   bubbleInGap: [0, 200], dropCapLines: [2, 6], bgHeaderW: [10, 80],
@@ -98,6 +98,7 @@ function cleanStyle(raw) {
   if (![300, 400, 700].includes(out.dropCapWeight)) out.dropCapWeight = 400;
   if (![300, 400, 700].includes(out.h1Weight)) out.h1Weight = 700;
   if (![300, 400, 700].includes(out.h2Weight)) out.h2Weight = 400;
+  if (![300, 400, 700].includes(out.signWeight)) out.signWeight = 400;
   if (!['top', 'left', 'right'].includes(out.bgHeaderSide)) out.bgHeaderSide = 'top';
   if (!['first', 'page'].includes(out.dropCapScope)) out.dropCapScope = 'first';
   for (const k of ['h1Align', 'h2Align']) {

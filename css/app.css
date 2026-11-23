@@ -156,9 +156,8 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 :root[data-hl="half"] .s-hl2 { background: linear-gradient(transparent 52%, var(--ui-hl2, #BFE7D8) 52%); border-radius: 0; }
 
 /* 설정의 형광펜 모양 견본 */
-.hlp { display: inline-block; padding: 0 3px; line-height: 1.5; color: var(--fg); border-radius: 2px; background: var(--hlp); }
-/* 윗부분은 흰 바탕을 깔아 고른 칸(검은 바탕) 위에서도 글자가 보이게 한다 */
-.hlp-half { background: linear-gradient(var(--bg) 52%, var(--hlp) 52%); border-radius: 0; }
+.hlp { display: inline-block; padding: 0 3px; line-height: 1.5; color: #5F646B; border-radius: 2px; background: var(--hlp); }
+.hlp-half { background: linear-gradient(transparent 52%, var(--hlp) 52%); border-radius: 0; }
 
 /* textarea — 아래 모서리를 끌어 높이를 조절할 수 있다 */
 .src {
@@ -236,6 +235,41 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
   color: var(--fg-2); text-transform: uppercase;
   padding-bottom: 5px; border-bottom: 1px solid var(--line);
 }
+/* 제목 바로 옆 (?) — 오른쪽 끝(토글·체크)은 그대로 비워 둔다 */
+.help-btn {
+  flex: none; display: inline-flex; margin: 0 auto 0 -3px; padding: 2px;
+  color: var(--fg-3); border-radius: 50%; cursor: pointer;
+}
+.help-btn svg {
+  width: 14px; height: 14px; display: block;
+  fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+.help-btn .help-dot { fill: currentColor; stroke: none; }
+.help-btn:hover, .help-btn[aria-expanded="true"] { color: var(--accent); }
+.help-btn:focus-visible { outline: 2px solid var(--accent-soft); }
+/* (?) 를 누르면 그 위에 뜨는 말풍선 — 알림(토스트)과 같은 어두운 바탕.
+   문서 맨 위에 얹혀 아래 칸을 밀어내지 않는다. 꼬리는 단추를 가리킨다. */
+.help-pop {
+  position: fixed; z-index: 120;
+  display: flex; flex-direction: column; gap: 5px;
+  padding: 9px 12px; border-radius: var(--r);
+  background: var(--fg); color: #fff; box-shadow: var(--shadow-2);
+  font-size: 12px; line-height: 1.55; font-weight: 400;
+  animation: help-in .12s ease-out;
+}
+.help-pop p { margin: 0; }
+/* 설명이 여러 개면 글머리로 나눈다 — 줄이 넘어가도 글머리 뒤로 가지런히 */
+.help-pop.is-list p { position: relative; padding-left: 12px; }
+.help-pop.is-list p::before { content: '•'; position: absolute; left: 1px; top: 0; opacity: .7; }
+.help-pop::after {
+  content: ''; position: absolute; left: var(--tail, 22px); bottom: -5px;
+  width: 10px; height: 10px; margin-left: -5px;
+  background: inherit; transform: rotate(45deg); border-radius: 1px;
+}
+.help-pop.is-below::after { bottom: auto; top: -5px; }
+@keyframes help-in { from { opacity: 0; transform: translateY(3px); } }
+@media (prefers-reduced-motion: reduce) { .help-pop { animation: none; } }
+
 /* 제목 줄 오른쪽 끝의 작은 전환 버튼 */
 .grp-act {
   flex: none; padding: 2px 7px; border-radius: var(--r-sm);
@@ -396,7 +430,9 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 }
 /* 격자 안에서는 남는 자리를 색상 막대가 가져간다 */
 .ccell .field-row { gap: 4px; }
-.ccell .field-row input[type="color"] { flex: 1 1 auto; width: auto; min-width: 30px; }
+.ccell .field-row input[type="color"],
+.color-wide input[type="color"] { flex: 1 1 auto; width: auto; min-width: 30px; }
+.color-wide { gap: 4px; }
 /* 라벨 옆에 투명도를 두는 칸 */
 .ccell-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; }
 .alpha-box { flex: none; display: flex; align-items: center; gap: 1px; }

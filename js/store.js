@@ -207,6 +207,8 @@ export const DEFAULT_STYLE = {
   signSep: 'dot',              // dot 가운데점 / bar 세로줄 / br 줄바꿈
   signAlign: 'right',
   signSize: 12,
+  signLetterSpacing: 0,        // 서명 자간 px — 본문 자간과 따로
+  signWeight: 400,             // 서명 굵기 — 300 라이트 / 400 일반 / 700 굵게
   signGap: 32,
   signPin: 'text',             // text 글 바로 아래 / bottom 캔버스 맨 아래
   signColor: '#9AA0A6',

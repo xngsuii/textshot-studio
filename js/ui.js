@@ -127,6 +127,13 @@ export function color(value, onChange) {
   return el('div', { class: 'field-row' }, [swatch, hex]);
 }
 
+/* 한 줄을 다 쓰는 색상 칸 — 색상 탭의 칸처럼 색 막대가 남는 자리를 채운다 */
+export function wideColor(value, onChange) {
+  const row = color(value, onChange);
+  row.classList.add('color-wide');
+  return row;
+}
+
 /* 라벨을 위에 얹은 좁은 색상 칸. 여러 개를 격자로 늘어놓을 때 쓴다. */
 export function colorCell(label, value, onChange) {
   return el('div', { class: 'ccell' }, [
@@ -416,4 +423,81 @@ export function modal({ title, body = [], actions = [] }) {
   document.body.appendChild(back);
   card.querySelector('.btn-primary, .btn')?.focus();
   return close;
+}
+/* ── 도움말 ──────────────────────────────────
+   묶음 안의 사용법 설명(.hint)을 늘 펼쳐 두지 않고, 제목 옆 (?) 를 눌렀을 때만
+   그 위에 말풍선으로 띄운다. 아래 칸들을 밀어내지 않도록 문서 맨 위에 얹는다.
+   상태를 알려 주는 줄(.is-status)과 경고(.hint-warn)는 숨기면 모르고 지나칠 수
+   있어 그대로 둔다. 제목이 없는 묶음도 그대로 둔다. */
+const HELP_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.25"/>'
+  + '<path d="M9.5 9.25A2.5 2.5 0 1 1 12.9 11.55C12.35 11.8 12 12.35 12 12.95V13.25"/>'
+  + '<circle class="help-dot" cx="12" cy="16.75" r="1"/></svg>';
+
+let helpOpen = null;      // { pop, btn }
+let helpBound = false;
+
+function closeHelp() {
+  if (!helpOpen) return;
+  helpOpen.pop.remove();
+  helpOpen.btn.setAttribute('aria-expanded', 'false');
+  helpOpen = null;
+}
+
+/* 단추 위에 띄운다. 위에 자리가 없으면 아래로. 꼬리는 단추를 가리킨다. */
+function placeHelp(pop, btn) {
+  const r = btn.getBoundingClientRect();
+  const gap = 8, edge = 8;
+  const w = Math.min(280, window.innerWidth - edge * 2);
+  pop.style.width = `${w}px`;
+  const left = Math.max(edge, Math.min(r.left + r.width / 2 - 22, window.innerWidth - w - edge));
+  pop.style.left = `${left}px`;
+  pop.style.setProperty('--tail', `${r.left + r.width / 2 - left}px`);
+  const h = pop.offsetHeight;
+  const below = r.top - gap - h < edge;
+  pop.classList.toggle('is-below', below);
+  pop.style.top = `${below ? r.bottom + gap : r.top - gap - h}px`;
+}
+
+export function attachHelp(grp) {
+  const head = grp.querySelector(':scope > .grp-t');
+  if (!head) return grp;
+  const hints = [...grp.querySelectorAll('.hint')].filter(h => h.closest('.grp') === grp
+    && !h.classList.contains('hint-warn') && !h.classList.contains('is-status'));
+  if (!hints.length) return grp;
+
+  const texts = hints.map(h => h.textContent);
+  hints.forEach(h => h.remove());
+
+  const btn = el('button', { class: 'help-btn', type: 'button', 'aria-label': '도움말', 'aria-expanded': 'false' });
+  btn.innerHTML = HELP_SVG;
+  btn.addEventListener('click', (e) => {
+    // 접는 묶음의 제목 안에 있어도 묶음이 접히거나 펼쳐지지 않게 한다
+    e.preventDefault();
+    e.stopPropagation();
+    const was = helpOpen?.btn === btn;
+    closeHelp();
+    if (was) return;
+    const pop = el('div', { class: `help-pop${texts.length > 1 ? ' is-list' : ''}`, role: 'tooltip' }, texts.map(t => el('p', { text: t })));
+    document.body.appendChild(pop);
+    placeHelp(pop, btn);
+    btn.setAttribute('aria-expanded', 'true');
+    helpOpen = { pop, btn };
+  });
+
+  const title = head.firstElementChild;
+  if (title) title.after(btn); else head.prepend(btn);
+
+  if (!helpBound) {
+    helpBound = true;
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest?.('.help-pop, .help-btn')) closeHelp();
+    });
+    // 띄운 자리가 어긋나지 않게 — 굴리거나 창 크기가 바뀌면 닫는다
+    document.addEventListener('scroll', (e) => {
+      if (helpOpen && !helpOpen.pop.contains(e.target)) closeHelp();
+    }, true);
+    window.addEventListener('resize', closeHelp);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeHelp(); });
+  }
+  return grp;
 }

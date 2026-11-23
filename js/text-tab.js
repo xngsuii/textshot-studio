@@ -5,22 +5,22 @@ import {
   DEFAULT_OUTPUT, RATIOS, RATIO_ORDER, RATIO_LABEL, MAX_SLOTS, newProfile, NAME_COLOR,
   fontHasWeight, fontHasRealWeight,
   storedBytes, photoStats, photoUsage, dropTemplatePhotos, clearStored,
-} from './store.js?v=88';
+} from './store.js?v=95';
 import {
   splitChunks, hasSplit, renderChunk, renderWithSplitMarks, stripMarkers,
   imageOrder, removeImageMarker, chunkOffsets,
   renameSpeaker, NAME_SEP, noteOrder, removeNoteMarker,
-} from './markup.js?v=88';
-import { ensureFont, isAvailable } from './fonts.js?v=88';
-import { SKINS, skinById, skinProfiles, skinStyle, resolve, CHIPS } from './skins.js?v=88';
-import { buildTemplateSection } from './templates.js?v=88';
-import { extract as extractMeta } from './png-meta.js?v=88';
+} from './markup.js?v=95';
+import { ensureFont, isAvailable } from './fonts.js?v=95';
+import { SKINS, skinById, skinProfiles, skinStyle, resolve, CHIPS } from './skins.js?v=95';
+import { buildTemplateSection } from './templates.js?v=95';
+import { extract as extractMeta } from './png-meta.js?v=95';
 import {
   isPayload, applyPayload, summarize, commonWarnings, textOnlyWarnings,
-} from './doc-io.js?v=88';
-import * as SaveDir from './savedir.js?v=88';
-import * as U from './ui.js?v=88';
-import * as HtmlBg from './html-bg.js?v=88';
+} from './doc-io.js?v=95';
+import * as SaveDir from './savedir.js?v=95';
+import * as U from './ui.js?v=95';
+import * as HtmlBg from './html-bg.js?v=95';
 
 const srcEl = () => document.getElementById('src');
 /* 미리보기를 다시 그려 달라고 부르는 손잡이. bindEditor 에서 받아 둔다. */
@@ -46,7 +46,7 @@ const TAB_RESET = {
       'bgMode', 'bg', 'bg2', 'bgImage', 'bgHtml', 'bgTab', 'bgFit', 'bgOpacity', 'bgX', 'bgY', 'bgBlur',
       'bgAsHeader', 'bgHeaderH', 'bgHeaderSide', 'bgHeaderW', 'bgHeaderInset', 'bgHeaderGap', 'bgHeaderLine',
       'bgZoom', 'transparent',
-      'signOn', 'signSep', 'signAlign', 'signSize', 'signGap', 'signColor', 'signPin'],
+      'signOn', 'signSep', 'signAlign', 'signSize', 'signGap', 'signLetterSpacing', 'signWeight', 'signColor', 'signPin'],
     note: '깔아 둔 배경 사진과 HTML도 빠집니다. 서명에 적어 둔 이름은 그대로 둡니다.',
   },
   color: {
@@ -535,6 +535,8 @@ function signLine(st) {
     Object.assign(el.style, {
       marginTop: (st.signGap ?? 28) + 'px',
       fontSize: (st.signSize ?? 12) + 'px',
+      letterSpacing: (st.signLetterSpacing ?? 0) + 'px',
+      fontWeight: String(st.signWeight ?? 400),
       color: st.signColor || '#9AA0A6',
       textAlign: st.signAlign || 'center',
     });
@@ -547,6 +549,8 @@ function signLine(st) {
   Object.assign(el.style, {
     marginTop: (st.signGap ?? 28) + 'px',
     fontSize: (st.signSize ?? 12) + 'px',
+    letterSpacing: (st.signLetterSpacing ?? 0) + 'px',
+    fontWeight: String(st.signWeight ?? 400),
     color: st.signColor || '#9AA0A6',
     textAlign: st.signAlign || 'center',
   });
@@ -1056,7 +1060,7 @@ function group(title, children, action) {
   const head = title
     ? U.el('div', { class: 'grp-t' }, [U.el('span', { text: title }), action || null])
     : null;
-  return U.el('div', { class: 'grp' }, [head, ...children.filter(Boolean)]);
+  return U.attachHelp(U.el('div', { class: 'grp' }, [head, ...children.filter(Boolean)]));
 }
 
 /* 고른 탭 뒤에 깔리는 청록 판. 탭을 갈아탈 때 자리를 옮겨 미끄러진다.
@@ -1305,7 +1309,7 @@ function panelChat(container, onChange) {
     group('스킨', [
       skinPicker(st, () => { rebuild(); touch(); }),
       U.el('div', { class: 'hint', text: '스킨을 클릭하면 말풍선 색을 덮어씌웁니다.' }),
-      skinById(st.skin)?.note ? U.el('div', { class: 'hint', text: skinById(st.skin).note }) : null,
+      skinById(st.skin)?.note ? U.el('div', { class: 'hint is-status', text: skinById(st.skin).note }) : null,
     ]),
     group('모양', [
       U.field('말풍선', U.seg(st.bubbleStyle || 'round', [
@@ -1353,18 +1357,18 @@ function panelFormat(container, onChange) {
     ['divider', '구분선', '---'],
   ];
   return U.el('div', { class: 'panel' }, [
-    group('', [
+    group('서식', [
       U.el('div', { class: 'tgl-grid tgl-boxed' }, items.map(([k, label, mark]) =>
         U.toggle(label, fm[k], (v) => { fm[k] = v; onChange(); }, mark))),
+      U.el('div', { class: 'field-row' }, [
+        U.el('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: '모두 켜기',
+          onClick: () => { for (const k of MARKER_FORMATS) fm[k] = true; rebuild(); onChange(); } }),
+        U.el('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: '모두 끄기',
+          onClick: () => { for (const k of MARKER_FORMATS) fm[k] = false; rebuild(); onChange(); } }),
+      ]),
+      U.el('div', { class: 'hint', text: '형광펜은 ==글자== 가 1, ===글자=== 가 2입니다. 두 색은 색상 탭에서 따로 고릅니다.' }),
+      U.el('div', { class: 'hint', text: '분할선 === 은 글자 없이 한 줄에만 쓰며, 이 설정과 무관하게 늘 동작합니다. 코드블럭은 제목 없이 열고 안에 HTML/CSS를 넣으면 그려서 보여줍니다.' }),
     ]),
-    U.el('div', { class: 'field-row' }, [
-      U.el('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: '모두 켜기',
-        onClick: () => { for (const k of MARKER_FORMATS) fm[k] = true; rebuild(); onChange(); } }),
-      U.el('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: '모두 끄기',
-        onClick: () => { for (const k of MARKER_FORMATS) fm[k] = false; rebuild(); onChange(); } }),
-    ]),
-    U.el('div', { class: 'hint', text: '형광펜은 ==글자== 가 1, ===글자=== 가 2입니다. 두 색은 색상 탭에서 따로 고릅니다.' }),
-    U.el('div', { class: 'hint', text: '분할선 === 은 글자 없이 한 줄에만 쓰며, 이 설정과 무관하게 늘 동작합니다. 코드블럭은 제목 없이 열고 안에 HTML/CSS를 넣으면 그려서 보여줍니다.' }),
     group('바꿔 쓰기', [
       U.el('div', { class: 'tgl-grid tgl-boxed' }, [
         U.toggle('따옴표', !!fm.smartQuotes, (v) => { fm.smartQuotes = v; onChange(); }, '" " → \u201C \u201D'),
@@ -1580,7 +1584,7 @@ function noteList(container, onChange) {
 function lineFields(st, touch) {
   return U.el('div', { class: 'grp' }, [
     U.fieldGrid([
-      U.field('선 색', U.color(st.imgLineColor || '#D8D8D8', (v) => { st.imgLineColor = v; touch(); })),
+      U.field('선 색', U.wideColor(st.imgLineColor || '#D8D8D8', (v) => { st.imgLineColor = v; touch(); })),
       U.field('선 두께', U.stepper(st.imgLineW ?? 1, {
         min: 1, max: 12, step: 1, unit: 'px', onChange: (v) => { st.imgLineW = v; touch(); },
       })),
@@ -1874,11 +1878,15 @@ function signFields(st, touch) {
       ]),
       U.field('자리', U.seg(st.signPin === 'bottom' ? 'bottom' : 'text',
         [['text', '글 아래'], ['bottom', '캔버스 아래']], (v) => { st.signPin = v; touch(); })),
+      // 서명은 본문 폰트를 쓴다. 그 폰트에 없는 굵기는 흐리게 막힌다.
+      U.field('굵기', weightSeg(st.font, st.signWeight ?? 400, (w) => { st.signWeight = w; touch(); })),
+      /* 2×2 — 크기 | 자간 / 본문과 간격 | 색상. 색상은 칩과 코드를 한 줄에. */
       U.fieldGrid([
         U.field('크기', U.stepper(st.signSize ?? 12, { min: 6, max: 60, step: 1, unit: 'px', onChange: (v) => { st.signSize = v; touch(); } })),
+        U.field('자간', U.stepper(st.signLetterSpacing ?? 0, { min: -3, max: 10, step: 0.5, decimals: 1, unit: 'px', onChange: (v) => { st.signLetterSpacing = v; touch(); } })),
         U.field('본문과 간격', U.stepper(st.signGap ?? 28, { min: 0, max: 200, step: 2, unit: 'px', onChange: (v) => { st.signGap = v; touch(); } })),
+        U.field('색상', U.wideColor(st.signColor || '#9AA0A6', (v) => { st.signColor = v; touch(); })),
       ]),
-      U.field('색상', U.color(st.signColor || '#9AA0A6', (v) => { st.signColor = v; touch(); })),
   ];
 }
 
@@ -2119,7 +2127,7 @@ function panelOutput(container, onChange) {
   const rebuild = () => buildSettings(container, onChange);
 
   return U.el('div', { class: 'panel' }, [
-    group('', [
+    group('출력 형식', [
       U.field('배율', U.seg(String(out.scale), [['1', '1x'], ['2', '2x'], ['3', '3x']], (v) => { out.scale = parseInt(v, 10); onChange(); })),
       U.field('포맷', U.seg(out.format, [['png', 'PNG'], ['jpg', 'JPG'], ['webp', 'WebP']], (v) => { out.format = v; rebuild(); onChange(); })),
       out.format === 'png' ? null
@@ -2154,7 +2162,7 @@ function panelOutput(container, onChange) {
    받아 두지 않으면 지금까지처럼 브라우저가 정한 다운로드 폴더로 간다. */
 function saveDirRows(rebuild) {
   if (!SaveDir.supported()) {
-    return [U.el('div', { class: 'hint', text: '이 브라우저는 폴더를 지정할 수 없어 다운로드 폴더로 저장됩니다. '
+    return [U.el('div', { class: 'hint is-status', text: '이 브라우저는 폴더를 지정할 수 없어 다운로드 폴더로 저장됩니다. '
       + '폴더 지정은 PC 크롬·엣지에서만 됩니다. 폰에서는 공유 시트로 보냅니다.' })];
   }
 
@@ -2189,7 +2197,7 @@ function panelTemplate(container, onChange) {
     () => { buildSlotBar(onChange); buildProfileBar(onChange); },
     () => buildSettings(container, onChange),
   );
-  return U.el('div', { class: 'panel' }, [tpl.node, storagePanel(container, onChange)]);
+  return U.el('div', { class: 'panel' }, [group('템플릿', [tpl.node]), storagePanel(container, onChange)]);
 }
 
 /* 저장 공간 — 어디에 얼마나 쓰고 있는지 보여 주고 치울 거리를 준다.
@@ -2210,11 +2218,11 @@ function storagePanel(container, onChange) {
 
   const rows = [
     bar,
-    U.el('div', { class: 'hint', text: `쓰는 중 ${kb(used)} / 5MB 남짓 (${pct}%)` }),
+    U.el('div', { class: 'hint is-status', text: `쓰는 중 ${kb(used)} / 5MB 남짓 (${pct}%)` }),
   ];
 
   if (pic.count) {
-    rows.push(U.el('div', { class: 'hint', text: `사진 ${pic.count}장 · ${kb(pic.bytes)}` }));
+    rows.push(U.el('div', { class: 'hint is-status', text: `사진 ${pic.count}장 · ${kb(pic.bytes)}` }));
   }
   if (pic.tplOnly) {
     rows.push(U.el('div', { class: 'hint hint-warn',

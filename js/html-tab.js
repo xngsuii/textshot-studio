@@ -3,8 +3,8 @@
    iframe 에 격리해 페이지 CSS 와 섞이지 않게 하고,
    캡쳐 대상은 iframe 안의 #__shot 요소로 잡는다. */
 
-import { state, DEFAULT_HTML } from './store.js?v=88';
-import * as U from './ui.js?v=88';
+import { state, DEFAULT_HTML } from './store.js?v=95';
+import * as U from './ui.js?v=95';
 
 let frame = null;
 let readyResolve = null;
@@ -134,10 +134,10 @@ export async function checkFontHosts(source) {
 
 /* ── 설정 패널 ──────────────────────────────── */
 function group(title, children) {
-  return U.el('div', { class: 'grp' }, [
-    title ? U.el('div', { class: 'grp-t', text: title }) : null,
+  return U.attachHelp(U.el('div', { class: 'grp' }, [
+    title ? U.el('div', { class: 'grp-t' }, [U.el('span', { text: title })]) : null,
     ...children.filter(Boolean),
-  ]);
+  ]));
 }
 
 export function buildSettings(container, onChange) {
@@ -200,17 +200,17 @@ export function buildSettings(container, onChange) {
       : null,
   ]));
 
-  const status = U.el('div', { class: 'hint', text: '아직 확인하지 않았습니다.' });
+  const status = U.el('div', { class: 'hint is-status', text: '아직 확인하지 않았습니다.' });
   panel.appendChild(group('폰트 점검', [
     U.el('div', { class: 'field-row' }, [U.el('button', {
       class: 'btn btn-ghost btn-sm', type: 'button', text: '외부 폰트 읽을 수 있는지 확인',
       onClick: async () => {
         status.textContent = '확인 중…';
-        status.className = 'hint';
+        status.className = 'hint is-status';
         const r = await checkFontHosts(state.html.source);
         if (r.ok) { status.textContent = '외부 폰트를 모두 읽을 수 있습니다. 캡쳐에 그대로 들어갑니다.'; }
         else {
-          status.className = 'hint hint-warn';
+          status.className = 'hint hint-warn is-status';
           status.textContent = `읽지 못한 주소 ${r.failed.length}개 — 이 폰트는 이미지에 포함되지 않고 대체 폰트로 나갑니다.\n${r.failed.join('\n')}`;
           status.style.whiteSpace = 'pre-wrap';
         }
