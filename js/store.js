@@ -159,6 +159,7 @@ export const DEFAULT_STYLE = {
   parenColor: '#B0B4B8',
   dividerColor: '#D8D8D8',
   dividerStyle: 'line',         // line 직선 / fade 양끝 흐림 / dots 점
+  hlStyle: 'full',              // 형광펜 모양 — full 꽉 채움 / half 아래 절반 (두 형광펜 공통)
 
   /* 제목·부제목만 따로. 빈 값이면 본문을 그대로 따라간다.
      크기는 본문 글자 크기의 몇 배인지로 둔다 — 본문을 키우면 같이 커진다. */

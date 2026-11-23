@@ -149,8 +149,16 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .fmt-note { font-size: 12px; color: var(--fg-3); }
 .s-action { color: #8A8F98; }
 .s-quote { color: #1F5D8C; }
-.s-hl { background: #FFE9A3; padding: 0 3px; border-radius: 2px; }
-.s-hl2 { background: #BFE7D8; padding: 0 3px; border-radius: 2px; }
+/* 편집기 위 형광펜 버튼 — 캔버스에서 고른 색·모양을 따라간다 */
+.s-hl { background: var(--ui-hl, #FFE9A3); padding: 0 3px; border-radius: 2px; }
+.s-hl2 { background: var(--ui-hl2, #BFE7D8); padding: 0 3px; border-radius: 2px; }
+:root[data-hl="half"] .s-hl { background: linear-gradient(transparent 52%, var(--ui-hl, #FFE9A3) 52%); border-radius: 0; }
+:root[data-hl="half"] .s-hl2 { background: linear-gradient(transparent 52%, var(--ui-hl2, #BFE7D8) 52%); border-radius: 0; }
+
+/* 설정의 형광펜 모양 견본 */
+.hlp { display: inline-block; padding: 0 3px; line-height: 1.5; color: var(--fg); border-radius: 2px; background: var(--hlp); }
+/* 윗부분은 흰 바탕을 깔아 고른 칸(검은 바탕) 위에서도 글자가 보이게 한다 */
+.hlp-half { background: linear-gradient(var(--bg) 52%, var(--hlp) 52%); border-radius: 0; }
 
 /* textarea — 아래 모서리를 끌어 높이를 조절할 수 있다 */
 .src {
@@ -912,6 +920,9 @@ input[type="checkbox"] { accent-color: var(--accent); }
 }
 .mk-hl { background: var(--c-hl, #FFE9A3); }
 .mk-hl2 { background: var(--c-hl2, #BFE7D8); }
+/* 아래 절반 — 글자 아랫부분에만 칠한다 */
+.stage[data-hl="half"] .mk-hl { background: linear-gradient(transparent 52%, var(--c-hl, #FFE9A3) 52%); border-radius: 0; }
+.stage[data-hl="half"] .mk-hl2 { background: linear-gradient(transparent 52%, var(--c-hl2, #BFE7D8) 52%); border-radius: 0; }
 
 /* 코드블럭을 그려서 보여줄 때 */
 .mk-view { text-align: left; }

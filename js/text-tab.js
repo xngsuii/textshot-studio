@@ -5,22 +5,22 @@ import {
   DEFAULT_OUTPUT, RATIOS, RATIO_ORDER, RATIO_LABEL, MAX_SLOTS, newProfile, NAME_COLOR,
   fontHasWeight, fontHasRealWeight,
   storedBytes, photoStats, photoUsage, dropTemplatePhotos, clearStored,
-} from './store.js?v=86';
+} from './store.js?v=87';
 import {
   splitChunks, hasSplit, renderChunk, renderWithSplitMarks, stripMarkers,
   imageOrder, removeImageMarker, chunkOffsets, setSpeakerAt, speakerNameAt,
   renameSpeaker, NAME_SEP, noteOrder, removeNoteMarker,
-} from './markup.js?v=86';
-import { ensureFont, isAvailable } from './fonts.js?v=86';
-import { SKINS, skinById, skinProfiles, skinStyle, resolve, CHIPS } from './skins.js?v=86';
-import { buildTemplateSection } from './templates.js?v=86';
-import { extract as extractMeta } from './png-meta.js?v=86';
+} from './markup.js?v=87';
+import { ensureFont, isAvailable } from './fonts.js?v=87';
+import { SKINS, skinById, skinProfiles, skinStyle, resolve, CHIPS } from './skins.js?v=87';
+import { buildTemplateSection } from './templates.js?v=87';
+import { extract as extractMeta } from './png-meta.js?v=87';
 import {
   isPayload, applyPayload, summarize, commonWarnings, textOnlyWarnings,
-} from './doc-io.js?v=86';
-import * as SaveDir from './savedir.js?v=86';
-import * as U from './ui.js?v=86';
-import * as HtmlBg from './html-bg.js?v=86';
+} from './doc-io.js?v=87';
+import * as SaveDir from './savedir.js?v=87';
+import * as U from './ui.js?v=87';
+import * as HtmlBg from './html-bg.js?v=87';
 
 const srcEl = () => document.getElementById('src');
 /* 미리보기를 다시 그려 달라고 부르는 손잡이. bindEditor 에서 받아 둔다. */
@@ -35,7 +35,7 @@ const TAB_RESET = {
     keys: ['font', 'fontSize', 'lineHeight', 'letterSpacing', 'align', 'paraGap', 'squeeze',
       'breakMode', 'textIndent', 'imgLine', 'imgLineColor', 'imgLineW', 'dropCap', 'dropCapLines', 'dropCapWeight', 'dropCapFont', 'dropCapColor',
       'dropCapKind', 'dropCapScope',
-      'dividerStyle', 'bqBar',
+      'dividerStyle', 'hlStyle', 'bqBar',
       'h1Font', 'h1Size', 'h1Align', 'h1Weight', 'h2Font', 'h2Size', 'h2Align', 'h2Weight'],
     note: '넣어 둔 본문 사진은 그대로 둡니다.',
   },
@@ -104,6 +104,25 @@ function slashSvg() {
   const box = U.el('span');
   box.innerHTML = SLASH_SVG;
   return box.firstChild;
+}
+
+/* 형광펜 모양 — 값과 이름표(칸에는 칠한 모양만, 이름은 툴팁) */
+const HL_STYLES = [['full', '꽉 채움'], ['half', '아래 절반']];
+
+/* 고르는 칸에 넣는 형광펜 견본 — 지금 고른 형광펜1 색으로 칠한다 */
+function hlPreview(v, label) {
+  const p = U.el('span', { class: `hlp hlp-${v}`, title: label, text: '발췌' });
+  p.style.setProperty('--hlp', state.text.style.hlColor || '#FFE9A3');
+  return p;
+}
+
+/* 편집기 위 형광펜 버튼도 캔버스와 같은 색·모양으로 칠한다 */
+function syncHlButtons() {
+  const st = state.text.style;
+  const root = document.documentElement;
+  root.style.setProperty('--ui-hl', st.hlColor || '#FFE9A3');
+  root.style.setProperty('--ui-hl2', st.hlColor2 || '#BFE7D8');
+  root.dataset.hl = st.hlStyle === 'half' ? 'half' : 'full';
 }
 
 /* 고르는 칸에 넣을 작은 모양 미리보기 */
@@ -289,6 +308,8 @@ function applyStyle(stage) {
     '--c-code-title': st.codeTitleColor,
   };
   for (const [k, val] of Object.entries(v)) stage.style.setProperty(k, val);
+  // 형광펜 모양 — 꽉 채움 / 아래 절반. 두 형광펜에 함께 걸린다.
+  stage.dataset.hl = st.hlStyle === 'half' ? 'half' : 'full';
   (st.slots || []).forEach((s, i) => stage.style.setProperty(`--c-slot${i + 1}`, s.color));
 
   // 말풍선 모양과 프로필 사진 모양은 스테이지 전체에 한 번에 건다
@@ -752,6 +773,7 @@ export function layoutFootnotes(stage) {
 /* ── 미리보기 ───────────────────────────────── */
 export function renderPreview(host) {
   ensureAlphaFlags();
+  syncHlButtons();
   const src = state.text.source;
   const split = hasSplit(src);
   const auto = autoSplitOn();
@@ -1019,7 +1041,14 @@ const ICON = {
   body: '<path d="M2.5 4h11M2.5 8h7M2.5 12h9"/>',
   canvas: '<rect x="2.5" y="2.5" width="11" height="11" rx="1.5"/><path d="M2.5 10.5l3-2.5 3 2.2 2.5-2 2.5 2"/>',
   chat: '<path d="M2.5 4.2a1.7 1.7 0 0 1 1.7-1.7h7.6a1.7 1.7 0 0 1 1.7 1.7v4.6a1.7 1.7 0 0 1-1.7 1.7H6.4L3.4 13V10.5h-.9z"/>',
-  color: '<path d="M8 2.2c2.7 3.3 4 5.2 4 6.9a4 4 0 0 1-8 0c0-1.7 1.3-3.6 4-6.9z"/>',
+  // 팔레트 — 24 칸 격자로 그린 그림이라 판 크기를 따로 적는다.
+  // 선 굵기는 다른 아이콘(16 칸에 1.4)과 같아 보이게 24 칸에 맞춰 키운다.
+  color: {
+    box: '0 0 24 24',
+    svg: '<path stroke-width="2.1" d="M21.18 13.18C21.23 12.79 21.25 12.4 21.25 12C21.25 6.89 17.11 2.75 12 2.75C6.89 2.75 2.75 6.89 2.75 12C2.75 17.11 6.89 21.25 12 21.25C14.16 21.25 16.15 20.51 17.73 19.27A3.5 3.5 0 0 1 21.18 13.18Z"/>'
+      + '<g fill="currentColor" stroke="none"><circle cx="7.75" cy="9.75" r="1.25"/><circle cx="11.5" cy="6.75" r="1.25"/>'
+      + '<circle cx="15.75" cy="8" r="1.25"/><circle cx="7.5" cy="14.5" r="1.25"/></g>',
+  },
   output: '<path d="M8 2.5v7.5M5 7.2L8 10.2l3-3M2.8 13.2h10.4"/>',
   template: '<path d="M8 2.4l1.8 3.8 4.1.6-3 2.9.7 4.1L8 11.8l-3.6 1.9.7-4.1-3-2.9 4.1-.6z"/>',
 };
@@ -1038,9 +1067,10 @@ let activeSetTab = 'body';
 
 function icon(name) {
   const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  s.setAttribute('viewBox', '0 0 16 16');
+  const ico = ICON[name];
+  s.setAttribute('viewBox', ico.box || '0 0 16 16');
   s.setAttribute('class', 'set-ico');
-  s.innerHTML = ICON[name];
+  s.innerHTML = ico.svg || ico;
   return s;
 }
 
@@ -1413,10 +1443,12 @@ function panelBody(container, onChange) {
       U.field('구분선', U.seg(st.dividerStyle || 'line',
         DIVIDERS.map(([v, label]) => [v, dividerPreview(v, label)]),
         (v) => { st.dividerStyle = v; touch(); })),
+      U.field('형광펜', U.seg(st.hlStyle === 'half' ? 'half' : 'full',
+        HL_STYLES.map(([v, label]) => [v, hlPreview(v, label)]),
+        (v) => { st.hlStyle = v; touch(); })),
       U.field('인용 막대', U.stepper(st.bqBar ?? 3, {
         min: 0, max: 12, step: 1, unit: 'px', onChange: (v) => { st.bqBar = v; touch(); },
       })),
-      U.el('div', { class: 'hint', text: '구분선 --- 의 모양과 인용구 > 왼쪽 막대의 두께입니다. 색은 색상 탭에서 고릅니다.' }),
       headGroup('h1', '제목', st, touch, () => buildSettings(container, onChange)),
       headGroup('h2', '부제목', st, touch, () => buildSettings(container, onChange)),
     ]),
