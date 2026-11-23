@@ -5,22 +5,22 @@ import {
   DEFAULT_OUTPUT, RATIOS, RATIO_ORDER, RATIO_LABEL, MAX_SLOTS, newProfile, NAME_COLOR,
   fontHasWeight, fontHasRealWeight,
   storedBytes, photoStats, photoUsage, dropTemplatePhotos, clearStored,
-} from './store.js?v=87';
+} from './store.js?v=88';
 import {
   splitChunks, hasSplit, renderChunk, renderWithSplitMarks, stripMarkers,
-  imageOrder, removeImageMarker, chunkOffsets, setSpeakerAt, speakerNameAt,
+  imageOrder, removeImageMarker, chunkOffsets,
   renameSpeaker, NAME_SEP, noteOrder, removeNoteMarker,
-} from './markup.js?v=87';
-import { ensureFont, isAvailable } from './fonts.js?v=87';
-import { SKINS, skinById, skinProfiles, skinStyle, resolve, CHIPS } from './skins.js?v=87';
-import { buildTemplateSection } from './templates.js?v=87';
-import { extract as extractMeta } from './png-meta.js?v=87';
+} from './markup.js?v=88';
+import { ensureFont, isAvailable } from './fonts.js?v=88';
+import { SKINS, skinById, skinProfiles, skinStyle, resolve, CHIPS } from './skins.js?v=88';
+import { buildTemplateSection } from './templates.js?v=88';
+import { extract as extractMeta } from './png-meta.js?v=88';
 import {
   isPayload, applyPayload, summarize, commonWarnings, textOnlyWarnings,
-} from './doc-io.js?v=87';
-import * as SaveDir from './savedir.js?v=87';
-import * as U from './ui.js?v=87';
-import * as HtmlBg from './html-bg.js?v=87';
+} from './doc-io.js?v=88';
+import * as SaveDir from './savedir.js?v=88';
+import * as U from './ui.js?v=88';
+import * as HtmlBg from './html-bg.js?v=88';
 
 const srcEl = () => document.getElementById('src');
 /* 미리보기를 다시 그려 달라고 부르는 손잡이. bindEditor 에서 받아 둔다. */
@@ -814,28 +814,6 @@ export function paintHtmlBg(stages) {
   return HtmlBg.paint(stages, st.bgHtml, state.output.scale || 2);
 }
 
-/* 미리보기에서 말풍선을 누르면 다음 프로필로 넘어간다.
-   말풍선끼리만 오가고 지문은 건드리지 않는다. */
-export function bindPreviewClicks(host, onChange) {
-  host.addEventListener('click', (e) => {
-    const el = e.target.closest('.mk-bubble[data-ln]');
-    if (!el || !host.contains(el)) return;
-
-    const profiles = state.text.profiles;
-    if (profiles.length < 2) return;
-
-    const ln = parseInt(el.dataset.ln, 10);
-    const cur = speakerNameAt(state.text.source, ln, profiles);
-    const idx = profiles.findIndex(p => p.name === cur);
-    if (idx < 0) return;
-
-    const next = profiles[(idx + 1) % profiles.length].name;
-    state.text.source = setSpeakerAt(state.text.source, ln, next, profiles);
-    srcEl().value = state.text.source;
-    onChange();
-  });
-}
-
 /* 배경 사진의 보이는 자리를 여백을 끌어서 옮긴다.
    꽉 채움과 헤더 띠는 사진이 캔버스보다 커서 넘치는 만큼만 움직인다. */
 const natSize = new Map();
@@ -1322,7 +1300,7 @@ function panelChat(container, onChange) {
           },
         }),
       ]),
-      U.el('div', { class: 'hint', text: '본문에서 「이름 | 내용」으로 쓰면 말풍선이 됩니다. 미리보기에서 말풍선을 누르면 다음 프로필로 넘어갑니다.' }),
+      U.el('div', { class: 'hint', text: '본문에서 「이름 | 내용」으로 쓰면 말풍선이 됩니다.' }),
     ], viewBtn),
     group('스킨', [
       skinPicker(st, () => { rebuild(); touch(); }),
@@ -2478,16 +2456,16 @@ function jumpToLine(line) {
   return true;
 }
 
-/* 미리보기에서 문단을 누르면 편집기의 그 줄로 간다.
-   말풍선은 눌러서 화자를 바꾸는 자리라 건드리지 않고, 사진도 끌어 쓰는
-   것이라 뺀다. 말풍선 덩어리의 이름·사진 쪽을 누르면 그 덩어리로 간다. */
+/* 미리보기에서 문단이나 말풍선을 누르면 편집기의 그 줄로 간다.
+   말풍선은 제 줄(data-ln)로 바로 가고, 덩어리의 이름·사진 쪽을 누르면
+   그 덩어리의 첫 줄로 간다. 사진은 끌어 쓰는 것이라 뺀다. */
 export function bindPreviewJump(host) {
   host.addEventListener('click', (e) => {
-    if (e.target.closest('.mk-bubble[data-ln]')) return;
     if (e.target.closest('.mk-img[data-img]')) return;
-    const block = e.target.closest('[data-lf]');
+    const bubble = e.target.closest('.mk-bubble[data-ln]');
+    const block = bubble && host.contains(bubble) ? bubble : e.target.closest('[data-lf]');
     if (!block || !host.contains(block)) return;
-    if (!jumpToLine(Number(block.dataset.lf))) return;
+    if (!jumpToLine(Number(bubble ? block.dataset.ln : block.dataset.lf))) return;
     // 어디로 갔는지 보이게 잠깐 반짝인다
     block.classList.remove('is-jumped');
     void block.offsetWidth;

@@ -1367,12 +1367,19 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
    빈 줄은 갈 데가 없으니 뺀다. */
 #stageHost [data-lf]:not(.mk-blank) { cursor: pointer; }
 #stageHost .mk-img[data-img] { cursor: default; }
+#stageHost .mk-bubble[data-ln] { cursor: pointer; }
 #stageHost [data-lf].is-jumped { animation: jump-flash .7s ease-out; }
+/* 말풍선은 제 바탕색이 있어 바탕은 두고 둘레만 반짝인다 */
+#stageHost .mk-bubble.is-jumped { animation: jump-ring .7s ease-out; }
 @keyframes jump-flash {
   from { background: var(--accent-soft); box-shadow: 0 0 0 4px var(--accent-soft); }
   to { background: transparent; box-shadow: 0 0 0 4px transparent; }
 }
-@media (prefers-reduced-motion: reduce) { #stageHost [data-lf].is-jumped { animation: none; } }
+@keyframes jump-ring {
+  from { box-shadow: 0 0 0 4px var(--accent-soft); }
+  to { box-shadow: 0 0 0 4px transparent; }
+}
+@media (prefers-reduced-motion: reduce) { #stageHost .is-jumped { animation: none !important; } }
 /* ─── 스킨 고르기 ───────────────────────────── */
 /* 왼쪽에 고르는 칸, 오른쪽에 생김새 미리보기. 미리보기는 정사각형. */
 .skin-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 96px; gap: 8px; align-items: start; }
