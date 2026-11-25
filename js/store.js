@@ -184,6 +184,9 @@ export const DEFAULT_STYLE = {
   bqBar: 3,                    // 인용구 왼쪽 막대 두께 px
 
   bubbleStyle: 'round',        // round 기본 / tail 꼬리 / corner 모서리만 뾰족
+  scriptNameW: 72,             // 대본 — 이름 칸 너비 px (글이 시작하는 자리부터)
+  scriptGap: -1,               // 대본 — 대사 사이 간격 px. 0 보다 작으면 문단 간격을 따른다.
+  scriptPlainColor: false,     // 대본 — 켜면 대사를 프로필 글자색 대신 본문 글자색으로
   avatarShape: 'square',       // square 라운드 사각 / circle 원형
   avatarSize: 100,             // 프로필 사진 크기 % — 100 이면 글자 크기의 2.5배
   bubbleRadius: 16,

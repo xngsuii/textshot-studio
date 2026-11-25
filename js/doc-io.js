@@ -11,7 +11,7 @@
 import {
   state, DEFAULT_STYLE, DEFAULT_FORMATS, DEFAULT_PROFILES,
   newProfile, normalizeSlots, MAX_SLOTS, RATIOS, normalizeColumns, migrateWeights,
-} from './store.js?v=95';
+} from './store.js?v=98';
 
 const APP = 'textshot-studio';
 const HEX = /^#[0-9a-fA-F]{6}$/;
@@ -54,7 +54,7 @@ const RANGE = {
   width: [200, 4000],
   padTop: [0, 1000], padRight: [0, 1000], padBottom: [0, 1000], padLeft: [0, 1000],
   bgOpacity: [0, 100], bgX: [0, 100], bgY: [0, 100], bgBlur: [0, 80], bgHeaderH: [0, 2000],
-  bubbleRadius: [0, 200], bubbleAlpha: [0, 100], bubbleGap: [0, 400], nameGap: [0, 200],
+  bubbleRadius: [0, 200], bubbleAlpha: [0, 100], bubbleGap: [0, 400], nameGap: [0, 200], scriptNameW: [0, 400], scriptGap: [-1, 400],
   bubbleMaxWidth: [10, 100], bubblePadV: [0, 200], bubblePadH: [0, 200],
   signSize: [6, 200], signGap: [0, 600], signLetterSpacing: [-20, 40],
   columns: [1, 4], columnGap: [0, 400], bqBar: [0, 40],

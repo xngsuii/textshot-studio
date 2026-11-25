@@ -740,6 +740,9 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .pad-cell span { font-size: 10px; color: var(--fg-3); text-align: center; }
 
 .check { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--fg-2); cursor: pointer; white-space: nowrap; }
+/* 지금 모드에서 뜻이 없어 막아 둔 체크 칸 */
+.check.is-locked { opacity: .42; cursor: not-allowed; }
+.check.is-locked input { cursor: not-allowed; }
 /* 묶음 제목 줄에 얹은 체크박스 — 제목의 대문자·넓은 자간을 따라가지 않게 */
 .grp-t .check { flex: none; text-transform: none; letter-spacing: 0; font-weight: 400; }
 
@@ -997,8 +1000,21 @@ input[type="checkbox"] { accent-color: var(--accent); }
 }
 .mk-speaker[style] { opacity: 1; }
 
+/* ─── 대본 ──────────────────────────────────── */
+/* 이름 칸은 정해 둔 너비만큼 자리를 잡고, 이름이 더 길면 그 줄만 대사를 민다.
+   대사는 그 뒤에서 시작해 줄이 넘어가도 같은 자리에 맞춰 이어진다. */
+.mk-script { display: flex; flex-direction: column; gap: var(--sc-gap, 0px); }
+.mk-script + .mk-script { margin-top: calc(var(--sc-gap, 0px) - var(--para-gap, 0px)); }
+.mk-sline { display: flex; align-items: baseline; }
+.mk-sname {
+  flex: none; box-sizing: border-box; min-width: var(--sc-name-w, 72px);
+  padding-right: .6em; white-space: nowrap; font-weight: var(--name-w, 400);
+}
+.mk-stext { flex: 1 1 auto; min-width: 0; }
+
 /* 켜면 말풍선 안 괄호가 늘 제 줄을 차지한다 */
-.mk-bubble.is-parenbreak .mk-paren { display: block; }
+.mk-bubble.is-parenbreak .mk-paren,
+.mk-stext.is-parenbreak .mk-paren { display: block; }
 
 /* 말풍선 모양 — 한 묶음의 첫 말풍선(.is-head)에만 표를 낸다.
    꼬리는 말풍선 색을 그대로 물려받아야 해서 background:inherit 로 칠한다. */
@@ -1403,10 +1419,11 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
    빈 줄은 갈 데가 없으니 뺀다. */
 #stageHost [data-lf]:not(.mk-blank) { cursor: pointer; }
 #stageHost .mk-img[data-img] { cursor: default; }
-#stageHost .mk-bubble[data-ln] { cursor: pointer; }
+#stageHost .mk-bubble[data-ln], #stageHost .mk-sline[data-ln] { cursor: pointer; }
 #stageHost [data-lf].is-jumped { animation: jump-flash .7s ease-out; }
 /* 말풍선은 제 바탕색이 있어 바탕은 두고 둘레만 반짝인다 */
 #stageHost .mk-bubble.is-jumped { animation: jump-ring .7s ease-out; }
+#stageHost .mk-sline.is-jumped { animation: jump-flash .7s ease-out; }
 @keyframes jump-flash {
   from { background: var(--accent-soft); box-shadow: 0 0 0 4px var(--accent-soft); }
   to { background: transparent; box-shadow: 0 0 0 4px transparent; }
@@ -1417,10 +1434,10 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
 }
 @media (prefers-reduced-motion: reduce) { #stageHost .is-jumped { animation: none !important; } }
 /* ─── 스킨 고르기 ───────────────────────────── */
-/* 왼쪽에 고르는 칸, 오른쪽에 생김새 미리보기. 미리보기는 정사각형. */
-.skin-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 96px; gap: 8px; align-items: start; }
+/* 왼쪽에 고르는 칸, 오른쪽에 생김새 미리보기. 미리보기는 왼쪽 목록 높이에 맞춘다. */
+.skin-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 96px; gap: 8px; align-items: stretch; }
 
-/* 「없음」은 한 줄을 다 쓰고, 나머지는 둘씩 */
+/* 「없음」·「대본」은 한 줄을 다 쓰고, 나머지는 둘씩 */
 .skin-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
 .skin-card {
   display: flex; align-items: center; justify-content: center; gap: 6px;
@@ -1448,7 +1465,6 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
 
 /* 생김새 미리보기 — 말풍선을 막대 몇 개로 줄여 그린다 */
 .skin-prev {
-  aspect-ratio: 1 / 1;
   display: flex; flex-direction: column; justify-content: center; gap: 8px;
   padding: 10px;
   border: 1px solid var(--line-strong); border-radius: var(--r);
@@ -1466,6 +1482,12 @@ iframe.shot-frame { border: 0; display: block; background: transparent; }
 .sp-right .sp-bub { width: 38px; }
 .sp-line { height: 3px; border-radius: 2px; background: var(--fg-3); }
 .sp-line.is-short { width: 62%; }
+/* 대본 미리보기 — 이름 막대와 대사 줄을 나란히 */
+.skin-prev.is-script { gap: 7px; }
+.sc-row { display: flex; align-items: center; gap: 6px; }
+.sc-name { flex: none; width: 14px; height: 3px; border-radius: 2px; background: var(--fg-2); }
+.sc-line { flex: 1 1 auto; height: 3px; border-radius: 2px; background: var(--fg-3); }
+.sc-line.is-short { flex: 0 0 55%; }
 /* ─── 저장 공간 ─────────────────────────────── */
 .use-bar {
   height: 8px; border-radius: 999px; overflow: hidden;

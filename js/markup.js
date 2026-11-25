@@ -185,6 +185,42 @@ export function renderChunk(chunk, opts = {}, lineOffset = 0) {
 
     /* 말풍선 — 같은 화자가 이어지면 한 덩어리로 묶는다 */
     const sp = profiles.length ? speakerOf(raw, profiles) : null;
+    /* 대본 — 말풍선 없이 「이름  대사」를 나란히. 이름은 정해 둔 너비 칸에,
+       대사는 그 뒤에서 시작해 줄이 넘어가도 같은 자리에 맞춰 이어진다.
+       같은 사람이 이어 말하면 이름 칸을 비운다. 사진은 쓰지 않는다. */
+    if (sp && chat.script) {
+      const p = sp.profile;
+      // 「본문 글자색」을 켜면 대사는 본문 색·대사 색·괄호 색을 그대로 쓴다
+      const tone = chat.scriptPlain ? '' : ` style='color:${attr(p.textColor)}`
+        + `;--c-quote:${attr(p.quoteColor || p.textColor)}`
+        + `;--c-paren:${attr(p.parenColor || p.textColor)}'`;
+      const nameSkin = p.nameColor ? ` style='color:${attr(p.nameColor)}'` : '';
+      const io = { stripQuotes: !!chat.hideQuotesInBubble };
+      const tcls = `mk-stext${chat.parenBreak ? ' is-parenbreak' : ''}`;
+      const rows = [];
+      while (i < lines.length) {
+        const cur = speakerOf(lines[i], profiles);
+        if (cur && cur.profile === p) {
+          const nm = rows.length === 0 ? esc(p.name) : '';
+          rows.push(`<div class='mk-sline' data-ln='${lineOffset + i}'>`
+            + `<span class='mk-sname'${nameSkin}>${nm}</span>`
+            + `<span class='${tcls}'${tone}>${inline(cur.body, f, io)}</span></div>`);
+          i++;
+          continue;
+        }
+        // 빈 줄만 사이에 두고 같은 사람이 이어지면 한 덩어리로 본다
+        if (lines[i].trim() === '') {
+          let j = i;
+          while (j < lines.length && lines[j].trim() === '') j++;
+          const nxt = j < lines.length ? speakerOf(lines[j], profiles) : null;
+          if (nxt && nxt.profile === p) { i = j; continue; }
+        }
+        break;
+      }
+      out.push(`<div class='mk-script'>${rows.join('')}</div>`);
+      return;
+    }
+
     if (sp) {
       const p = sp.profile;
       // 따옴표·괄호 색은 말풍선 안에서만 프로필 것으로 갈아 끼운다

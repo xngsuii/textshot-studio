@@ -5,22 +5,22 @@ import {
   DEFAULT_OUTPUT, RATIOS, RATIO_ORDER, RATIO_LABEL, MAX_SLOTS, newProfile, NAME_COLOR,
   fontHasWeight, fontHasRealWeight,
   storedBytes, photoStats, photoUsage, dropTemplatePhotos, clearStored,
-} from './store.js?v=95';
+} from './store.js?v=98';
 import {
   splitChunks, hasSplit, renderChunk, renderWithSplitMarks, stripMarkers,
   imageOrder, removeImageMarker, chunkOffsets,
   renameSpeaker, NAME_SEP, noteOrder, removeNoteMarker,
-} from './markup.js?v=95';
-import { ensureFont, isAvailable } from './fonts.js?v=95';
-import { SKINS, skinById, skinProfiles, skinStyle, resolve, CHIPS } from './skins.js?v=95';
-import { buildTemplateSection } from './templates.js?v=95';
-import { extract as extractMeta } from './png-meta.js?v=95';
+} from './markup.js?v=98';
+import { ensureFont, isAvailable } from './fonts.js?v=98';
+import { SKINS, skinById, skinProfiles, skinStyle, resolve, CHIPS } from './skins.js?v=98';
+import { buildTemplateSection } from './templates.js?v=98';
+import { extract as extractMeta } from './png-meta.js?v=98';
 import {
   isPayload, applyPayload, summarize, commonWarnings, textOnlyWarnings,
-} from './doc-io.js?v=95';
-import * as SaveDir from './savedir.js?v=95';
-import * as U from './ui.js?v=95';
-import * as HtmlBg from './html-bg.js?v=95';
+} from './doc-io.js?v=98';
+import * as SaveDir from './savedir.js?v=98';
+import * as U from './ui.js?v=98';
+import * as HtmlBg from './html-bg.js?v=98';
 
 const srcEl = () => document.getElementById('src');
 /* 미리보기를 다시 그려 달라고 부르는 손잡이. bindEditor 에서 받아 둔다. */
@@ -57,7 +57,7 @@ const TAB_RESET = {
   },
   chat: {
     label: '말풍선',
-    keys: ['chatOn', 'skin', 'bubbleStyle', 'avatarShape', 'avatarSize', 'bubbleRadius', 'bubbleAlpha',
+    keys: ['chatOn', 'skin', 'scriptNameW', 'scriptGap', 'scriptPlainColor', 'bubbleStyle', 'avatarShape', 'avatarSize', 'bubbleRadius', 'bubbleAlpha',
       'bubbleGap', 'bubbleInGap', 'nameGap', 'nameBold', 'bubbleMaxWidth', 'bubblePadV', 'bubblePadH',
       'hideQuotesInBubble', 'parenBreakInBubble'],
     note: '프로필의 이름·색·사진은 그대로 둡니다.',
@@ -190,6 +190,47 @@ function skinCard(skin, on, onPick) {
   ]);
 }
 
+/* ── 대본 ────────────────────────────────────
+   스킨 자리에 함께 놓이지만 색 묶음이 아니라 그리는 방식이다. 말풍선 없이
+   「이름  대사」를 나란히 쓰고, 색은 프로필의 이름 색·글자 색을 그대로 쓴다. */
+const SCRIPT = 'script';
+const SCRIPT_NOTE = '말풍선 없이 이름과 대사를 나란히 씁니다. 색은 프로필의 이름 색·글자 색을 따릅니다.';
+
+function scriptCard(on, onPick) {
+  return U.el('button', {
+    class: `skin-card is-bare${on ? ' is-on' : ''}`, type: 'button',
+    title: SCRIPT_NOTE,
+    onClick: () => onPick(SCRIPT),
+  }, [U.el('span', { class: 'skin-name', text: '대본' })]);
+}
+
+/* 대본 미리보기 — 이름 막대와 대사 줄을 나란히. 둘째 사람, 이어 말하기까지. */
+function scriptPreview() {
+  const st = state.text.style;
+  const ps = state.text.profiles;
+  const row = (p, named, short) => {
+    const name = U.el('span', { class: 'sc-name' });
+    if (named && p?.nameColor) name.style.background = p.nameColor;
+    if (!named) name.style.visibility = 'hidden';
+    const line = U.el('span', { class: `sc-line${short ? ' is-short' : ''}` });
+    if (p?.textColor) line.style.background = p.textColor;
+    return U.el('span', { class: 'sc-row' }, [name, line]);
+  };
+  const box = U.el('div', { class: 'skin-prev is-script' }, [
+    row(ps[0], true, false),
+    row(ps[0], false, true),
+    row(ps[1] || ps[0], true, false),
+  ]);
+  box.style.background = st.transparent ? '#FFFFFF' : st.bg;
+  return box;
+}
+
+/* 대사 사이 간격 — 정하지 않았으면(음수) 문단 간격을 따른다 */
+function scriptGap(st) {
+  const g = st.scriptGap ?? -1;
+  return g >= 0 ? g : (st.paraGap ?? 0);
+}
+
 /* 고른 스킨이 어떻게 생겼는지 — 말풍선을 아주 간략하게 줄여 그린다.
    바탕은 지금 캔버스 색을 그대로 써서 말풍선이 묻히는지도 함께 보인다. */
 function skinPreview(skin) {
@@ -216,14 +257,45 @@ function skinPreview(skin) {
   return box;
 }
 
+/* 대본일 때의 모양 칸 — 이름 칸 너비와 대사 사이 간격 */
+function scriptShape(st, touch, rebuild) {
+  /* 간격은 정해 두지 않았으면 문단 간격을 따라간다. 숫자를 건드리면 그 값으로 굳는다. */
+  const chk = U.check('문단 간격과 같이', (st.scriptGap ?? -1) < 0, (v) => {
+    st.scriptGap = v ? -1 : scriptGap(st);
+    rebuild(); touch();
+  });
+  const gap = U.stepper(scriptGap(st), {
+    min: 0, max: 80, step: 1, unit: 'px',
+    onChange: (v) => {
+      st.scriptGap = v;
+      const box = chk.querySelector('input');
+      if (box) box.checked = false;
+      touch();
+    },
+  });
+  return group('모양', [
+    U.el('div', { class: 'tgl-row tgl-boxed cols-1' }, [
+      U.toggle('대사를 본문 글자색으로', !!st.scriptPlainColor, (v) => { st.scriptPlainColor = v; touch(); }, null,
+        '프로필의 글자색 대신 본문 글자색·대사 색을 씁니다. 이름 색은 그대로입니다'),
+    ]),
+    U.field('이름 칸', U.stepper(st.scriptNameW ?? 72, {
+      min: 0, max: 400, step: 2, unit: 'px', onChange: (v) => { st.scriptNameW = v; touch(); },
+    })),
+    U.field('대사 간격', U.el('div', { class: 'field-row' }, [gap, chk])),
+    U.el('div', { class: 'hint', text: '이름 칸은 글이 시작하는 자리부터 잽니다. 이름이 이보다 길면 그 줄만 대사가 뒤로 밀립니다.' }),
+    U.el('div', { class: 'hint', text: '같은 사람이 이어 말하면 이름을 비워 둡니다. 따옴표·괄호는 위의 「따옴표」 「괄호」 켜고 끄기를 따릅니다.' }),
+  ]);
+}
+
 function skinPicker(st, after) {
   const pick = (id) => { st.skin = id; after(); };
   return U.el('div', { class: 'skin-wrap' }, [
     U.el('div', { class: 'skin-list' }, [
       skinCard(null, !st.skin, pick),
+      scriptCard(st.skin === SCRIPT, pick),
       ...SKINS.map(k => skinCard(k, st.skin === k.id, pick)),
     ]),
-    skinPreview(skinById(st.skin)),
+    st.skin === SCRIPT ? scriptPreview() : skinPreview(skinById(st.skin)),
   ]);
 }
 
@@ -347,6 +419,9 @@ function applyStyle(stage) {
   cutFilter(stage, st);
 
   stage.style.setProperty('--para-gap', st.paraGap + 'px');
+  // 대본 — 이름 칸 너비, 대사 사이 간격(정하지 않았으면 문단 간격)
+  stage.style.setProperty('--sc-name-w', (st.scriptNameW ?? 72) + 'px');
+  stage.style.setProperty('--sc-gap', scriptGap(st) + 'px');
   stage.style.setProperty('--indent', (st.textIndent ?? 0) + 'px');
   // 도트 글꼴은 매끄럽게 다듬으면 획이 뭉개진다. 다듬기를 끈다.
   stage.style.webkitFontSmoothing = fontById(st.font).pixel ? 'none' : '';
@@ -573,6 +648,8 @@ function renderOpts() {
     chat: {
       hideQuotesInBubble: st.hideQuotesInBubble,
       parenBreak: st.parenBreakInBubble,
+      script: st.skin === SCRIPT,
+      scriptPlain: !!st.scriptPlainColor,
       alpha: st.bubbleAlpha ?? 100,
     },
   };
@@ -1218,6 +1295,19 @@ function panelChat(container, onChange) {
       toggles[0].title = '말풍선 위에 이름을 보일지';
       toggles[1].title = '말풍선 옆에 프로필 사진을 보일지';
     }
+    /* 대본은 늘 왼쪽 정렬·이름 보임·사진 없음이라 이 칸들이 뜻이 없다.
+       헷갈리지 않게 막아 둔다. 값은 그대로 두어 말풍선으로 돌아가면 살아난다. */
+    if (st.skin === SCRIPT) {
+      const why = '대본에서는 위치·이름·사진이 고정입니다';
+      [...sideSeg.children].forEach((b) => { b.disabled = true; });
+      sideSeg.title = why;
+      toggles.forEach((t) => {
+        const box = t.querySelector('input');
+        if (box) box.disabled = true;
+        t.classList.add('is-locked');
+        t.title = why;
+      });
+    }
 
     return { avatarInput, faceBtn, nameInput, delBtn, sideSeg, toggles, grip: U.dragGrip() };
   };
@@ -1310,8 +1400,10 @@ function panelChat(container, onChange) {
       skinPicker(st, () => { rebuild(); touch(); }),
       U.el('div', { class: 'hint', text: '스킨을 클릭하면 말풍선 색을 덮어씌웁니다.' }),
       skinById(st.skin)?.note ? U.el('div', { class: 'hint is-status', text: skinById(st.skin).note }) : null,
+      st.skin === SCRIPT ? U.el('div', { class: 'hint is-status', text: SCRIPT_NOTE }) : null,
     ]),
-    group('모양', [
+    // 대본을 고르면 모양 칸이 대본 전용으로 바뀐다. 말풍선 값은 그대로 남아 있다.
+    st.skin === SCRIPT ? scriptShape(st, touch, rebuild) : group('모양', [
       U.field('말풍선', U.seg(st.bubbleStyle || 'round', [
         ['round', '기본'], ['tail', '꼬리'], ['corner', '모서리'],
       ], (v) => { st.bubbleStyle = v; touch(); })),
@@ -2470,7 +2562,7 @@ function jumpToLine(line) {
 export function bindPreviewJump(host) {
   host.addEventListener('click', (e) => {
     if (e.target.closest('.mk-img[data-img]')) return;
-    const bubble = e.target.closest('.mk-bubble[data-ln]');
+    const bubble = e.target.closest('.mk-bubble[data-ln], .mk-sline[data-ln]');
     const block = bubble && host.contains(bubble) ? bubble : e.target.closest('[data-lf]');
     if (!block || !host.contains(block)) return;
     if (!jumpToLine(Number(bubble ? block.dataset.ln : block.dataset.lf))) return;
